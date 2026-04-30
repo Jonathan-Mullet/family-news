@@ -1,0 +1,112 @@
+<%- include('partials/head', { title: 'Feed' }) %>
+<%- include('partials/nav') %>
+
+<div class="max-w-2xl mx-auto px-4 py-6 space-y-4">
+
+  <% if (flash.error) { %><div class="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm"><%= flash.error %></div><% } %>
+
+  <%# Post creation card %>
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+    <form method="POST" action="/posts" id="post-form">
+      <div class="flex items-start gap-3">
+        <div class="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-semibold text-sm flex-shrink-0">
+          <%= user.name.charAt(0).toUpperCase() %>
+        </div>
+        <div class="flex-1 space-y-3">
+          <textarea name="content" rows="3" placeholder="Share some news with the family..."
+            class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+            id="post-content"></textarea>
+          <div id="post-extras" class="hidden space-y-2">
+            <input type="text" name="title" placeholder="Add a title (optional)"
+              class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent">
+            <input type="url" name="photo_url" placeholder="Photo URL (optional — paste a link to any image)"
+              class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent">
+          </div>
+          <div class="flex items-center justify-between">
+            <button type="button" id="extras-toggle" class="text-xs text-slate-400 hover:text-brand-600 transition-colors">
+              + Add title or photo
+            </button>
+            <button type="submit"
+              class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors">
+              Post
+            </button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <%# Feed %>
+  <% if (!posts.length) { %>
+  <div class="text-center py-16 text-slate-400">
+    <div class="text-4xl mb-3">🌱</div>
+    <p>No posts yet — be the first to share something!</p>
+  </div>
+  <% } %>
+
+  <% posts.forEach(post => { %>
+  <article class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden" data-post-id="<%= post.id %>">
+    <div class="p-4">
+      <%# Header %>
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-semibold text-xs flex-shrink-0">
+            <%= post.author_name.charAt(0).toUpperCase() %>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-slate-800"><%= post.author_name %></p>
+            <p class="text-xs text-slate-400"><%= new Date(post.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }) %></p>
+          </div>
+        </div>
+        <% if (user.id === post.user_id || user.role === 'admin') { %>
+        <form method="POST" action="/posts/<%= post.id %>/delete" onsubmit="return confirm('Delete this post?')">
+          <button type="submit" class="text-slate-300 hover:text-red-400 transition-colors text-sm">✕</button>
+        </form>
+        <% } %>
+      </div>
+
+      <%# Content %>
+      <% if (post.title) { %><h2 class="font-semibold text-slate-800 mb-1"><%= post.title %></h2><% } %>
+      <p class="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap"><%= post.content %></p>
+
+      <%# Photo %>
+      <% if (post.photo_url) { %>
+      <div class="mt-3 rounded-xl overflow-hidden border border-slate-100">
+        <img src="<%= post.photo_url %>" alt="" class="w-full object-cover max-h-80" onerror="this.parentElement.remove()">
+      </div>
+      <% } %>
+    </div>
+
+    <%# Reactions %>
+    <div class="px-4 py-2 border-t border-slate-100 flex items-center gap-1 flex-wrap">
+      <% ['❤️','👍','😂','😮','😢'].forEach(emoji => {
+        const r = reactionsByPost[post.id]?.[emoji];
+        const count = r?.count || 0;
+        const active = r?.userReacted;
+      %>
+      <button class="reaction-btn flex items-center gap-1 px-2 py-1 rounded-full text-sm transition-all
+        <%= active ? 'bg-brand-50 border border-brand-200' : 'hover:bg-slate-50 border border-transparent' %>"
+        data-post-id="<%= post.id %>" data-emoji="<%= emoji %>">
+        <span><%= emoji %></span>
+        <span class="reaction-count text-xs text-slate-500 <%= count === 0 ? 'hidden' : '' %>"><%= count %></span>
+      </button>
+      <% }) %>
+      <a href="/post/<%= post.id %>" class="ml-auto text-xs text-slate-400 hover:text-brand-600 transition-colors">
+        <%= post.comment_count %> comment<%= post.comment_count !== 1 ? 's' : '' %> →
+      </a>
+    </div>
+  </article>
+  <% }) %>
+
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+  const extrasToggle = document.getElementById('extras-toggle');
+  const postExtras = document.getElementById('post-extras');
+  extrasToggle.addEventListener('click', () => {
+    postExtras.classList.toggle('hidden');
+    extrasToggle.textContent = postExtras.classList.contains('hidden') ? '+ Add title or photo' : '− Hide';
+  });
+</script>
+</body></html>

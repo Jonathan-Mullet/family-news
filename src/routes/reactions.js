@@ -1,0 +1,37 @@
+const express = require('express');
+const router = express.Router();
+const { pool } = require('../db');
+const { requireAuth } = require('../middleware/auth');
+
+const ALLOWED = ['❤️', '👍', '😂', '😮', '😢'];
+
+router.post('/posts/:id/react', requireAuth, async (req, res) => {
+  const { emoji } = req.body;
+  if (!ALLOWED.includes(emoji)) return res.status(400).json({ error: 'Invalid emoji' });
+  const postId = req.params.id;
+  const userId = req.session.user.id;
+  try {
+    const [existing] = await pool.query(
+      'SELECT id FROM reactions WHERE post_id = ? AND user_id = ? AND emoji = ?',
+      [postId, userId, emoji]
+    );
+    let userReacted;
+    if (existing.length) {
+      await pool.query('DELETE FROM reactions WHERE id = ?', [existing[0].id]);
+      userReacted = false;
+    } else {
+      await pool.query('INSERT INTO reactions (post_id, user_id, emoji) VALUES (?, ?, ?)', [postId, userId, emoji]);
+      userReacted = true;
+    }
+    const [[{ count }]] = await pool.query(
+      'SELECT COUNT(*) AS count FROM reactions WHERE post_id = ? AND emoji = ?',
+      [postId, emoji]
+    );
+    res.json({ emoji, count, userReacted });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+module.exports = router;
