@@ -2,6 +2,17 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { sendNewPostNotification } = require('../email');
+
+const MAX_CONTENT = 2000;
+
+router.get('/api/feed-state', requireAuth, async (req, res) => {
+  try {
+    const [[latest]] = await pool.query('SELECT id FROM posts ORDER BY created_at DESC LIMIT 1');
+    const [[{ total }]] = await pool.query('SELECT COUNT(*) AS total FROM posts');
+    res.json({ latestId: latest?.id || 0, total });
+  } catch { res.json({ latestId: 0, total: 0 }); }
+});
 
 router.get('/', requireAuth, async (req, res) => {
   try {
@@ -9,7 +20,7 @@ router.get('/', requireAuth, async (req, res) => {
       SELECT p.*, u.name AS author_name,
         (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count
       FROM posts p JOIN users u ON p.user_id = u.id
-      ORDER BY p.created_at DESC
+      ORDER BY p.pinned DESC, p.created_at DESC
     `);
 
     let reactionsByPost = {};
@@ -69,17 +80,53 @@ router.get('/post/:id', requireAuth, async (req, res) => {
 router.post('/posts', requireAuth, async (req, res) => {
   const { title, content, photo_url } = req.body;
   if (!content?.trim()) { req.flash('error', 'Post content is required.'); return res.redirect('/'); }
+  if (content.trim().length > MAX_CONTENT) { req.flash('error', `Post cannot exceed ${MAX_CONTENT} characters.`); return res.redirect('/'); }
   try {
-    await pool.query(
+    const [result] = await pool.query(
       'INSERT INTO posts (user_id, title, content, photo_url) VALUES (?, ?, ?, ?)',
       [req.session.user.id, title?.trim() || null, content.trim(), photo_url?.trim() || null]
     );
+    const [users] = await pool.query('SELECT id, email FROM users WHERE active = 1');
+    sendNewPostNotification(users, req.session.user, {
+      id: result.insertId,
+      title: title?.trim() || null,
+      content: content.trim(),
+    });
     res.redirect('/');
   } catch (err) {
     console.error(err);
     req.flash('error', 'Could not create post.');
     res.redirect('/');
   }
+});
+
+router.post('/posts/:id/edit', requireAuth, async (req, res) => {
+  const { content, title } = req.body;
+  if (!content?.trim()) return res.redirect('/');
+  if (content.trim().length > MAX_CONTENT) {
+    req.flash('error', `Post cannot exceed ${MAX_CONTENT} characters.`);
+    return res.redirect('/');
+  }
+  try {
+    const [rows] = await pool.query('SELECT user_id FROM posts WHERE id = ?', [req.params.id]);
+    if (!rows.length) return res.redirect('/');
+    if (rows[0].user_id !== req.session.user.id && req.session.user.role !== 'admin') return res.status(403).end();
+    await pool.query(
+      'UPDATE posts SET content = ?, title = ?, edited_at = NOW() WHERE id = ?',
+      [content.trim(), title?.trim() || null, req.params.id]
+    );
+    const ref = req.headers.referer || '/';
+    res.redirect(ref.includes('/post/') ? ref : '/');
+  } catch (err) { console.error(err); res.redirect('/'); }
+});
+
+router.post('/posts/:id/pin', requireAuth, async (req, res) => {
+  if (req.session.user.role !== 'admin') return res.status(403).end();
+  try {
+    await pool.query('UPDATE posts SET pinned = NOT pinned WHERE id = ?', [req.params.id]);
+  } catch (err) { console.error(err); }
+  const ref = req.headers.referer || '/';
+  res.redirect(ref.includes('/post/') ? ref : '/');
 });
 
 router.post('/posts/:id/delete', requireAuth, async (req, res) => {

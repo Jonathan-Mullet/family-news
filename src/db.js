@@ -10,13 +10,14 @@ const pool = mysql.createPool({
 });
 
 async function initDb() {
-  const sql = [
+  const tables = [
     `CREATE TABLE IF NOT EXISTS users (
       id INT AUTO_INCREMENT PRIMARY KEY,
       name VARCHAR(100) NOT NULL,
       email VARCHAR(255) UNIQUE NOT NULL,
       password_hash VARCHAR(255) NOT NULL,
       role ENUM('admin','member') DEFAULT 'member',
+      active TINYINT(1) DEFAULT 1,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
     `CREATE TABLE IF NOT EXISTS invites (
@@ -36,6 +37,8 @@ async function initDb() {
       title VARCHAR(255),
       content TEXT NOT NULL,
       photo_url VARCHAR(2048),
+      pinned TINYINT(1) DEFAULT 0,
+      edited_at TIMESTAMP NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id)
     )`,
@@ -60,8 +63,27 @@ async function initDb() {
       FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id)
     )`,
+    `CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      token VARCHAR(64) UNIQUE NOT NULL,
+      expires_at TIMESTAMP NOT NULL,
+      used_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
   ];
-  for (const q of sql) await pool.query(q);
+  for (const q of tables) await pool.query(q);
+
+  // Migrations for existing installs — safe to re-run
+  const migrations = [
+    `ALTER TABLE users ADD COLUMN active TINYINT(1) DEFAULT 1`,
+    `ALTER TABLE posts ADD COLUMN pinned TINYINT(1) DEFAULT 0`,
+    `ALTER TABLE posts ADD COLUMN edited_at TIMESTAMP NULL`,
+  ];
+  for (const q of migrations) {
+    try { await pool.query(q); } catch { /* column already exists */ }
+  }
 }
 
 module.exports = { pool, initDb };

@@ -1,0 +1,59 @@
+<%- include('partials/head', { title: 'Profile' }) %>
+<%- include('partials/nav') %>
+
+<div class="max-w-lg mx-auto px-4 py-8 space-y-6">
+  <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Your Profile</h1>
+
+  <% if (flash.error) { %><div class="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-sm"><%= flash.error %></div><% } %>
+  <% if (flash.success) { %><div class="p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-xl text-green-700 dark:text-green-300 text-sm"><%= flash.success %></div><% } %>
+
+  <%# Change name %>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-4">Display name</h2>
+    <form method="POST" action="/profile/name" class="space-y-3">
+      <input type="text" name="name" value="<%= user.name %>" required
+        class="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[44px]">
+      <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors min-h-[36px]">
+        Update name
+      </button>
+    </form>
+  </div>
+
+  <%# Change password %>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-4">Change password</h2>
+    <form method="POST" action="/profile/password" class="space-y-3">
+      <div>
+        <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Current password</label>
+        <input type="password" name="current_password" required autocomplete="current-password"
+          class="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[44px]">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">New password <span class="text-slate-400 font-normal">(min 8 characters)</span></label>
+        <input type="password" name="new_password" required minlength="8" autocomplete="new-password"
+          class="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[44px]">
+      </div>
+      <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors min-h-[36px]">
+        Change password
+      </button>
+    </form>
+  </div>
+
+  <%# Account info %>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-3">Account info</h2>
+    <dl class="space-y-2 text-sm">
+      <div class="flex justify-between">
+        <dt class="text-slate-500 dark:text-slate-400">Email</dt>
+        <dd class="text-slate-700 dark:text-slate-200"><%= user.email %></dd>
+      </div>
+      <div class="flex justify-between">
+        <dt class="text-slate-500 dark:text-slate-400">Role</dt>
+        <dd class="text-slate-700 dark:text-slate-200 capitalize"><%= user.role %></dd>
+      </div>
+    </dl>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+</body></html>

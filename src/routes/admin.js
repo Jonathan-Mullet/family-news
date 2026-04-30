@@ -9,7 +9,7 @@ router.use(requireAdmin);
 router.get('/', async (req, res) => {
   try {
     const [users] = await pool.query(
-      'SELECT id, name, email, role, created_at FROM users ORDER BY created_at'
+      'SELECT id, name, email, role, active, created_at FROM users ORDER BY created_at'
     );
     const [invites] = await pool.query(`
       SELECT i.*, u1.name AS created_by_name, u2.name AS used_by_name
@@ -45,6 +45,31 @@ router.post('/invites/:id/revoke', async (req, res) => {
   try {
     await pool.query('UPDATE invites SET expires_at = NOW() WHERE id = ? AND used_at IS NULL', [req.params.id]);
     req.flash('success', 'Invite revoked.');
+  } catch (err) { console.error(err); }
+  res.redirect('/admin');
+});
+
+router.post('/users/:id/toggle-active', async (req, res) => {
+  if (parseInt(req.params.id) === req.session.user.id) {
+    req.flash('error', 'You cannot deactivate your own account.');
+    return res.redirect('/admin');
+  }
+  try {
+    await pool.query('UPDATE users SET active = NOT active WHERE id = ?', [req.params.id]);
+  } catch (err) { console.error(err); }
+  res.redirect('/admin');
+});
+
+router.post('/users/:id/toggle-role', async (req, res) => {
+  if (parseInt(req.params.id) === req.session.user.id) {
+    req.flash('error', 'You cannot change your own role.');
+    return res.redirect('/admin');
+  }
+  try {
+    await pool.query(
+      "UPDATE users SET role = IF(role='admin','member','admin') WHERE id = ?",
+      [req.params.id]
+    );
   } catch (err) { console.error(err); }
   res.redirect('/admin');
 });

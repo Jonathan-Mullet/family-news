@@ -5,6 +5,23 @@ const { requireAuth } = require('../middleware/auth');
 
 const ALLOWED = ['❤️', '👍', '😂', '😮', '😢'];
 
+router.get('/posts/:id/reaction-names', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT r.emoji, u.name
+      FROM reactions r JOIN users u ON r.user_id = u.id
+      WHERE r.post_id = ?
+      ORDER BY r.emoji, u.name
+    `, [req.params.id]);
+    const byEmoji = {};
+    rows.forEach(r => {
+      if (!byEmoji[r.emoji]) byEmoji[r.emoji] = [];
+      byEmoji[r.emoji].push(r.name);
+    });
+    res.json(byEmoji);
+  } catch { res.json({}); }
+});
+
 router.post('/posts/:id/react', requireAuth, async (req, res) => {
   const { emoji } = req.body;
   if (!ALLOWED.includes(emoji)) return res.status(400).json({ error: 'Invalid emoji' });

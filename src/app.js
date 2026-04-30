@@ -21,6 +21,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  rolling: true,
   store: sessionStore,
   cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 1000 * 60 * 60 * 24 * 30 },
 }));
@@ -36,10 +37,10 @@ app.use('/', require('./routes/auth'));
 app.use('/', require('./routes/posts'));
 app.use('/', require('./routes/reactions'));
 app.use('/', require('./routes/comments'));
+app.use('/profile', require('./routes/profile'));
 app.use('/admin', require('./routes/admin'));
 
 async function start() {
-  // Wait for MySQL to be ready
   for (let i = 0; i < 10; i++) {
     try { await pool.query('SELECT 1'); break; }
     catch { console.log('Waiting for database...'); await new Promise(r => setTimeout(r, 3000)); }
@@ -47,7 +48,6 @@ async function start() {
 
   await initDb();
 
-  // Create first admin if no users exist
   const [[{ count }]] = await pool.query('SELECT COUNT(*) AS count FROM users');
   if (count === 0 && process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
     const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 12);

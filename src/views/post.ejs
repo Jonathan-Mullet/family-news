@@ -2,111 +2,141 @@
 <%- include('partials/nav') %>
 
 <div class="max-w-2xl mx-auto px-4 py-6 space-y-4">
-  <a href="/" class="text-sm text-slate-400 hover:text-brand-600 transition-colors">← Back to feed</a>
+  <a href="/" class="text-sm text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">← Back to feed</a>
 
   <%# Post %>
-  <article class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden" data-post-id="<%= post.id %>">
+  <article class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden" data-post-id="<%= post.id %>">
+    <% if (post.pinned) { %>
+    <div class="px-5 pt-3 pb-0 flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 font-medium">
+      <span>📌</span><span>Pinned post</span>
+    </div>
+    <% } %>
     <div class="p-5">
       <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-2">
-          <div class="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-semibold flex-shrink-0">
+          <div class="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-600/20 flex items-center justify-center text-brand-600 dark:text-brand-400 font-semibold flex-shrink-0">
             <%= post.author_name.charAt(0).toUpperCase() %>
           </div>
           <div>
-            <p class="font-semibold text-slate-800"><%= post.author_name %></p>
-            <p class="text-xs text-slate-400"><%= new Date(post.created_at).toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }) %></p>
+            <p class="font-semibold text-slate-800 dark:text-slate-100"><%= post.author_name %></p>
+            <p class="text-xs text-slate-400 dark:text-slate-500">
+              <%= new Date(post.created_at).toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }) %>
+              <% if (post.edited_at) { %><span class="italic"> · edited</span><% } %>
+            </p>
           </div>
         </div>
         <% if (user.id === post.user_id || user.role === 'admin') { %>
-        <form method="POST" action="/posts/<%= post.id %>/delete" onsubmit="return confirm('Delete this post?')">
-          <button type="submit" class="text-slate-300 hover:text-red-400 transition-colors">✕</button>
-        </form>
+        <div class="flex items-center gap-1">
+          <% if (user.role === 'admin') { %>
+          <form method="POST" action="/posts/<%= post.id %>/pin">
+            <button type="submit" class="p-1.5 text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" title="<%= post.pinned ? 'Unpin' : 'Pin' %>">
+              <span><%= post.pinned ? '📌' : '📍' %></span>
+            </button>
+          </form>
+          <% } %>
+          <button class="edit-toggle p-1.5 text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors text-xs" data-post-id="<%= post.id %>" title="Edit post">✏️</button>
+          <form method="POST" action="/posts/<%= post.id %>/delete" onsubmit="return confirm('Delete this post?')">
+            <button type="submit" class="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-400 transition-colors">✕</button>
+          </form>
+        </div>
         <% } %>
       </div>
-      <% if (post.title) { %><h1 class="text-xl font-bold text-slate-800 mb-2"><%= post.title %></h1><% } %>
-      <p class="text-slate-700 leading-relaxed whitespace-pre-wrap"><%= post.content %></p>
+
+      <div class="post-content-display">
+        <% if (post.title) { %><h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2"><%= post.title %></h1><% } %>
+        <p class="text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap"><%= post.content %></p>
+      </div>
+
+      <form method="POST" action="/posts/<%= post.id %>/edit" class="post-edit-form hidden space-y-2 mt-1">
+        <input type="text" name="title" placeholder="Title (optional)" value="<%= post.title || '' %>"
+          class="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600">
+        <textarea name="content" rows="5" required maxlength="2000"
+          class="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-600"><%= post.content %></textarea>
+        <div class="flex gap-2 justify-end">
+          <button type="button" class="edit-cancel text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 px-3 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg transition-colors" data-post-id="<%= post.id %>">Cancel</button>
+          <button type="submit" class="text-xs bg-brand-600 hover:bg-brand-700 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">Save</button>
+        </div>
+      </form>
+
       <% if (post.photo_url) { %>
-      <div class="mt-4 rounded-xl overflow-hidden border border-slate-100">
-        <img src="<%= post.photo_url %>" alt="" class="w-full object-cover" onerror="this.parentElement.remove()">
+      <div class="mt-4 rounded-xl overflow-hidden border border-slate-100 dark:border-slate-700">
+        <img src="<%= post.photo_url %>" alt="" class="w-full object-cover" loading="lazy" onerror="this.parentElement.remove()">
       </div>
       <% } %>
     </div>
 
     <%# Reactions %>
-    <div class="px-5 py-3 border-t border-slate-100 flex items-center gap-1 flex-wrap">
+    <div class="px-5 py-3 border-t border-slate-100 dark:border-slate-700 flex items-center gap-1.5 flex-wrap">
       <% ['❤️','👍','😂','😮','😢'].forEach(emoji => {
         const r = reactions[emoji];
         const count = r?.count || 0;
         const active = r?.userReacted;
       %>
-      <button class="reaction-btn flex items-center gap-1 px-2.5 py-1.5 rounded-full text-sm transition-all
-        <%= active ? 'bg-brand-50 border border-brand-200' : 'hover:bg-slate-50 border border-transparent' %>"
+      <button class="reaction-btn flex items-center gap-1 px-3 py-2 rounded-full text-sm transition-all min-h-[40px]
+        <%= active ? 'bg-brand-50 dark:bg-brand-600/20 border border-brand-200 dark:border-brand-700' : 'hover:bg-slate-50 dark:hover:bg-slate-700 border border-transparent' %>"
         data-post-id="<%= post.id %>" data-emoji="<%= emoji %>">
         <span><%= emoji %></span>
-        <span class="reaction-count text-xs text-slate-500 <%= count === 0 ? 'hidden' : '' %>"><%= count %></span>
+        <span class="reaction-count text-xs text-slate-500 dark:text-slate-400 <%= count === 0 ? 'hidden' : '' %>"><%= count %></span>
       </button>
       <% }) %>
     </div>
   </article>
 
   <%# Comments %>
-  <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-    <h2 class="font-semibold text-slate-700 mb-4"><%= comments.reduce((n, c) => n + 1 + c.replies.length, 0) %> Comments</h2>
+  <section class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-4"><%= comments.reduce((n, c) => n + 1 + c.replies.length, 0) %> Comments</h2>
 
     <% if (!comments.length) { %>
-    <p class="text-slate-400 text-sm text-center py-4">No comments yet — say something! 👇</p>
+    <p class="text-slate-400 dark:text-slate-500 text-sm text-center py-4">No comments yet — say something! 👇</p>
     <% } %>
 
     <div class="space-y-4 mb-6">
     <% comments.forEach(comment => { %>
       <div class="space-y-3">
-        <%# Top-level comment %>
         <div class="flex gap-3 group">
-          <div class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-semibold text-xs flex-shrink-0 mt-0.5">
+          <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 font-semibold text-xs flex-shrink-0 mt-0.5">
             <%= comment.author_name.charAt(0).toUpperCase() %>
           </div>
           <div class="flex-1">
-            <div class="bg-slate-50 rounded-xl px-3 py-2">
-              <p class="text-xs font-semibold text-slate-700 mb-0.5"><%= comment.author_name %></p>
-              <p class="text-sm text-slate-700 whitespace-pre-wrap"><%= comment.content %></p>
+            <div class="bg-slate-50 dark:bg-slate-700/60 rounded-xl px-3 py-2.5">
+              <p class="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-0.5"><%= comment.author_name %></p>
+              <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap"><%= comment.content %></p>
             </div>
-            <div class="flex items-center gap-3 mt-1 px-1">
-              <span class="text-xs text-slate-400"><%= new Date(comment.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) %></span>
-              <button class="text-xs text-slate-400 hover:text-brand-600 transition-colors reply-toggle" data-target="reply-form-<%= comment.id %>">Reply</button>
+            <div class="flex items-center gap-3 mt-1.5 px-1">
+              <span class="text-xs text-slate-400 dark:text-slate-500"><%= new Date(comment.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) %></span>
+              <button class="text-xs text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors reply-toggle py-1" data-target="reply-form-<%= comment.id %>">Reply</button>
               <% if (user.id === comment.user_id || user.role === 'admin') { %>
               <form method="POST" action="/comments/<%= comment.id %>/delete" class="inline">
-                <button type="submit" class="text-xs text-slate-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">Delete</button>
+                <button type="submit" class="text-xs text-slate-300 dark:text-slate-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 py-1">Delete</button>
               </form>
               <% } %>
             </div>
-            <%# Reply form %>
             <form method="POST" action="/posts/<%= post.id %>/comments" class="mt-2 hidden" id="reply-form-<%= comment.id %>">
               <input type="hidden" name="parent_id" value="<%= comment.id %>">
               <div class="flex gap-2">
                 <input type="text" name="content" placeholder="Write a reply..." required
-                  class="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent">
-                <button type="submit" class="bg-brand-600 text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-brand-700 transition-colors">Send</button>
+                  class="flex-1 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[40px]">
+                <button type="submit" class="bg-brand-600 text-white text-xs font-medium px-3 py-2 rounded-lg hover:bg-brand-700 transition-colors min-h-[40px]">Send</button>
               </div>
             </form>
           </div>
         </div>
 
-        <%# Replies %>
         <% comment.replies.forEach(reply => { %>
-        <div class="flex gap-3 pl-10 group">
-          <div class="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-semibold text-xs flex-shrink-0 mt-0.5">
+        <div class="flex gap-3 pl-11 group">
+          <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 font-semibold text-xs flex-shrink-0 mt-0.5">
             <%= reply.author_name.charAt(0).toUpperCase() %>
           </div>
           <div class="flex-1">
-            <div class="bg-slate-50 rounded-xl px-3 py-2">
-              <p class="text-xs font-semibold text-slate-700 mb-0.5"><%= reply.author_name %></p>
-              <p class="text-sm text-slate-700 whitespace-pre-wrap"><%= reply.content %></p>
+            <div class="bg-slate-50 dark:bg-slate-700/60 rounded-xl px-3 py-2.5">
+              <p class="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-0.5"><%= reply.author_name %></p>
+              <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap"><%= reply.content %></p>
             </div>
-            <div class="flex items-center gap-3 mt-1 px-1">
-              <span class="text-xs text-slate-400"><%= new Date(reply.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) %></span>
+            <div class="flex items-center gap-3 mt-1.5 px-1">
+              <span class="text-xs text-slate-400 dark:text-slate-500"><%= new Date(reply.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) %></span>
               <% if (user.id === reply.user_id || user.role === 'admin') { %>
               <form method="POST" action="/comments/<%= reply.id %>/delete" class="inline">
-                <button type="submit" class="text-xs text-slate-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">Delete</button>
+                <button type="submit" class="text-xs text-slate-300 dark:text-slate-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 py-1">Delete</button>
               </form>
               <% } %>
             </div>
@@ -117,15 +147,14 @@
     <% }) %>
     </div>
 
-    <%# New comment form %>
     <form method="POST" action="/posts/<%= post.id %>/comments" class="flex gap-3">
-      <div class="w-7 h-7 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 font-semibold text-xs flex-shrink-0 mt-1">
+      <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-600/20 flex items-center justify-center text-brand-600 dark:text-brand-400 font-semibold text-xs flex-shrink-0 mt-1">
         <%= user.name.charAt(0).toUpperCase() %>
       </div>
       <div class="flex-1 flex gap-2">
         <input type="text" name="content" placeholder="Add a comment..." required
-          class="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent">
-        <button type="submit" class="bg-brand-600 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-brand-700 transition-colors">Post</button>
+          class="flex-1 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[44px]">
+        <button type="submit" class="bg-brand-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-brand-700 transition-colors min-h-[44px]">Post</button>
       </div>
     </form>
   </section>
@@ -138,6 +167,24 @@
       const form = document.getElementById(btn.dataset.target);
       form.classList.toggle('hidden');
       if (!form.classList.contains('hidden')) form.querySelector('input[name=content]').focus();
+    });
+  });
+
+  document.querySelectorAll('.edit-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const postId = btn.dataset.postId;
+      const article = document.querySelector(`article[data-post-id="${postId}"]`);
+      article.querySelector('.post-content-display').classList.add('hidden');
+      article.querySelector('.post-edit-form').classList.remove('hidden');
+    });
+  });
+
+  document.querySelectorAll('.edit-cancel').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const postId = btn.dataset.postId;
+      const article = document.querySelector(`article[data-post-id="${postId}"]`);
+      article.querySelector('.post-content-display').classList.remove('hidden');
+      article.querySelector('.post-edit-form').classList.add('hidden');
     });
   });
 </script>
