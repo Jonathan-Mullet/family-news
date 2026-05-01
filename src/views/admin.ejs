@@ -114,6 +114,49 @@
       <% }) %>
     </div>
   </div>
+
+  <%# Birthday / Anniversary Events %>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-4">Birthday & Anniversary Reminders</h2>
+    <p class="text-xs text-slate-400 dark:text-slate-500 mb-4">Events post automatically at 8am on the matching day.</p>
+
+    <form method="POST" action="/admin/events" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+      <input type="text" name="name" placeholder="Name" required
+        class="col-span-2 sm:col-span-1 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[40px]">
+      <select name="type" class="border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[40px]">
+        <option value="birthday">Birthday</option>
+        <option value="anniversary">Anniversary</option>
+      </select>
+      <input type="number" name="month" placeholder="Month" min="1" max="12" required
+        class="border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[40px]">
+      <input type="number" name="day" placeholder="Day" min="1" max="31" required
+        class="border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[40px]">
+      <input type="text" name="note" placeholder="Extra note (optional)"
+        class="col-span-2 sm:col-span-3 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[40px]">
+      <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors min-h-[40px]">Add</button>
+    </form>
+
+    <% if (events.length) { %>
+    <div class="divide-y divide-slate-100 dark:divide-slate-700">
+      <% events.forEach(ev => { %>
+      <div class="flex items-center justify-between py-2.5 gap-3">
+        <div>
+          <span class="text-sm font-medium text-slate-800 dark:text-slate-100"><%= ev.name %></span>
+          <span class="text-xs text-slate-400 dark:text-slate-500 ml-2 capitalize"><%= ev.type %></span>
+          <span class="text-xs text-slate-400 dark:text-slate-500 ml-1">· <%= ev.month %>/<%= ev.day %></span>
+          <% if (ev.note) { %><span class="text-xs text-slate-400 dark:text-slate-500 ml-1">— <%= ev.note %></span><% } %>
+        </div>
+        <form method="POST" action="/admin/events/<%= ev.id %>/delete" onsubmit="return confirm('Delete this event?')">
+          <button type="submit" class="text-xs text-slate-300 dark:text-slate-600 hover:text-red-400 transition-colors px-2 py-1 border border-slate-200 dark:border-slate-600 rounded-lg">Delete</button>
+        </form>
+      </div>
+      <% }) %>
+    </div>
+    <% } else { %>
+    <p class="text-sm text-slate-400 dark:text-slate-500 text-center py-4">No events yet.</p>
+    <% } %>
+  </div>
+
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>

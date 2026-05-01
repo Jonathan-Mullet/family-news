@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { sendCommentNotification } = require('../email');
 
 router.post('/posts/:id/comments', requireAuth, async (req, res) => {
   const { content, parent_id } = req.body;
@@ -11,6 +12,21 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
       'INSERT INTO comments (post_id, parent_id, user_id, content) VALUES (?, ?, ?, ?)',
       [req.params.id, parent_id || null, req.session.user.id, content.trim()]
     );
+
+    // Send notification to post author (with notify_comments preference)
+    try {
+      const [postRows] = await pool.query(
+        'SELECT p.id, p.title, p.user_id, u.email, u.notify_comments FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = ?',
+        [req.params.id]
+      );
+      if (postRows.length) {
+        const post = postRows[0];
+        const toUser = { id: post.user_id, email: post.email, notify_comments: post.notify_comments };
+        sendCommentNotification(toUser, req.session.user, { id: post.id, title: post.title });
+      }
+    } catch (notifyErr) {
+      console.error('Comment notification error:', notifyErr.message);
+    }
   } catch (err) { console.error(err); }
   res.redirect(`/post/${req.params.id}`);
 });

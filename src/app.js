@@ -6,6 +6,7 @@ const flash = require('connect-flash');
 const bcrypt = require('bcrypt');
 const path = require('path');
 const { pool, initDb } = require('./db');
+const { startCron } = require('./cron');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -15,6 +16,8 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+// Serve uploaded photos
+app.use('/uploads', express.static('/app/uploads'));
 
 const sessionStore = new MySQLStore({}, pool);
 app.use(session({
@@ -57,6 +60,8 @@ async function start() {
     );
     console.log(`Admin account created for ${process.env.ADMIN_EMAIL}`);
   }
+
+  startCron();
 
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => console.log(`Family News running on port ${PORT}`));

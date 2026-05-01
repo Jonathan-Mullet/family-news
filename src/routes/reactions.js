@@ -3,7 +3,7 @@ const router = express.Router();
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 
-const ALLOWED = ['❤️', '👍', '😂', '😮', '😢'];
+const ALLOWED = ['❤️', '👍', '😂', '😮', '😢', '🎉', '🙏', '🔥', '💯', '🫶', '👏', '🥳', '😍', '🤣', '😭', '💪', '🎂', '🌟', '👀', '🤔', '💔'];
 
 router.get('/posts/:id/reaction-names', requireAuth, async (req, res) => {
   try {

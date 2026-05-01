@@ -40,4 +40,22 @@ router.post('/password', async (req, res) => {
   res.redirect('/profile');
 });
 
+router.post('/notifications', async (req, res) => {
+  const notify_posts = req.body.notify_posts ? 1 : 0;
+  const notify_comments = req.body.notify_comments ? 1 : 0;
+  try {
+    await pool.query(
+      'UPDATE users SET notify_posts = ?, notify_comments = ? WHERE id = ?',
+      [notify_posts, notify_comments, req.session.user.id]
+    );
+    req.session.user.notify_posts = notify_posts;
+    req.session.user.notify_comments = notify_comments;
+    req.flash('success', 'Notification preferences saved.');
+  } catch (err) {
+    console.error(err);
+    req.flash('error', 'Could not save preferences.');
+  }
+  res.redirect('/profile');
+});
+
 module.exports = router;

@@ -46,6 +46,8 @@ async function sendNewPostNotification(toUsers, poster, post) {
   const url = `${process.env.BASE_URL}/post/${post.id}`;
   for (const user of toUsers) {
     if (user.id === poster.id) continue;
+    // Skip if user has opted out of post notifications
+    if (user.notify_posts === 0) continue;
     await sendMail(user.email, `${poster.name} posted on Family News`, `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
         <p style="color:#475569"><strong style="color:#1e293b">${poster.name}</strong> shared something on Family News:</p>
@@ -61,6 +63,8 @@ async function sendNewPostNotification(toUsers, poster, post) {
 
 async function sendCommentNotification(toUser, fromUser, post) {
   if (toUser.id === fromUser.id) return;
+  // Skip if user has opted out of comment notifications
+  if (toUser.notify_comments === 0) return;
   const url = `${process.env.BASE_URL}/post/${post.id}`;
   await sendMail(toUser.email, `${fromUser.name} commented on your post`, `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">

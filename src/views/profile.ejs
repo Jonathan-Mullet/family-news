@@ -39,6 +39,26 @@
     </form>
   </div>
 
+  <%# Notification preferences %>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-4">Notification preferences</h2>
+    <form method="POST" action="/profile/notifications" class="space-y-3">
+      <label class="flex items-center gap-3 cursor-pointer">
+        <input type="checkbox" name="notify_posts" value="1" <%= (user.notify_posts !== 0) ? 'checked' : '' %>
+          class="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600">
+        <span class="text-sm text-slate-700 dark:text-slate-300">Email me when someone posts</span>
+      </label>
+      <label class="flex items-center gap-3 cursor-pointer">
+        <input type="checkbox" name="notify_comments" value="1" <%= (user.notify_comments !== 0) ? 'checked' : '' %>
+          class="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600">
+        <span class="text-sm text-slate-700 dark:text-slate-300">Email me when someone comments on my post</span>
+      </label>
+      <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors min-h-[36px]">
+        Save preferences
+      </button>
+    </form>
+  </div>
+
   <%# Account info %>
   <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
     <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-3">Account info</h2>

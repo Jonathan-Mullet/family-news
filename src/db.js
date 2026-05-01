@@ -72,6 +72,34 @@ async function initDb() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS events (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      type ENUM('birthday','anniversary') DEFAULT 'birthday',
+      month TINYINT NOT NULL,
+      day TINYINT NOT NULL,
+      note VARCHAR(255),
+      created_by INT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS post_reads (
+      post_id INT NOT NULL,
+      user_id INT NOT NULL,
+      read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (post_id, user_id),
+      FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS link_previews (
+      post_id INT PRIMARY KEY,
+      url VARCHAR(2048),
+      og_title VARCHAR(255),
+      og_description TEXT,
+      og_image VARCHAR(2048),
+      fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+    )`,
   ];
   for (const q of tables) await pool.query(q);
 
@@ -80,6 +108,9 @@ async function initDb() {
     `ALTER TABLE users ADD COLUMN active TINYINT(1) DEFAULT 1`,
     `ALTER TABLE posts ADD COLUMN pinned TINYINT(1) DEFAULT 0`,
     `ALTER TABLE posts ADD COLUMN edited_at TIMESTAMP NULL`,
+    `ALTER TABLE users ADD COLUMN notify_posts TINYINT(1) DEFAULT 1`,
+    `ALTER TABLE users ADD COLUMN notify_comments TINYINT(1) DEFAULT 1`,
+    `ALTER TABLE posts ADD COLUMN publish_at TIMESTAMP NULL`,
   ];
   for (const q of migrations) {
     try { await pool.query(q); } catch { /* column already exists */ }

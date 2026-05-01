@@ -7,7 +7,7 @@
 
   <%# Post creation card %>
   <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
-    <form method="POST" action="/posts" id="post-form">
+    <form method="POST" action="/posts" id="post-form" enctype="multipart/form-data">
       <div class="flex items-start gap-3">
         <div class="w-9 h-9 rounded-full bg-brand-100 dark:bg-brand-600/20 flex items-center justify-center text-brand-600 dark:text-brand-400 font-semibold text-sm flex-shrink-0">
           <%= user.name.charAt(0).toUpperCase() %>
@@ -19,13 +19,21 @@
           <div id="post-extras" class="hidden space-y-2">
             <input type="text" name="title" placeholder="Add a title (optional)"
               class="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent">
-            <input type="url" name="photo_url" placeholder="Photo URL (optional — paste a link to any image)"
-              class="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent">
+            <div>
+              <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Photo (optional)</label>
+              <input type="file" name="photo" accept="image/*"
+                class="w-full text-sm text-slate-500 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-brand-50 file:text-brand-600 dark:file:bg-brand-600/20 dark:file:text-brand-400 hover:file:bg-brand-100 dark:hover:file:bg-brand-600/30 transition-colors cursor-pointer">
+            </div>
+            <div>
+              <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Schedule post (optional)</label>
+              <input type="datetime-local" name="publish_at"
+                class="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent">
+            </div>
           </div>
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
               <button type="button" id="extras-toggle" class="text-xs text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                + Add title or photo
+                + Add title, photo or schedule
               </button>
               <span id="char-counter" class="text-xs text-slate-400 dark:text-slate-500 hidden">0 / 2000</span>
             </div>
@@ -48,7 +56,9 @@
   <% } %>
 
   <div id="feed" data-latest="<%= posts[0]?.id || 0 %>">
-  <% posts.forEach(post => { %>
+  <% posts.forEach(post => {
+    const isScheduled = post.publish_at && new Date(post.publish_at) > new Date();
+  %>
   <article class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden" data-post-id="<%= post.id %>">
     <% if (post.pinned) { %>
     <div class="px-4 pt-2 pb-0 flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 font-medium">
@@ -64,9 +74,13 @@
           </div>
           <div>
             <p class="text-sm font-semibold text-slate-800 dark:text-slate-100"><%= post.author_name %></p>
-            <p class="text-xs text-slate-400 dark:text-slate-500">
+            <p class="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+              <% if (isScheduled && (user.id === post.user_id || user.role === 'admin')) { %>
+              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded font-medium">🕐 Scheduled</span>
+              <% } else { %>
               <%= new Date(post.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }) %>
               <% if (post.edited_at) { %><span class="italic"> · edited</span><% } %>
+              <% } %>
             </p>
           </div>
         </div>
@@ -111,6 +125,17 @@
         <img src="<%= post.photo_url %>" alt="" class="w-full object-cover max-h-80" loading="lazy" onerror="this.parentElement.remove()">
       </div>
       <% } %>
+
+      <%# Link preview (only when no photo) %>
+      <% if (post.preview_url && !post.photo_url) { %>
+      <a href="<%= post.preview_url %>" target="_blank" rel="noopener" class="mt-3 flex gap-3 border border-slate-200 dark:border-slate-600 rounded-xl p-3 hover:border-brand-400 dark:hover:border-brand-500 transition-colors overflow-hidden">
+        <% if (post.og_image) { %><img src="<%= post.og_image %>" class="w-16 h-16 object-cover rounded-lg flex-shrink-0" loading="lazy" onerror="this.remove()"><% } %>
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate"><%= post.og_title || post.preview_url %></p>
+          <% if (post.og_description) { %><p class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5"><%= post.og_description %></p><% } %>
+        </div>
+      </a>
+      <% } %>
     </div>
 
     <%# Reactions %>
@@ -127,7 +152,19 @@
         <span class="reaction-count text-xs text-slate-500 dark:text-slate-400 <%= count === 0 ? 'hidden' : '' %>"><%= count %></span>
       </button>
       <% }) %>
-      <a href="/post/<%= post.id %>" class="ml-auto text-xs text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors px-2 py-1.5 min-h-[36px] flex items-center">
+
+      <%# Extended emoji picker %>
+      <div class="relative ml-1">
+        <button class="emoji-picker-toggle p-1.5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm min-h-[36px] min-w-[36px]" data-post-id="<%= post.id %>">＋</button>
+        <div class="emoji-picker hidden absolute bottom-10 left-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-2xl shadow-xl p-2 z-20 grid grid-cols-4 gap-1 w-40">
+          <% ['🎉','🙏','🔥','💯','🫶','👏','🥳','😍','🤣','😭','💪','🎂','🌟','👀','🤔','💔'].forEach(e => { %>
+          <button class="reaction-btn text-lg p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors min-h-[40px]" data-post-id="<%= post.id %>" data-emoji="<%= e %>"><%= e %></button>
+          <% }) %>
+        </div>
+      </div>
+
+      <a href="/post/<%= post.id %>" class="ml-auto text-xs text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors px-2 py-1.5 min-h-[36px] flex items-center gap-1.5">
+        <% if (post.read_count > 0) { %><span class="text-slate-300 dark:text-slate-600">👁 <%= post.read_count %></span><span class="text-slate-300 dark:text-slate-600">·</span><% } %>
         <%= post.comment_count %> comment<%= post.comment_count !== 1 ? 's' : '' %> →
       </a>
     </div>
@@ -147,7 +184,7 @@
   const postExtras = document.getElementById('post-extras');
   extrasToggle.addEventListener('click', () => {
     postExtras.classList.toggle('hidden');
-    extrasToggle.textContent = postExtras.classList.contains('hidden') ? '+ Add title or photo' : '− Hide';
+    extrasToggle.textContent = postExtras.classList.contains('hidden') ? '+ Add title, photo or schedule' : '− Hide';
   });
 
   const postContent = document.getElementById('post-content');

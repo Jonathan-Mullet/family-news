@@ -19,9 +19,13 @@
           </div>
           <div>
             <p class="font-semibold text-slate-800 dark:text-slate-100"><%= post.author_name %></p>
-            <p class="text-xs text-slate-400 dark:text-slate-500">
+            <p class="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
               <%= new Date(post.created_at).toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }) %>
               <% if (post.edited_at) { %><span class="italic"> · edited</span><% } %>
+              <% if (post.readCount > 0) { %>
+              <span class="text-slate-300 dark:text-slate-600">·</span>
+              <span class="flex items-center gap-0.5 text-slate-400 dark:text-slate-500">👁 Seen by <%= post.readCount %></span>
+              <% } %>
             </p>
           </div>
         </div>
@@ -63,6 +67,17 @@
         <img src="<%= post.photo_url %>" alt="" class="w-full object-cover" loading="lazy" onerror="this.parentElement.remove()">
       </div>
       <% } %>
+
+      <%# Link preview (only when no photo) %>
+      <% if (post.preview_url && !post.photo_url) { %>
+      <a href="<%= post.preview_url %>" target="_blank" rel="noopener" class="mt-3 flex gap-3 border border-slate-200 dark:border-slate-600 rounded-xl p-3 hover:border-brand-400 dark:hover:border-brand-500 transition-colors overflow-hidden">
+        <% if (post.og_image) { %><img src="<%= post.og_image %>" class="w-16 h-16 object-cover rounded-lg flex-shrink-0" loading="lazy" onerror="this.remove()"><% } %>
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate"><%= post.og_title || post.preview_url %></p>
+          <% if (post.og_description) { %><p class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5"><%= post.og_description %></p><% } %>
+        </div>
+      </a>
+      <% } %>
     </div>
 
     <%# Reactions %>
@@ -79,6 +94,16 @@
         <span class="reaction-count text-xs text-slate-500 dark:text-slate-400 <%= count === 0 ? 'hidden' : '' %>"><%= count %></span>
       </button>
       <% }) %>
+
+      <%# Extended emoji picker %>
+      <div class="relative ml-1">
+        <button class="emoji-picker-toggle p-1.5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm min-h-[40px] min-w-[40px]" data-post-id="<%= post.id %>">＋</button>
+        <div class="emoji-picker hidden absolute bottom-12 left-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-2xl shadow-xl p-2 z-20 grid grid-cols-4 gap-1 w-40">
+          <% ['🎉','🙏','🔥','💯','🫶','👏','🥳','😍','🤣','😭','💪','🎂','🌟','👀','🤔','💔'].forEach(e => { %>
+          <button class="reaction-btn text-lg p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors min-h-[40px]" data-post-id="<%= post.id %>" data-emoji="<%= e %>"><%= e %></button>
+          <% }) %>
+        </div>
+      </div>
     </div>
   </article>
 

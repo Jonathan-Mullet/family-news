@@ -36,6 +36,33 @@ async function fetchReactionNames(postId) {
   return nameCache[postId];
 }
 
+// Handle a reaction click (shared between inline buttons and emoji picker)
+async function handleReactionClick(postId, emoji) {
+  hideTooltip();
+  delete nameCache[postId];
+  try {
+    const res = await fetch(`/posts/${postId}/react`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emoji }),
+    });
+    const data = await res.json();
+
+    document.querySelectorAll(`.reaction-btn[data-post-id="${postId}"][data-emoji="${emoji}"]`).forEach(b => {
+      const countEl = b.querySelector('.reaction-count');
+      if (countEl) {
+        countEl.textContent = data.count;
+        countEl.classList.toggle('hidden', data.count === 0);
+      }
+      b.classList.toggle('bg-brand-50', data.userReacted);
+      b.classList.toggle('dark:bg-brand-600/20', data.userReacted);
+      b.classList.toggle('border-brand-200', data.userReacted);
+      b.classList.toggle('dark:border-brand-700', data.userReacted);
+      b.classList.toggle('border-transparent', !data.userReacted);
+    });
+  } catch (e) { console.error(e); }
+}
+
 // Reactions
 document.querySelectorAll('.reaction-btn').forEach(btn => {
   const postId = btn.dataset.postId;
@@ -51,30 +78,41 @@ document.querySelectorAll('.reaction-btn').forEach(btn => {
 
   btn.addEventListener('mouseleave', hideTooltip);
 
-  btn.addEventListener('click', async () => {
-    hideTooltip();
-    // Invalidate cache so next hover fetches fresh names
-    delete nameCache[postId];
-    try {
-      const res = await fetch(`/posts/${postId}/react`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emoji }),
-      });
-      const data = await res.json();
+  btn.addEventListener('click', () => handleReactionClick(postId, emoji));
+});
 
-      document.querySelectorAll(`.reaction-btn[data-post-id="${postId}"][data-emoji="${emoji}"]`).forEach(b => {
-        const countEl = b.querySelector('.reaction-count');
-        countEl.textContent = data.count;
-        countEl.classList.toggle('hidden', data.count === 0);
-        b.classList.toggle('bg-brand-50', data.userReacted);
-        b.classList.toggle('dark:bg-brand-600/20', data.userReacted);
-        b.classList.toggle('border-brand-200', data.userReacted);
-        b.classList.toggle('dark:border-brand-700', data.userReacted);
-        b.classList.toggle('border-transparent', !data.userReacted);
-      });
-    } catch (e) { console.error(e); }
+// Emoji picker toggle
+document.querySelectorAll('.emoji-picker-toggle').forEach(toggleBtn => {
+  toggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const container = toggleBtn.closest('.relative');
+    const picker = container.querySelector('.emoji-picker');
+    if (!picker) return;
+
+    // Close all other open pickers
+    document.querySelectorAll('.emoji-picker').forEach(p => {
+      if (p !== picker) p.classList.add('hidden');
+    });
+    picker.classList.toggle('hidden');
   });
+});
+
+// Emoji picker reaction buttons (inside the picker)
+document.querySelectorAll('.emoji-picker .reaction-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const postId = btn.dataset.postId;
+    const emoji = btn.dataset.emoji;
+    // Close the picker
+    const picker = btn.closest('.emoji-picker');
+    if (picker) picker.classList.add('hidden');
+    handleReactionClick(postId, emoji);
+  });
+});
+
+// Close emoji pickers on outside click
+document.addEventListener('click', () => {
+  document.querySelectorAll('.emoji-picker').forEach(p => p.classList.add('hidden'));
 });
 
 // Auto-refresh polling (feed page only)

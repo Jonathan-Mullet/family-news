@@ -20,7 +20,7 @@ router.post('/login', async (req, res) => {
       return res.redirect('/login');
     }
     const u = rows[0];
-    req.session.user = { id: u.id, name: u.name, email: u.email, role: u.role };
+    req.session.user = { id: u.id, name: u.name, email: u.email, role: u.role, notify_posts: u.notify_posts ?? 1, notify_comments: u.notify_comments ?? 1 };
     if (remember) req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 90;
     res.redirect('/');
   } catch (err) {

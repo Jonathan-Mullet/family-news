@@ -18,7 +18,8 @@ router.get('/', async (req, res) => {
       LEFT JOIN users u2 ON i.used_by = u2.id
       ORDER BY i.created_at DESC LIMIT 30
     `);
-    res.render('admin', { users, invites, baseUrl: process.env.BASE_URL });
+    const [events] = await pool.query('SELECT * FROM events ORDER BY month, day, name');
+    res.render('admin', { users, invites, events, baseUrl: process.env.BASE_URL });
   } catch (err) {
     console.error(err);
     res.render('error', { message: 'Could not load admin panel.' });
@@ -70,6 +71,29 @@ router.post('/users/:id/toggle-role', async (req, res) => {
       "UPDATE users SET role = IF(role='admin','member','admin') WHERE id = ?",
       [req.params.id]
     );
+  } catch (err) { console.error(err); }
+  res.redirect('/admin');
+});
+
+router.post('/events', async (req, res) => {
+  const { name, type, month, day, note } = req.body;
+  const m = parseInt(month), d = parseInt(day);
+  if (!name?.trim() || !m || !d || m < 1 || m > 12 || d < 1 || d > 31) {
+    req.flash('error', 'Invalid event data.');
+    return res.redirect('/admin');
+  }
+  try {
+    await pool.query(
+      'INSERT INTO events (name, type, month, day, note, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+      [name.trim(), type === 'anniversary' ? 'anniversary' : 'birthday', m, d, note?.trim() || null, req.session.user.id]
+    );
+  } catch (err) { console.error(err); req.flash('error', 'Could not add event.'); }
+  res.redirect('/admin');
+});
+
+router.post('/events/:id/delete', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM events WHERE id = ?', [req.params.id]);
   } catch (err) { console.error(err); }
   res.redirect('/admin');
 });
