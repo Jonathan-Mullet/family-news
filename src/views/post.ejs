@@ -118,21 +118,21 @@
     <div class="space-y-4 mb-6">
     <% comments.forEach(comment => { %>
       <div class="space-y-3">
-        <div class="flex gap-3 group">
+        <div class="flex gap-3">
           <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 font-semibold text-xs flex-shrink-0 mt-0.5">
             <%= comment.author_name.charAt(0).toUpperCase() %>
           </div>
-          <div class="flex-1">
+          <div class="flex-1 min-w-0">
             <div class="bg-slate-50 dark:bg-slate-700/60 rounded-xl px-3 py-2.5">
               <p class="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-0.5"><%= comment.author_name %></p>
-              <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap"><%= comment.content %></p>
+              <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words"><%= comment.content %></p>
             </div>
-            <div class="flex items-center gap-3 mt-1.5 px-1">
+            <div class="flex items-center gap-3 mt-1.5 px-1 flex-wrap">
               <span class="text-xs text-slate-400 dark:text-slate-500"><%= new Date(comment.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) %></span>
               <button class="text-xs text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors reply-toggle py-1" data-target="reply-form-<%= comment.id %>">Reply</button>
               <% if (user.id === comment.user_id || user.role === 'admin') { %>
-              <form method="POST" action="/comments/<%= comment.id %>/delete" class="inline">
-                <button type="submit" class="text-xs text-slate-300 dark:text-slate-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 py-1">Delete</button>
+              <form method="POST" action="/comments/<%= comment.id %>/delete" class="inline" onsubmit="return confirm('Delete comment?')">
+                <button type="submit" class="text-xs text-slate-400 dark:text-slate-500 hover:text-red-400 transition-colors py-1">Delete</button>
               </form>
               <% } %>
             </div>
@@ -140,28 +140,28 @@
               <input type="hidden" name="parent_id" value="<%= comment.id %>">
               <div class="flex gap-2">
                 <input type="text" name="content" placeholder="Write a reply..." required
-                  class="flex-1 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[40px]">
-                <button type="submit" class="bg-brand-600 text-white text-xs font-medium px-3 py-2 rounded-lg hover:bg-brand-700 transition-colors min-h-[40px]">Send</button>
+                  class="flex-1 min-w-0 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[40px]">
+                <button type="submit" class="bg-brand-600 text-white text-xs font-medium px-3 py-2 rounded-lg hover:bg-brand-700 transition-colors min-h-[40px] shrink-0">Send</button>
               </div>
             </form>
           </div>
         </div>
 
         <% comment.replies.forEach(reply => { %>
-        <div class="flex gap-3 pl-11 group">
+        <div class="flex gap-3 pl-11">
           <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 font-semibold text-xs flex-shrink-0 mt-0.5">
             <%= reply.author_name.charAt(0).toUpperCase() %>
           </div>
-          <div class="flex-1">
+          <div class="flex-1 min-w-0">
             <div class="bg-slate-50 dark:bg-slate-700/60 rounded-xl px-3 py-2.5">
               <p class="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-0.5"><%= reply.author_name %></p>
-              <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap"><%= reply.content %></p>
+              <p class="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap break-words"><%= reply.content %></p>
             </div>
-            <div class="flex items-center gap-3 mt-1.5 px-1">
+            <div class="flex items-center gap-3 mt-1.5 px-1 flex-wrap">
               <span class="text-xs text-slate-400 dark:text-slate-500"><%= new Date(reply.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) %></span>
               <% if (user.id === reply.user_id || user.role === 'admin') { %>
-              <form method="POST" action="/comments/<%= reply.id %>/delete" class="inline">
-                <button type="submit" class="text-xs text-slate-300 dark:text-slate-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 py-1">Delete</button>
+              <form method="POST" action="/comments/<%= reply.id %>/delete" class="inline" onsubmit="return confirm('Delete comment?')">
+                <button type="submit" class="text-xs text-slate-400 dark:text-slate-500 hover:text-red-400 transition-colors py-1">Delete</button>
               </form>
               <% } %>
             </div>
@@ -172,15 +172,10 @@
     <% }) %>
     </div>
 
-    <form method="POST" action="/posts/<%= post.id %>/comments" class="flex gap-3">
-      <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-600/20 flex items-center justify-center text-brand-600 dark:text-brand-400 font-semibold text-xs flex-shrink-0 mt-1">
-        <%= user.name.charAt(0).toUpperCase() %>
-      </div>
-      <div class="flex-1 flex gap-2">
-        <input type="text" name="content" placeholder="Add a comment..." required
-          class="flex-1 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[44px]">
-        <button type="submit" class="bg-brand-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-brand-700 transition-colors min-h-[44px]">Post</button>
-      </div>
+    <form method="POST" action="/posts/<%= post.id %>/comments" class="flex gap-2">
+      <input type="text" name="content" placeholder="Add a comment..." required
+        class="flex-1 min-w-0 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[48px]">
+      <button type="submit" class="bg-brand-600 text-white text-sm font-medium px-4 rounded-xl hover:bg-brand-700 transition-colors min-h-[48px] shrink-0">Post</button>
     </form>
   </section>
 </div>

@@ -8,40 +8,47 @@
   <%# Post creation card %>
   <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
     <form method="POST" action="/posts" id="post-form" enctype="multipart/form-data">
-      <div class="flex items-start gap-3">
-        <div class="w-9 h-9 rounded-full bg-brand-100 dark:bg-brand-600/20 flex items-center justify-center text-brand-600 dark:text-brand-400 font-semibold text-sm flex-shrink-0">
-          <%= user.name.charAt(0).toUpperCase() %>
-        </div>
-        <div class="flex-1 space-y-3">
-          <textarea name="content" rows="3" placeholder="Share some news with the family..."
-            class="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
-            id="post-content" maxlength="2000"></textarea>
-          <div id="post-extras" class="hidden space-y-2">
-            <input type="text" name="title" placeholder="Add a title (optional)"
-              class="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent">
-            <div>
-              <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Photo (optional)</label>
-              <input type="file" name="photo" accept="image/*"
-                class="w-full text-sm text-slate-500 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-brand-50 file:text-brand-600 dark:file:bg-brand-600/20 dark:file:text-brand-400 hover:file:bg-brand-100 dark:hover:file:bg-brand-600/30 transition-colors cursor-pointer">
-            </div>
-            <div>
-              <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Schedule post (optional)</label>
-              <input type="datetime-local" name="publish_at"
-                class="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent">
-            </div>
-          </div>
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <button type="button" id="extras-toggle" class="text-xs text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                + Add title, photo or schedule
-              </button>
-              <span id="char-counter" class="text-xs text-slate-400 dark:text-slate-500 hidden">0 / 2000</span>
-            </div>
-            <button type="submit"
-              class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors min-h-[36px]">
-              Post
+      <%# Hidden real file input — populated by photo editor %>
+      <input type="file" name="photo" id="photo-input" accept="image/*" class="hidden">
+      <div class="space-y-3">
+        <textarea name="content" rows="3" placeholder="Share some news with the family..."
+          class="w-full border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
+          id="post-content" maxlength="2000"></textarea>
+        <div id="post-extras" class="hidden space-y-2.5">
+          <input type="text" name="title" placeholder="Add a title (optional)"
+            class="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600">
+          <%# Photo row %>
+          <div class="flex items-center gap-3 flex-wrap">
+            <button type="button" id="photo-select-btn"
+              class="flex items-center gap-1.5 text-xs px-3 py-2 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors min-h-[36px]">
+              📷 Add Photo
             </button>
+            <div id="photo-preview-wrap" class="hidden flex items-center gap-2">
+              <img id="photo-thumb" class="w-14 h-14 object-cover rounded-lg border border-slate-200 dark:border-slate-700" src="" alt="">
+              <div class="flex flex-col gap-1">
+                <button type="button" id="photo-edit-again" class="text-xs text-brand-600 dark:text-brand-400 hover:underline text-left">✏️ Edit</button>
+                <button type="button" id="photo-remove" class="text-xs text-red-400 hover:underline text-left">✕ Remove</button>
+              </div>
+            </div>
           </div>
+          <%# Schedule row %>
+          <div>
+            <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Schedule (optional)</label>
+            <input type="datetime-local" name="publish_at"
+              class="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600">
+          </div>
+        </div>
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <button type="button" id="extras-toggle" class="text-xs text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors whitespace-nowrap">
+              + More
+            </button>
+            <span id="char-counter" class="text-xs text-slate-400 dark:text-slate-500 hidden">0 / 2000</span>
+          </div>
+          <button type="submit"
+            class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition-colors min-h-[40px] shrink-0">
+            Post
+          </button>
         </div>
       </div>
     </form>
@@ -178,15 +185,38 @@
   New posts — tap to refresh
 </div>
 
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
+
+<%# Photo editor modal %>
+<div id="photo-editor-modal" class="hidden fixed inset-0 bg-black z-[60] flex flex-col" style="padding-bottom:env(safe-area-inset-bottom)">
+  <div class="flex items-center justify-between px-4 py-3 bg-slate-900 shrink-0 gap-3">
+    <span class="text-white font-semibold text-sm">Edit Photo</span>
+    <div class="flex gap-2">
+      <button id="rotate-left" type="button" class="p-2 rounded-lg bg-slate-700 text-white text-xl leading-none hover:bg-slate-600 transition-colors">↺</button>
+      <button id="rotate-right" type="button" class="p-2 rounded-lg bg-slate-700 text-white text-xl leading-none hover:bg-slate-600 transition-colors">↻</button>
+    </div>
+  </div>
+  <div class="flex-1 min-h-0 overflow-hidden">
+    <img id="crop-img" src="" alt="" class="block max-w-full">
+  </div>
+  <div class="flex gap-3 px-4 py-4 bg-slate-900 shrink-0">
+    <button type="button" id="photo-cancel" class="flex-1 py-3 border border-slate-600 text-slate-200 rounded-xl text-sm font-medium hover:bg-slate-700 transition-colors">Cancel</button>
+    <button type="button" id="photo-confirm" class="flex-1 py-3 bg-brand-600 text-white rounded-xl text-sm font-semibold hover:bg-brand-700 transition-colors">Use Photo</button>
+  </div>
+</div>
+
 <script src="/js/app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 <script>
+  // Extras toggle
   const extrasToggle = document.getElementById('extras-toggle');
   const postExtras = document.getElementById('post-extras');
   extrasToggle.addEventListener('click', () => {
-    postExtras.classList.toggle('hidden');
-    extrasToggle.textContent = postExtras.classList.contains('hidden') ? '+ Add title, photo or schedule' : '− Hide';
+    const hidden = postExtras.classList.toggle('hidden');
+    extrasToggle.textContent = hidden ? '+ More' : '− Less';
   });
 
+  // Char counter
   const postContent = document.getElementById('post-content');
   const charCounter = document.getElementById('char-counter');
   postContent.addEventListener('input', () => {
@@ -198,22 +228,112 @@
     charCounter.classList.toggle('dark:text-slate-500', len <= 1900);
   });
 
+  // Edit-in-place toggle
   document.querySelectorAll('.edit-toggle').forEach(btn => {
     btn.addEventListener('click', () => {
-      const postId = btn.dataset.postId;
-      const article = document.querySelector(`article[data-post-id="${postId}"]`);
+      const article = document.querySelector(`article[data-post-id="${btn.dataset.postId}"]`);
       article.querySelector('.post-content-display').classList.add('hidden');
       article.querySelector('.post-edit-form').classList.remove('hidden');
     });
   });
-
   document.querySelectorAll('.edit-cancel').forEach(btn => {
     btn.addEventListener('click', () => {
-      const postId = btn.dataset.postId;
-      const article = document.querySelector(`article[data-post-id="${postId}"]`);
+      const article = document.querySelector(`article[data-post-id="${btn.dataset.postId}"]`);
       article.querySelector('.post-content-display').classList.remove('hidden');
       article.querySelector('.post-edit-form').classList.add('hidden');
     });
+  });
+
+  // ── Photo editor ──────────────────────────────────────────────────────────
+  const photoInput    = document.getElementById('photo-input');
+  const photoSelectBtn = document.getElementById('photo-select-btn');
+  const photoEditAgain = document.getElementById('photo-edit-again');
+  const photoRemove   = document.getElementById('photo-remove');
+  const photoPreviewWrap = document.getElementById('photo-preview-wrap');
+  const photoThumb    = document.getElementById('photo-thumb');
+  const modal         = document.getElementById('photo-editor-modal');
+  const cropImg       = document.getElementById('crop-img');
+  let cropper = null;
+  let pendingDataUrl = null;  // holds original image for "edit again"
+
+  function openEditor(dataUrl) {
+    pendingDataUrl = dataUrl;
+    cropImg.src = dataUrl;
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    if (cropper) { cropper.destroy(); cropper = null; }
+    // Wait for img to paint before initialising Cropper
+    setTimeout(() => {
+      cropper = new Cropper(cropImg, {
+        viewMode: 1,
+        autoCropArea: 0.95,
+        movable: true,
+        zoomable: true,
+        scalable: false,
+        background: false,
+        guides: true,
+      });
+    }, 80);
+  }
+
+  function closeEditor() {
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+    if (cropper) { cropper.destroy(); cropper = null; }
+  }
+
+  // Trigger hidden file input
+  photoSelectBtn.addEventListener('click', () => photoInput.click());
+  photoEditAgain.addEventListener('click', () => { if (pendingDataUrl) openEditor(pendingDataUrl); });
+
+  // File selected → open editor
+  photoInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => openEditor(ev.target.result);
+    reader.readAsDataURL(file);
+    photoInput.value = ''; // reset so same file can be re-selected
+  });
+
+  // Rotate controls
+  document.getElementById('rotate-left').addEventListener('click', () => cropper?.rotate(-90));
+  document.getElementById('rotate-right').addEventListener('click', () => cropper?.rotate(90));
+
+  // Cancel
+  document.getElementById('photo-cancel').addEventListener('click', closeEditor);
+
+  // Confirm crop → produce a File and attach to input
+  document.getElementById('photo-confirm').addEventListener('click', () => {
+    if (!cropper) return;
+    const canvas = cropper.getCroppedCanvas({ maxWidth: 1600, maxHeight: 1600, imageSmoothingQuality: 'high' });
+    canvas.toBlob(blob => {
+      // Attach blob as File to the real input
+      const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      photoInput.files = dt.files;
+
+      // Show thumbnail + ensure extras visible
+      const thumbUrl = canvas.toDataURL('image/jpeg', 0.85);
+      photoThumb.src = thumbUrl;
+      photoPreviewWrap.classList.remove('hidden');
+      photoPreviewWrap.classList.add('flex');
+      postExtras.classList.remove('hidden');
+      extrasToggle.textContent = '− Less';
+
+      closeEditor();
+    }, 'image/jpeg', 0.92);
+  });
+
+  // Remove photo
+  photoRemove.addEventListener('click', () => {
+    const dt = new DataTransfer();
+    photoInput.files = dt.files;
+    pendingDataUrl = null;
+    photoThumb.src = '';
+    photoPreviewWrap.classList.add('hidden');
+    photoPreviewWrap.classList.remove('flex');
   });
 </script>
 </body></html>
