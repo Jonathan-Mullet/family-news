@@ -1,40 +1,330 @@
 <%- include('partials/head') %>
 <%- include('partials/nav') %>
-<div class="min-h-[80vh] flex items-center justify-center px-4">
-  <div class="w-full max-w-sm">
-    <div class="text-center mb-8">
-      <div class="text-5xl mb-3">📰</div>
-      <h1 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Family News</h1>
-      <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">Sign in to see what's happening</p>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap');
+
+  .fn-login-page {
+    min-height: calc(100vh - 64px);
+    background: #faf6f0;
+    background-image:
+      radial-gradient(ellipse at 15% 60%, rgba(245, 225, 195, 0.7) 0%, transparent 55%),
+      radial-gradient(ellipse at 85% 25%, rgba(254, 243, 225, 0.8) 0%, transparent 50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2.5rem 1rem 3rem;
+    font-family: 'Crimson Pro', Georgia, serif;
+  }
+
+  .fn-masthead {
+    text-align: center;
+    margin-bottom: 2rem;
+    max-width: 520px;
+    width: 100%;
+  }
+
+  .fn-eyebrow {
+    font-family: 'Crimson Pro', serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #8b7355;
+    margin-bottom: 0.9rem;
+  }
+
+  .fn-title {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: clamp(2.5rem, 7vw, 4rem);
+    font-weight: 900;
+    line-height: 1.0;
+    color: #2c1810;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  .fn-rule {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    margin: 1rem 0 0.875rem;
+  }
+
+  .fn-rule-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #2c1810, transparent);
+    opacity: 0.4;
+  }
+
+  .fn-rule-ornament {
+    font-family: 'Playfair Display', serif;
+    font-size: 0.85rem;
+    color: #8b7355;
+    user-select: none;
+    letter-spacing: 0.3em;
+  }
+
+  .fn-tagline {
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    font-size: 1.15rem;
+    color: #6b5442;
+    line-height: 1.4;
+  }
+
+  .fn-card {
+    background: #ffffff;
+    border-radius: 3px;
+    box-shadow:
+      0 2px 12px rgba(44, 24, 16, 0.07),
+      0 1px 4px rgba(44, 24, 16, 0.05),
+      0 0 0 1px rgba(139, 115, 85, 0.18);
+    padding: 2.25rem 2.5rem 2.5rem;
+    width: 100%;
+    max-width: 390px;
+  }
+
+  .fn-card-label {
+    font-family: 'Crimson Pro', serif;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #8b7355;
+    text-align: center;
+    margin-bottom: 1.75rem;
+  }
+
+  .fn-field {
+    margin-bottom: 1.25rem;
+  }
+
+  .fn-field-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 0.45rem;
+  }
+
+  .fn-label {
+    display: block;
+    font-family: 'Crimson Pro', serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #4a3525;
+  }
+
+  .fn-input {
+    width: 100%;
+    border: 1px solid rgba(139, 115, 85, 0.32);
+    background: #fdfaf6;
+    color: #2c1810;
+    border-radius: 2px;
+    padding: 0.65rem 0.9rem;
+    font-family: 'Crimson Pro', serif;
+    font-size: 1.05rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    outline: none;
+    box-sizing: border-box;
+    min-height: 44px;
+  }
+
+  .fn-input:focus {
+    border-color: #8b5e3c;
+    box-shadow: 0 0 0 3px rgba(139, 94, 60, 0.11);
+    background: #ffffff;
+  }
+
+  .fn-input::placeholder {
+    color: #c0ab95;
+    font-style: italic;
+  }
+
+  .fn-forgot {
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    font-size: 0.88rem;
+    color: #8b5e3c;
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .fn-forgot:hover {
+    color: #5c3d25;
+    text-decoration: underline;
+  }
+
+  .fn-remember {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    margin-bottom: 1.75rem;
+    cursor: pointer;
+  }
+
+  .fn-remember input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    border: 1px solid rgba(139, 115, 85, 0.5);
+    border-radius: 2px;
+    accent-color: #8b5e3c;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .fn-remember span {
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    font-size: 0.95rem;
+    color: #6b5442;
+  }
+
+  .fn-submit {
+    width: 100%;
+    background: #2c1810;
+    color: #faf6f0;
+    font-family: 'Crimson Pro', serif;
+    font-weight: 600;
+    font-size: 0.82rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0.8rem;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+    min-height: 44px;
+  }
+
+  .fn-submit:hover {
+    background: #3d241a;
+  }
+
+  .fn-submit:active {
+    transform: translateY(1px);
+  }
+
+  .fn-flash-error {
+    margin-bottom: 1.5rem;
+    padding: 0.75rem 1rem;
+    background: #fdf3f1;
+    border: 1px solid rgba(185, 80, 60, 0.25);
+    border-left: 3px solid #b9503c;
+    border-radius: 2px;
+    font-family: 'Crimson Pro', serif;
+    font-size: 0.95rem;
+    color: #7a2e20;
+    line-height: 1.4;
+  }
+
+  .fn-flash-success {
+    margin-bottom: 1.5rem;
+    padding: 0.75rem 1rem;
+    background: #f2f7f1;
+    border: 1px solid rgba(60, 130, 80, 0.25);
+    border-left: 3px solid #3c8250;
+    border-radius: 2px;
+    font-family: 'Crimson Pro', serif;
+    font-size: 0.95rem;
+    color: #1e4d2b;
+    line-height: 1.4;
+  }
+
+  @media (max-width: 480px) {
+    .fn-card {
+      padding: 1.75rem 1.5rem 2rem;
+    }
+  }
+
+  /* Tailwind class-based dark mode */
+  .dark .fn-login-page {
+    background: #18110a;
+    background-image:
+      radial-gradient(ellipse at 15% 60%, rgba(55, 35, 12, 0.7) 0%, transparent 55%),
+      radial-gradient(ellipse at 85% 25%, rgba(45, 28, 8, 0.8) 0%, transparent 50%);
+  }
+  .dark .fn-eyebrow { color: #9a7e5a; }
+  .dark .fn-title { color: #f5e5d0; }
+  .dark .fn-rule-line { background: linear-gradient(90deg, transparent, #9a7e5a, transparent); opacity: 0.5; }
+  .dark .fn-rule-ornament { color: #9a7e5a; }
+  .dark .fn-tagline { color: #9a7e5a; }
+  .dark .fn-card {
+    background: #221510;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(154, 126, 90, 0.2);
+  }
+  .dark .fn-card-label { color: #9a7e5a; }
+  .dark .fn-label { color: #c8a880; }
+  .dark .fn-input {
+    background: #18110a;
+    border-color: rgba(154, 126, 90, 0.3);
+    color: #f5e5d0;
+  }
+  .dark .fn-input:focus {
+    border-color: #c4895a;
+    box-shadow: 0 0 0 3px rgba(196, 137, 90, 0.13);
+    background: #1e1408;
+  }
+  .dark .fn-input::placeholder { color: #7a5e40; }
+  .dark .fn-forgot { color: #c4895a; }
+  .dark .fn-forgot:hover { color: #e0a870; }
+  .dark .fn-remember span { color: #9a7e5a; }
+  .dark .fn-submit { background: #c4895a; color: #18110a; }
+  .dark .fn-submit:hover { background: #d49a6a; }
+  .dark .fn-flash-error { background: #2a1008; border-left-color: #c05040; color: #e8a090; }
+  .dark .fn-flash-success { background: #0a2010; border-left-color: #40a060; color: #80c890; }
+</style>
+
+<div class="fn-login-page">
+
+  <div class="fn-masthead">
+    <p class="fn-eyebrow">Est. 2024 &nbsp;·&nbsp; Private Family Edition</p>
+    <h1 class="fn-title">Family News</h1>
+    <div class="fn-rule">
+      <div class="fn-rule-line"></div>
+      <span class="fn-rule-ornament">✦ ✦ ✦</span>
+      <div class="fn-rule-line"></div>
     </div>
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-      <% if (flash.error) { %><div class="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm"><%= flash.error %></div><% } %>
-      <% if (flash.success) { %><div class="mb-4 p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-300 text-sm"><%= flash.success %></div><% } %>
-      <form method="POST" action="/login" class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Email</label>
-          <input type="email" name="email" required autocomplete="email"
-            class="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent min-h-[44px]">
-        </div>
-        <div>
-          <div class="flex items-center justify-between mb-1">
-            <label class="block text-sm font-medium text-slate-700 dark:text-slate-200">Password</label>
-            <a href="/forgot-password" class="text-xs text-brand-600 dark:text-brand-400 hover:underline">Forgot password?</a>
-          </div>
-          <input type="password" name="password" required autocomplete="current-password"
-            class="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent min-h-[44px]">
-        </div>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" name="remember" value="1" class="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600">
-          <span class="text-sm text-slate-600 dark:text-slate-300">Keep me signed in for 90 days</span>
-        </label>
-        <button type="submit"
-          class="w-full bg-brand-600 hover:bg-brand-700 text-white font-medium py-2.5 rounded-lg text-sm transition-colors min-h-[44px]">
-          Sign in
-        </button>
-      </form>
-    </div>
+    <p class="fn-tagline">Sign in to see what's happening</p>
   </div>
+
+  <div class="fn-card">
+    <p class="fn-card-label">Member Sign In</p>
+
+    <% if (flash.error) { %>
+      <div class="fn-flash-error"><%= flash.error %></div>
+    <% } %>
+    <% if (flash.success) { %>
+      <div class="fn-flash-success"><%= flash.success %></div>
+    <% } %>
+
+    <form method="POST" action="/login">
+      <div class="fn-field">
+        <label class="fn-label" for="login-email">Email</label>
+        <input class="fn-input" type="email" id="login-email" name="email" required autocomplete="email" placeholder="your@email.com">
+      </div>
+
+      <div class="fn-field">
+        <div class="fn-field-header">
+          <label class="fn-label" for="login-password">Password</label>
+          <a class="fn-forgot" href="/forgot-password">Forgot password?</a>
+        </div>
+        <input class="fn-input" type="password" id="login-password" name="password" required autocomplete="current-password">
+      </div>
+
+      <label class="fn-remember">
+        <input type="checkbox" name="remember" value="1">
+        <span>Keep me signed in for 90 days</span>
+      </label>
+
+      <button type="submit" class="fn-submit">Sign In</button>
+    </form>
+  </div>
+
 </div>
+
 <script src="/js/app.js"></script>
 </body></html>
