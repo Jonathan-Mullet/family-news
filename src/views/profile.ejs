@@ -1,77 +1,65 @@
 <%- include('partials/head', { title: 'Profile' }) %>
 <%- include('partials/nav') %>
 
-<div class="max-w-lg mx-auto px-4 py-8 space-y-6">
-  <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Your Profile</h1>
+<div class="fn-settings-page">
+  <h1 class="fn-settings-title">Your Profile</h1>
 
-  <% if (flash.error) { %><div class="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-sm"><%= flash.error %></div><% } %>
-  <% if (flash.success) { %><div class="p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-xl text-green-700 dark:text-green-300 text-sm"><%= flash.success %></div><% } %>
+  <% if (flash.error) { %><div class="fn-flash-error"><%= flash.error %></div><% } %>
+  <% if (flash.success) { %><div class="fn-flash-success"><%= flash.success %></div><% } %>
 
-  <%# Change name %>
-  <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-    <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-4">Display name</h2>
-    <form method="POST" action="/profile/name" class="space-y-3">
-      <input type="text" name="name" value="<%= user.name %>" required
-        class="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[44px]">
-      <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors min-h-[36px]">
-        Update name
-      </button>
+  <div class="fn-settings-card">
+    <h2 class="fn-settings-card-title">Display Name</h2>
+    <form method="POST" action="/profile/name">
+      <div class="fn-field">
+        <label class="fn-label" for="prof-name">Name</label>
+        <input class="fn-input" type="text" id="prof-name" name="name" value="<%= user.name %>" required autocomplete="name">
+      </div>
+      <button type="submit" class="fn-btn">Update Name</button>
     </form>
   </div>
 
-  <%# Change password %>
-  <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-    <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-4">Change password</h2>
-    <form method="POST" action="/profile/password" class="space-y-3">
-      <div>
-        <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Current password</label>
-        <input type="password" name="current_password" required autocomplete="current-password"
-          class="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[44px]">
+  <div class="fn-settings-card">
+    <h2 class="fn-settings-card-title">Change Password</h2>
+    <form method="POST" action="/profile/password">
+      <div class="fn-field">
+        <label class="fn-label" for="prof-cur-pw">Current password</label>
+        <input class="fn-input" type="password" id="prof-cur-pw" name="current_password" required autocomplete="current-password">
       </div>
-      <div>
-        <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">New password <span class="text-slate-400 font-normal">(min 8 characters)</span></label>
-        <input type="password" name="new_password" required minlength="8" autocomplete="new-password"
-          class="w-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[44px]">
+      <div class="fn-field">
+        <label class="fn-label" for="prof-new-pw">New password <span style="font-weight:400;letter-spacing:0;text-transform:none;opacity:0.7;">(min 8 characters)</span></label>
+        <input class="fn-input" type="password" id="prof-new-pw" name="new_password" required minlength="8" autocomplete="new-password">
       </div>
-      <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors min-h-[36px]">
-        Change password
-      </button>
+      <button type="submit" class="fn-btn">Change Password</button>
     </form>
   </div>
 
-  <%# Notification preferences %>
-  <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-    <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-4">Notification preferences</h2>
-    <form method="POST" action="/profile/notifications" class="space-y-3">
-      <label class="flex items-center gap-3 cursor-pointer">
-        <input type="checkbox" name="notify_posts" value="1" <%= (user.notify_posts !== 0) ? 'checked' : '' %>
-          class="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600">
-        <span class="text-sm text-slate-700 dark:text-slate-300">Email me when someone posts</span>
+  <div class="fn-settings-card">
+    <h2 class="fn-settings-card-title">Email Notifications</h2>
+    <form method="POST" action="/profile/notifications">
+      <label class="fn-checkbox-label">
+        <input class="fn-checkbox" type="checkbox" name="notify_posts" value="1" <%= (user.notify_posts !== 0) ? 'checked' : '' %>>
+        <span>Email me when someone posts</span>
       </label>
-      <label class="flex items-center gap-3 cursor-pointer">
-        <input type="checkbox" name="notify_comments" value="1" <%= (user.notify_comments !== 0) ? 'checked' : '' %>
-          class="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600">
-        <span class="text-sm text-slate-700 dark:text-slate-300">Email me when someone comments on my post</span>
+      <label class="fn-checkbox-label">
+        <input class="fn-checkbox" type="checkbox" name="notify_comments" value="1" <%= (user.notify_comments !== 0) ? 'checked' : '' %>>
+        <span>Email me when someone comments on my post</span>
       </label>
-      <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors min-h-[36px]">
-        Save preferences
-      </button>
+      <div style="margin-top:1.25rem;">
+        <button type="submit" class="fn-btn">Save Preferences</button>
+      </div>
     </form>
   </div>
 
-  <%# Account info %>
-  <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
-    <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-3">Account info</h2>
-    <dl class="space-y-2 text-sm">
-      <div class="flex justify-between">
-        <dt class="text-slate-500 dark:text-slate-400">Email</dt>
-        <dd class="text-slate-700 dark:text-slate-200"><%= user.email %></dd>
-      </div>
-      <div class="flex justify-between">
-        <dt class="text-slate-500 dark:text-slate-400">Role</dt>
-        <dd class="text-slate-700 dark:text-slate-200 capitalize"><%= user.role %></dd>
-      </div>
-    </dl>
+  <div class="fn-settings-card">
+    <h2 class="fn-settings-card-title">Account</h2>
+    <div class="fn-meta-row">
+      <span class="fn-meta-key">Email</span>
+      <span class="fn-meta-val"><%= user.email %></span>
+    </div>
+    <div class="fn-meta-row">
+      <span class="fn-meta-key">Role</span>
+      <span class="fn-meta-val" style="text-transform:capitalize;"><%= user.role %></span>
+    </div>
   </div>
 </div>
 

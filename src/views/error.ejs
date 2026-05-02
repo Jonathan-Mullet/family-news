@@ -1,9 +1,11 @@
 <%- include('partials/head') %>
 <%- include('partials/nav') %>
-<div class="max-w-2xl mx-auto px-4 py-16 text-center">
-  <div class="text-5xl mb-4">😕</div>
-  <p class="text-slate-600 dark:text-slate-300 text-lg"><%= message %></p>
-  <a href="/" class="mt-6 inline-block text-brand-600 dark:text-brand-400 hover:underline text-sm">← Back to feed</a>
+
+<div style="max-width:38rem;margin:0 auto;padding:5rem 1rem;text-align:center;font-family:'Crimson Pro',Georgia,serif;">
+  <p style="font-family:'Playfair Display',Georgia,serif;font-style:italic;font-size:3rem;font-weight:900;color:rgba(44,24,16,0.15);margin:0 0 1.5rem;line-height:1;">&#x2715;</p>
+  <p style="font-size:1.15rem;color:#4a3525;line-height:1.5;margin:0 0 2rem;"><%= message %></p>
+  <a href="/" class="fn-link" style="font-size:1rem;">Back to feed</a>
 </div>
+
 <script src="/js/app.js"></script>
 </body></html>

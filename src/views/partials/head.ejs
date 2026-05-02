@@ -9,12 +9,15 @@
       document.documentElement.classList.add('dark');
     }
   </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/icon-180.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Family News">
-  <meta name="theme-color" content="#4f46e5">
+  <meta name="theme-color" content="#8b5e3c">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -22,11 +25,12 @@
       theme: {
         extend: {
           colors: {
-            brand: { 50:'#eef2ff', 100:'#e0e7ff', 200:'#c7d2fe', 600:'#4f46e5', 700:'#4338ca' }
+            brand: { 50:'#fdf6f0', 100:'#f5e8d5', 200:'#e8c9a0', 400:'#c4895a', 600:'#8b5e3c', 700:'#6b4428' }
           }
         }
       }
     }
   </script>
+  <link rel="stylesheet" href="/css/theme.css">
 </head>
-<body class="bg-slate-50 dark:bg-slate-900 min-h-screen text-slate-800 dark:text-slate-100 transition-colors duration-200">
+<body class="bg-[#faf6f0] dark:bg-[#18110a] min-h-screen text-slate-800 dark:text-slate-100 transition-colors duration-200">
