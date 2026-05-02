@@ -1,18 +1,163 @@
-<nav class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-10 shadow-sm">
-  <div class="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-    <a href="/" class="font-bold text-brand-600 text-lg tracking-tight">📰 Family News</a>
-    <div class="flex items-center gap-3 text-sm">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap');
+
+  .fn-nav {
+    background: #ffffff;
+    border-bottom: 1px solid rgba(139, 115, 85, 0.18);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .fn-nav-inner {
+    max-width: 42rem;
+    margin: 0 auto;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .fn-nav-logo {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 1.3rem;
+    color: #2c1810;
+    text-decoration: none;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .fn-nav-logo:hover { color: #4a2818; }
+
+  .fn-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+
+  .fn-nav-user {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-style: italic;
+    font-size: 0.9rem;
+    color: #8b7355;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .fn-nav-sep {
+    width: 1px;
+    height: 0.85rem;
+    background: rgba(139, 115, 85, 0.28);
+    flex-shrink: 0;
+  }
+
+  .fn-nav-link {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 0.9rem;
+    color: #6b5442;
+    text-decoration: none;
+    padding: 0.25rem 0.625rem;
+    border-radius: 2px;
+    transition: color 0.15s, background 0.15s;
+    white-space: nowrap;
+  }
+
+  .fn-nav-link:hover {
+    color: #2c1810;
+    background: rgba(44, 24, 16, 0.05);
+  }
+
+  .fn-nav-link-danger:hover {
+    color: #b9503c;
+    background: rgba(185, 80, 60, 0.06);
+  }
+
+  .fn-dark-toggle {
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 50%;
+    color: #8b7355;
+    transition: background 0.15s, color 0.15s;
+    padding: 0;
+    margin-left: 0.25rem;
+    flex-shrink: 0;
+  }
+
+  .fn-dark-toggle:hover {
+    background: rgba(44, 24, 16, 0.06);
+    color: #2c1810;
+  }
+
+  .fn-dark-toggle svg {
+    width: 0.95rem;
+    height: 0.95rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    display: block;
+  }
+
+  .dark .fn-nav {
+    background: #221510;
+    border-bottom-color: rgba(154, 126, 90, 0.18);
+  }
+
+  .dark .fn-nav-logo { color: #f5e5d0; }
+  .dark .fn-nav-logo:hover { color: #ffffff; }
+  .dark .fn-nav-user { color: #7a6040; }
+  .dark .fn-nav-sep { background: rgba(154, 126, 90, 0.22); }
+  .dark .fn-nav-link { color: #9a7e5a; }
+  .dark .fn-nav-link:hover { color: #f5e5d0; background: rgba(245, 229, 208, 0.06); }
+  .dark .fn-nav-link-danger:hover { color: #e08878; background: rgba(224, 136, 120, 0.07); }
+  .dark .fn-dark-toggle { color: #9a7e5a; }
+  .dark .fn-dark-toggle:hover { background: rgba(245, 229, 208, 0.07); color: #f5e5d0; }
+</style>
+
+<nav class="fn-nav">
+  <div class="fn-nav-inner">
+    <a href="/" class="fn-nav-logo">Family News</a>
+
+    <div class="fn-nav-links">
       <% if (user) { %>
-      <span class="text-slate-500 dark:text-slate-400 hidden sm:block"><%= user.name %></span>
-      <% if (user.role === 'admin') { %>
-      <a href="/admin" class="text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Admin</a>
+        <span class="fn-nav-user hidden sm:block"><%= user.name %></span>
+        <div class="fn-nav-sep hidden sm:block"></div>
+        <% if (user.role === 'admin') { %>
+          <a href="/admin" class="fn-nav-link">Admin</a>
+          <div class="fn-nav-sep"></div>
+        <% } %>
+        <a href="/profile" class="fn-nav-link">Profile</a>
+        <div class="fn-nav-sep"></div>
+        <a href="/logout" class="fn-nav-link fn-nav-link-danger">Sign out</a>
+        <div class="fn-nav-sep"></div>
       <% } %>
-      <a href="/profile" class="text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Profile</a>
-      <a href="/logout" class="text-slate-500 dark:text-slate-400 hover:text-red-500 transition-colors">Sign out</a>
-      <% } %>
-      <button id="dark-toggle" title="Toggle dark mode"
-        class="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-base">
-        <span class="dark:hidden">🌙</span><span class="hidden dark:inline">☀️</span>
+
+      <button id="dark-toggle" class="fn-dark-toggle" title="Toggle dark mode">
+        <svg class="hidden dark:block" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="4.5"/>
+          <line x1="12" y1="2" x2="12" y2="4"/>
+          <line x1="12" y1="20" x2="12" y2="22"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="2" y1="12" x2="4" y2="12"/>
+          <line x1="20" y1="12" x2="22" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="dark:hidden" viewBox="0 0 24 24">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
       </button>
     </div>
   </div>
