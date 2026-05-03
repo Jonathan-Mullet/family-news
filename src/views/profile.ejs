@@ -81,6 +81,22 @@
     </form>
   </div>
 
+  <%# Email %>
+  <div class="fn-settings-card">
+    <h2 class="fn-settings-card-title">Email Address</h2>
+    <form method="POST" action="/profile/email">
+      <div class="fn-field">
+        <label class="fn-label" for="prof-email">New email</label>
+        <input class="fn-input" type="email" id="prof-email" name="email" value="<%= user.email %>" required autocomplete="email">
+      </div>
+      <div class="fn-field">
+        <label class="fn-label" for="prof-email-pw">Current password</label>
+        <input class="fn-input" type="password" id="prof-email-pw" name="password" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="fn-btn">Update Email</button>
+    </form>
+  </div>
+
   <%# Change password %>
   <div class="fn-settings-card">
     <h2 class="fn-settings-card-title">Change Password</h2>

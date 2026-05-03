@@ -22,6 +22,29 @@ router.post('/name', async (req, res) => {
   res.redirect('/profile');
 });
 
+router.post('/email', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email?.trim()) { req.flash('error', 'Email is required.'); return res.redirect('/profile'); }
+  try {
+    const [rows] = await pool.query('SELECT password_hash FROM users WHERE id = ?', [req.session.user.id]);
+    if (!await bcrypt.compare(password, rows[0].password_hash)) {
+      req.flash('error', 'Current password is incorrect.');
+      return res.redirect('/profile');
+    }
+    await pool.query('UPDATE users SET email = ? WHERE id = ?', [email.trim().toLowerCase(), req.session.user.id]);
+    req.session.user.email = email.trim().toLowerCase();
+    req.flash('success', 'Email updated.');
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      req.flash('error', 'That email is already in use.');
+      return res.redirect('/profile');
+    }
+    console.error(err);
+    req.flash('error', 'Could not update email.');
+  }
+  res.redirect('/profile');
+});
+
 router.post('/password', async (req, res) => {
   const { current_password, new_password } = req.body;
   if (!new_password || new_password.length < 8) {
