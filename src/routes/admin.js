@@ -27,13 +27,15 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/invites', async (req, res) => {
+  const isOpen = req.body.type === 'open';
   try {
     const token = uuidv4().replace(/-/g, '');
     await pool.query(
-      'INSERT INTO invites (token, created_by, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY))',
-      [token, req.session.user.id]
+      `INSERT INTO invites (token, created_by, expires_at, max_uses) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ${isOpen ? '2 DAY' : '7 DAY'}), ?)`,
+      [token, req.session.user.id, isOpen ? 50 : 1]
     );
     req.flash('success', `${process.env.BASE_URL}/register?invite=${token}`);
+    req.flash('invite_type', isOpen ? 'open' : 'single');
     res.redirect('/admin');
   } catch (err) {
     console.error(err);
@@ -44,7 +46,7 @@ router.post('/invites', async (req, res) => {
 
 router.post('/invites/:id/revoke', async (req, res) => {
   try {
-    await pool.query('UPDATE invites SET expires_at = NOW() WHERE id = ? AND used_at IS NULL', [req.params.id]);
+    await pool.query('UPDATE invites SET expires_at = NOW() WHERE id = ?', [req.params.id]);
     req.flash('success', 'Invite revoked.');
   } catch (err) { console.error(err); }
   res.redirect('/admin');

@@ -123,6 +123,9 @@ async function initDb() {
     `ALTER TABLE users ADD COLUMN avatar_url VARCHAR(2048)`,
     `ALTER TABLE posts ADD COLUMN big_news TINYINT(1) DEFAULT 0`,
     `INSERT IGNORE INTO post_photos (post_id, photo_url, sort_order) SELECT id, photo_url, 0 FROM posts WHERE photo_url IS NOT NULL`,
+    `ALTER TABLE invites ADD COLUMN max_uses INT DEFAULT 1`,
+    `ALTER TABLE invites ADD COLUMN use_count INT DEFAULT 0`,
+    `UPDATE invites SET use_count = 1 WHERE used_at IS NOT NULL AND use_count = 0`,
   ];
   for (const q of migrations) {
     try { await pool.query(q); } catch { /* column already exists */ }

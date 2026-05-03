@@ -73,7 +73,7 @@ router.post('/register', async (req, res) => {
   }
   try {
     const [inviteRows] = await pool.query(
-      'SELECT * FROM invites WHERE token = ? AND used_at IS NULL AND expires_at > NOW()',
+      'SELECT * FROM invites WHERE token = ? AND use_count < max_uses AND expires_at > NOW()',
       [invite]
     );
     if (!inviteRows.length) return res.render('error', { message: 'This invite link is invalid or has expired.' });
@@ -83,7 +83,10 @@ router.post('/register', async (req, res) => {
       'INSERT INTO users (name, email, password_hash, birthday) VALUES (?, ?, ?, ?)',
       [name.trim(), email.trim().toLowerCase(), hash, birthday]
     );
-    await pool.query('UPDATE invites SET used_by = ?, used_at = NOW() WHERE token = ?', [result.insertId, invite]);
+    await pool.query(
+      'UPDATE invites SET use_count = use_count + 1, used_by = COALESCE(used_by, ?), used_at = COALESCE(used_at, NOW()) WHERE token = ?',
+      [result.insertId, invite]
+    );
 
     req.flash('success', 'Account created! Please sign in.');
     res.redirect('/login');
