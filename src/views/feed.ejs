@@ -8,7 +8,7 @@
   <%# Post creation card %>
   <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
     <form method="POST" action="/posts" id="post-form" enctype="multipart/form-data">
-      <input type="file" name="photo" id="photo-input" accept="image/*" class="hidden">
+      <input type="file" name="photos" id="photo-input" accept="image/*" class="hidden">
       <div class="space-y-3">
         <textarea name="content" rows="3" placeholder="Share some news with the family..."
           class="w-full border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
@@ -22,13 +22,7 @@
               class="flex items-center gap-1.5 text-xs px-3 py-2 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors min-h-[36px]">
               📷 Add Photo
             </button>
-            <div id="photo-preview-wrap" class="hidden flex items-center gap-2">
-              <img id="photo-thumb" class="w-14 h-14 object-cover rounded-lg border border-slate-200 dark:border-slate-700" src="" alt="">
-              <div class="flex flex-col gap-1">
-                <button type="button" id="photo-edit-again" class="text-xs text-brand-600 dark:text-brand-400 hover:underline text-left">✏️ Edit</button>
-                <button type="button" id="photo-remove" class="text-xs text-red-400 hover:underline text-left">✕ Remove</button>
-              </div>
-            </div>
+            <div id="photo-thumbs" class="flex items-center gap-2 flex-wrap"></div>
           </div>
           <%# Big News toggle %>
           <label class="flex items-center gap-2 cursor-pointer select-none">
@@ -113,7 +107,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
 
 <%# Photo editor modal %>
-<div id="photo-editor-modal" class="hidden fixed inset-0 bg-black z-[60] flex flex-col" style="padding-bottom:env(safe-area-inset-bottom)">
+<div id="photo-editor-modal" class="hidden fixed inset-x-0 top-0 bg-black z-[60] flex flex-col" style="height:100dvh;height:100vh;">
   <div class="flex items-center justify-between px-4 py-3 bg-slate-900 shrink-0 gap-3">
     <span class="text-white font-semibold text-sm">Edit Photo</span>
     <div class="flex gap-2">
@@ -124,7 +118,7 @@
   <div class="flex-1 min-h-0 overflow-hidden">
     <img id="crop-img" src="" alt="" class="block max-w-full">
   </div>
-  <div class="flex gap-3 px-4 py-4 bg-slate-900 shrink-0">
+  <div class="flex gap-3 px-4 pt-4 bg-slate-900 shrink-0" style="padding-bottom:max(1rem,env(safe-area-inset-bottom))">
     <button type="button" id="photo-cancel" class="flex-1 py-3 border border-slate-600 text-slate-200 rounded-xl text-sm font-medium hover:bg-slate-700 transition-colors">Cancel</button>
     <button type="button" id="photo-confirm" class="flex-1 py-3 bg-brand-600 text-white rounded-xl text-sm font-semibold hover:bg-brand-700 transition-colors">Use Photo</button>
   </div>
@@ -166,19 +160,18 @@
     });
   });
 
-  const photoInput    = document.getElementById('photo-input');
+  const photoInput     = document.getElementById('photo-input');
   const photoSelectBtn = document.getElementById('photo-select-btn');
-  const photoEditAgain = document.getElementById('photo-edit-again');
-  const photoRemove   = document.getElementById('photo-remove');
-  const photoPreviewWrap = document.getElementById('photo-preview-wrap');
-  const photoThumb    = document.getElementById('photo-thumb');
-  const modal         = document.getElementById('photo-editor-modal');
-  const cropImg       = document.getElementById('crop-img');
-  let cropper = null;
-  let pendingDataUrl = null;
+  const photoThumbs    = document.getElementById('photo-thumbs');
+  const modal          = document.getElementById('photo-editor-modal');
+  const cropImg        = document.getElementById('crop-img');
+  const MAX_PHOTOS     = 5;
+  let cropper      = null;
+  let cropCallback = null;
+  let selectedPhotos = []; // [{thumbUrl, file}]
 
-  function openEditor(dataUrl) {
-    pendingDataUrl = dataUrl;
+  function openEditor(dataUrl, onConfirm) {
+    cropCallback = onConfirm;
     cropImg.src = dataUrl;
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
@@ -192,6 +185,7 @@
         scalable: false,
         background: false,
         guides: true,
+        minContainerHeight: 0,
       });
     }, 80);
   }
@@ -202,14 +196,45 @@
     if (cropper) { cropper.destroy(); cropper = null; }
   }
 
+  function renderThumbs() {
+    photoThumbs.innerHTML = '';
+    selectedPhotos.forEach((p, i) => {
+      const div = document.createElement('div');
+      div.className = 'relative';
+      div.innerHTML = `<img src="${p.thumbUrl}" class="w-14 h-14 object-cover rounded-lg border border-slate-200 dark:border-slate-700" alt="">` +
+        `<button type="button" class="photo-rm-btn absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs flex items-center justify-center leading-none" data-i="${i}">✕</button>`;
+      photoThumbs.appendChild(div);
+    });
+    photoSelectBtn.classList.toggle('hidden', selectedPhotos.length >= MAX_PHOTOS);
+  }
+
+  function syncFiles() {
+    const dt = new DataTransfer();
+    selectedPhotos.forEach(p => dt.items.add(p.file));
+    photoInput.files = dt.files;
+  }
+
+  photoThumbs.addEventListener('click', (e) => {
+    const btn = e.target.closest('.photo-rm-btn');
+    if (!btn) return;
+    selectedPhotos.splice(parseInt(btn.dataset.i), 1);
+    renderThumbs();
+    syncFiles();
+  });
+
   photoSelectBtn.addEventListener('click', () => photoInput.click());
-  photoEditAgain.addEventListener('click', () => { if (pendingDataUrl) openEditor(pendingDataUrl); });
 
   photoInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
-    if (!file) return;
+    if (!file || selectedPhotos.length >= MAX_PHOTOS) return;
     const reader = new FileReader();
-    reader.onload = ev => openEditor(ev.target.result);
+    reader.onload = ev => openEditor(ev.target.result, (thumbUrl, croppedFile) => {
+      selectedPhotos.push({ thumbUrl, file: croppedFile });
+      renderThumbs();
+      syncFiles();
+      postExtras.classList.remove('hidden');
+      extrasToggle.textContent = '− Less';
+    });
     reader.readAsDataURL(file);
     photoInput.value = '';
   });
@@ -223,26 +248,10 @@
     const canvas = cropper.getCroppedCanvas({ maxWidth: 1600, maxHeight: 1600, imageSmoothingQuality: 'high' });
     canvas.toBlob(blob => {
       const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
-      const dt = new DataTransfer();
-      dt.items.add(file);
-      photoInput.files = dt.files;
-      const thumbUrl = canvas.toDataURL('image/jpeg', 0.85);
-      photoThumb.src = thumbUrl;
-      photoPreviewWrap.classList.remove('hidden');
-      photoPreviewWrap.classList.add('flex');
-      postExtras.classList.remove('hidden');
-      extrasToggle.textContent = '− Less';
+      const thumbUrl = canvas.toDataURL('image/jpeg', 0.5);
       closeEditor();
+      if (cropCallback) { cropCallback(thumbUrl, file); cropCallback = null; }
     }, 'image/jpeg', 0.92);
-  });
-
-  photoRemove.addEventListener('click', () => {
-    const dt = new DataTransfer();
-    photoInput.files = dt.files;
-    pendingDataUrl = null;
-    photoThumb.src = '';
-    photoPreviewWrap.classList.add('hidden');
-    photoPreviewWrap.classList.remove('flex');
   });
 </script>
 </body></html>

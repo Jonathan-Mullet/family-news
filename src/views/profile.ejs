@@ -146,7 +146,7 @@
 </div>
 
 <%# Avatar crop modal %>
-<div id="avatar-modal" class="hidden fixed inset-0 bg-black z-[60] flex flex-col" style="padding-bottom:env(safe-area-inset-bottom)">
+<div id="avatar-modal" class="hidden fixed inset-x-0 top-0 bg-black z-[60] flex flex-col" style="height:100dvh;height:100vh;">
   <div class="flex items-center justify-between px-4 py-3 bg-slate-900 shrink-0 gap-3">
     <span class="text-white font-semibold text-sm">Crop Photo</span>
     <div class="flex gap-2">
@@ -157,7 +157,7 @@
   <div class="flex-1 min-h-0 overflow-hidden">
     <img id="av-crop-img" src="" alt="" class="block max-w-full">
   </div>
-  <div class="flex gap-3 px-4 py-4 bg-slate-900 shrink-0">
+  <div class="flex gap-3 px-4 pt-4 bg-slate-900 shrink-0" style="padding-bottom:max(1rem,env(safe-area-inset-bottom))">
     <button type="button" id="av-cancel" class="flex-1 py-3 border border-slate-600 text-slate-200 rounded-xl text-sm font-medium hover:bg-slate-700 transition-colors">Cancel</button>
     <button type="button" id="av-confirm" class="flex-1 py-3 bg-brand-600 text-white rounded-xl text-sm font-semibold hover:bg-brand-700 transition-colors">Use Photo</button>
   </div>
@@ -201,6 +201,7 @@
           scalable: false,
           background: false,
           guides: false,
+          minContainerHeight: 0,
         });
       }, 80);
     };

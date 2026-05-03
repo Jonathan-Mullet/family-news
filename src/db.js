@@ -100,6 +100,14 @@ async function initDb() {
       fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS post_photos (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      post_id INT NOT NULL,
+      photo_url VARCHAR(2048) NOT NULL,
+      sort_order TINYINT DEFAULT 0,
+      UNIQUE KEY unique_photo_sort (post_id, sort_order),
+      FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+    )`,
   ];
   for (const q of tables) await pool.query(q);
 
@@ -114,6 +122,7 @@ async function initDb() {
     `ALTER TABLE users ADD COLUMN birthday DATE`,
     `ALTER TABLE users ADD COLUMN avatar_url VARCHAR(2048)`,
     `ALTER TABLE posts ADD COLUMN big_news TINYINT(1) DEFAULT 0`,
+    `INSERT IGNORE INTO post_photos (post_id, photo_url, sort_order) SELECT id, photo_url, 0 FROM posts WHERE photo_url IS NOT NULL`,
   ];
   for (const q of migrations) {
     try { await pool.query(q); } catch { /* column already exists */ }

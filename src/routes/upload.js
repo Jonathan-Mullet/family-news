@@ -78,6 +78,24 @@ function handleAvatarUpload(req, res, next) {
   });
 }
 
+function handleMultiUpload(req, res, next) {
+  upload.array('photos', 5)(req, res, async (err) => {
+    if (err) { req.uploadError = err.message; return next(); }
+    if (!req.files || !req.files.length) return next();
+    try {
+      const paths = [];
+      for (const file of req.files) {
+        paths.push(`/uploads/${await processAndSave(file.buffer)}`);
+      }
+      req.uploadedPaths = paths;
+    } catch (e) {
+      console.error('Multi-upload error:', e.message);
+      req.uploadError = 'Could not process images.';
+    }
+    next();
+  });
+}
+
 function deleteUploadedFile(photoUrl) {
   if (!photoUrl || !photoUrl.startsWith('/uploads/')) return;
   const filename = path.basename(photoUrl);
@@ -87,4 +105,4 @@ function deleteUploadedFile(photoUrl) {
   });
 }
 
-module.exports = { handleUpload, handleAvatarUpload, deleteUploadedFile };
+module.exports = { handleUpload, handleMultiUpload, handleAvatarUpload, deleteUploadedFile };

@@ -3,7 +3,7 @@ const router = express.Router();
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { sendNewPostNotification, sendBigNewsNotification } = require('../email');
-const { handleUpload, deleteUploadedFile } = require('./upload');
+const { handleMultiUpload, deleteUploadedFile } = require('./upload');
 const { fetchOgPreview } = require('../utils/ogFetch');
 
 const MAX_CONTENT = 2000;
@@ -46,6 +46,7 @@ router.get('/', requireAuth, async (req, res) => {
       .filter(p => !p.big_news)
       .sort((a, b) => (b.pinned - a.pinned) || (new Date(b.created_at) - new Date(a.created_at)));
 
+    allPosts.forEach(p => { p.photos = []; });
     let reactionsByPost = {};
     if (allPosts.length) {
       const ids = allPosts.map(p => p.id);
@@ -67,6 +68,15 @@ router.get('/', requireAuth, async (req, res) => {
       const readMap = {};
       readRows.forEach(r => { readMap[r.post_id] = r.read_count; });
       allPosts.forEach(p => { p.read_count = readMap[p.id] || 0; });
+
+      const [photoRows] = await pool.query(
+        'SELECT post_id, photo_url FROM post_photos WHERE post_id IN (?) ORDER BY sort_order',
+        [ids]
+      );
+      photoRows.forEach(ph => {
+        const post = allPosts.find(p => p.id === ph.post_id);
+        if (post) post.photos.push(ph.photo_url);
+      });
     }
 
     const latestPostId = allPosts[0]?.id || 0;
@@ -91,6 +101,12 @@ router.get('/post/:id', requireAuth, async (req, res) => {
     );
     if (!posts.length) return res.render('error', { message: 'Post not found.' });
     const post = posts[0];
+
+    const [postPhotoRows] = await pool.query(
+      'SELECT photo_url FROM post_photos WHERE post_id = ? ORDER BY sort_order',
+      [post.id]
+    );
+    post.photos = postPhotoRows.map(p => p.photo_url);
 
     await pool.query(
       'INSERT INTO post_reads (post_id, user_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE read_at = NOW()',
@@ -126,12 +142,11 @@ router.get('/post/:id', requireAuth, async (req, res) => {
   }
 });
 
-router.post('/posts', requireAuth, handleUpload, async (req, res) => {
+router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
   const { title, content, publish_at, big_news } = req.body;
   if (!content?.trim()) { req.flash('error', 'Post content is required.'); return res.redirect('/'); }
   if (content.trim().length > MAX_CONTENT) { req.flash('error', `Post cannot exceed ${MAX_CONTENT} characters.`); return res.redirect('/'); }
 
-  const photo_url = req.uploadedPath || null;
   const isBigNews = big_news === '1' ? 1 : 0;
 
   let publishAt = null;
@@ -142,10 +157,19 @@ router.post('/posts', requireAuth, handleUpload, async (req, res) => {
 
   try {
     const [result] = await pool.query(
-      'INSERT INTO posts (user_id, title, content, photo_url, publish_at, big_news) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.session.user.id, title?.trim() || null, content.trim(), photo_url, publishAt, isBigNews]
+      'INSERT INTO posts (user_id, title, content, publish_at, big_news) VALUES (?, ?, ?, ?, ?)',
+      [req.session.user.id, title?.trim() || null, content.trim(), publishAt, isBigNews]
     );
     const postId = result.insertId;
+
+    if (req.uploadedPaths && req.uploadedPaths.length) {
+      for (let i = 0; i < req.uploadedPaths.length; i++) {
+        await pool.query(
+          'INSERT INTO post_photos (post_id, photo_url, sort_order) VALUES (?, ?, ?)',
+          [postId, req.uploadedPaths[i], i]
+        );
+      }
+    }
 
     const [users] = await pool.query('SELECT id, email, notify_posts FROM users WHERE active = 1');
     if (isBigNews) {
@@ -219,10 +243,11 @@ router.post('/posts/:id/toggle-big-news', requireAuth, async (req, res) => {
 
 router.post('/posts/:id/delete', requireAuth, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT user_id, photo_url FROM posts WHERE id = ?', [req.params.id]);
+    const [rows] = await pool.query('SELECT user_id FROM posts WHERE id = ?', [req.params.id]);
     if (!rows.length) return res.redirect('/');
     if (rows[0].user_id !== req.session.user.id && req.session.user.role !== 'admin') return res.status(403).end();
-    if (rows[0].photo_url) deleteUploadedFile(rows[0].photo_url);
+    const [photos] = await pool.query('SELECT photo_url FROM post_photos WHERE post_id = ?', [req.params.id]);
+    photos.forEach(ph => deleteUploadedFile(ph.photo_url));
     await pool.query('DELETE FROM posts WHERE id = ?', [req.params.id]);
     res.redirect('/');
   } catch (err) { console.error(err); res.redirect('/'); }
