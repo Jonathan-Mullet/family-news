@@ -25,7 +25,7 @@
             <% if (isScheduled && (user.id === post.user_id || user.role === 'admin')) { %>
             <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded font-medium">🕐 Scheduled</span>
             <% } else { %>
-            <%= new Date(post.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }) %>
+            <time data-ts="<%= new Date(post.created_at).toISOString() %>"></time>
             <% if (post.edited_at) { %><span class="italic"> · edited</span><% } %>
             <% } %>
           </p>

@@ -1,3 +1,16 @@
+// Convert all timestamps to the viewer's local timezone.
+// EJS renders timestamps server-side (wrong TZ), so we emit bare <time data-ts="ISO">
+// elements and fill them here. data-fmt="long" = weekday+long month, "compact" = no year.
+document.querySelectorAll('time[data-ts]').forEach(el => {
+  const fmt = el.dataset.fmt;
+  const opts = fmt === 'long'
+    ? { weekday:'long', month:'long', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', timeZoneName:'short' }
+    : fmt === 'compact'
+    ? { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', timeZoneName:'short' }
+    : { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', timeZoneName:'short' };
+  el.textContent = new Date(el.dataset.ts).toLocaleString('en-US', opts);
+});
+
 // Dark mode toggle
 const darkToggle = document.getElementById('dark-toggle');
 if (darkToggle) {
