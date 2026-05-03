@@ -48,7 +48,9 @@
     <form method="POST" action="/profile/birthday">
       <div class="fn-field">
         <label class="fn-label" for="prof-birthday">Your birthday</label>
-        <input class="fn-input" type="date" id="prof-birthday" name="birthday" value="<%= user.birthday ? new Date(user.birthday).toISOString().slice(0,10) : '' %>" required max="<%= new Date().toISOString().slice(0,10) %>">
+        <div style="display:grid;grid-template-columns:minmax(0,1fr);">
+          <input class="fn-input" type="date" id="prof-birthday" name="birthday" value="<%= user.birthday ? new Date(user.birthday).toISOString().slice(0,10) : '' %>" required max="<%= new Date().toISOString().slice(0,10) %>">
+        </div>
       </div>
       <button type="submit" class="fn-btn">Update Birthday</button>
     </form>

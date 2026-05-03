@@ -16,7 +16,9 @@
       <form method="POST" action="/birthday-setup">
         <div class="fn-field">
           <label class="fn-label" for="bday-input">Your birthday</label>
-          <input class="fn-input" type="date" id="bday-input" name="birthday" required max="<%= new Date().toISOString().slice(0,10) %>">
+          <div style="display:grid;grid-template-columns:minmax(0,1fr);">
+            <input class="fn-input" type="date" id="bday-input" name="birthday" required max="<%= new Date().toISOString().slice(0,10) %>">
+          </div>
         </div>
         <button type="submit" class="fn-submit">Save and continue</button>
       </form>

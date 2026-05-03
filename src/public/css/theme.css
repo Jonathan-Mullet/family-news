@@ -111,6 +111,18 @@ input[type="date"].fn-input,
 input[type="datetime-local"].fn-input {
   -webkit-appearance: none;
   appearance: none;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Ensure cards never widen due to child overflow */
+.fn-settings-card,
+.fn-card {
+  width: 100%;
+  box-sizing: border-box;
+  max-width: 100%;
 }
 .dark .fn-input { background: #18110a; border-color: rgba(154, 126, 90, 0.3); color: #f5e5d0; }
 .dark .fn-input:focus { border-color: #c4895a; box-shadow: 0 0 0 3px rgba(196, 137, 90, 0.13); background: #1e1408; }
