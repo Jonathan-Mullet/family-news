@@ -106,6 +106,12 @@ body { font-family: 'Crimson Pro', Georgia, serif; }
   background: #ffffff;
 }
 .fn-input::placeholder { color: #c0ab95; font-style: italic; }
+/* iOS Safari date/datetime inputs ignore width constraints without this */
+input[type="date"].fn-input,
+input[type="datetime-local"].fn-input {
+  -webkit-appearance: none;
+  appearance: none;
+}
 .dark .fn-input { background: #18110a; border-color: rgba(154, 126, 90, 0.3); color: #f5e5d0; }
 .dark .fn-input:focus { border-color: #c4895a; box-shadow: 0 0 0 3px rgba(196, 137, 90, 0.13); background: #1e1408; }
 .dark .fn-input::placeholder { color: #7a5e40; }
