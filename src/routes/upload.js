@@ -27,6 +27,7 @@ async function processAndSave(buffer) {
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
   const outPath = path.join(UPLOADS_DIR, filename);
   await sharp(buffer)
+    .rotate()
     .resize({ width: 1200, withoutEnlargement: true })
     .jpeg({ quality: 82 })
     .toFile(outPath);
@@ -57,6 +58,7 @@ async function processAndSaveAvatar(buffer) {
   const filename = `avatar-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
   const outPath = path.join(UPLOADS_DIR, filename);
   await sharp(buffer)
+    .rotate()
     .resize(256, 256, { fit: 'cover', position: 'centre' })
     .jpeg({ quality: 85 })
     .toFile(outPath);

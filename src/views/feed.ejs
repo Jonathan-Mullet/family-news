@@ -104,28 +104,7 @@
   New posts — tap to refresh
 </div>
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
-
-<%# Photo editor modal %>
-<div id="photo-editor-modal" class="hidden fixed inset-x-0 top-0 bg-black z-[60] flex flex-col" style="height:100dvh;height:100vh;">
-  <div class="flex items-center justify-between px-4 py-3 bg-slate-900 shrink-0 gap-3">
-    <span class="text-white font-semibold text-sm">Edit Photo</span>
-    <div class="flex gap-2">
-      <button id="rotate-left" type="button" class="p-2 rounded-lg bg-slate-700 text-white text-xl leading-none hover:bg-slate-600 transition-colors">↺</button>
-      <button id="rotate-right" type="button" class="p-2 rounded-lg bg-slate-700 text-white text-xl leading-none hover:bg-slate-600 transition-colors">↻</button>
-    </div>
-  </div>
-  <div class="flex-1 min-h-0 overflow-hidden">
-    <img id="crop-img" src="" alt="" class="block max-w-full">
-  </div>
-  <div class="flex gap-3 px-4 pt-4 bg-slate-900 shrink-0" style="padding-bottom:max(1rem,env(safe-area-inset-bottom))">
-    <button type="button" id="photo-cancel" class="flex-1 py-3 border border-slate-600 text-slate-200 rounded-xl text-sm font-medium hover:bg-slate-700 transition-colors">Cancel</button>
-    <button type="button" id="photo-confirm" class="flex-1 py-3 bg-brand-600 text-white rounded-xl text-sm font-semibold hover:bg-brand-700 transition-colors">Use Photo</button>
-  </div>
-</div>
-
 <script src="/js/app.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 <script>
   const extrasToggle = document.getElementById('extras-toggle');
   const postExtras = document.getElementById('post-extras');
@@ -163,38 +142,8 @@
   const photoInput     = document.getElementById('photo-input');
   const photoSelectBtn = document.getElementById('photo-select-btn');
   const photoThumbs    = document.getElementById('photo-thumbs');
-  const modal          = document.getElementById('photo-editor-modal');
-  const cropImg        = document.getElementById('crop-img');
   const MAX_PHOTOS     = 5;
-  let cropper      = null;
-  let cropCallback = null;
-  let selectedPhotos = []; // [{thumbUrl, file}]
-
-  function openEditor(dataUrl, onConfirm) {
-    cropCallback = onConfirm;
-    cropImg.src = dataUrl;
-    modal.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-    if (cropper) { cropper.destroy(); cropper = null; }
-    setTimeout(() => {
-      cropper = new Cropper(cropImg, {
-        viewMode: 1,
-        autoCropArea: 0.95,
-        movable: true,
-        zoomable: true,
-        scalable: false,
-        background: false,
-        guides: true,
-        minContainerHeight: 0,
-      });
-    }, 80);
-  }
-
-  function closeEditor() {
-    modal.classList.add('hidden');
-    document.body.style.overflow = '';
-    if (cropper) { cropper.destroy(); cropper = null; }
-  }
+  let selectedPhotos   = [];
 
   function renderThumbs() {
     photoThumbs.innerHTML = '';
@@ -228,30 +177,15 @@
     const file = e.target.files[0];
     if (!file || selectedPhotos.length >= MAX_PHOTOS) return;
     const reader = new FileReader();
-    reader.onload = ev => openEditor(ev.target.result, (thumbUrl, croppedFile) => {
-      selectedPhotos.push({ thumbUrl, file: croppedFile });
+    reader.onload = ev => {
+      selectedPhotos.push({ thumbUrl: ev.target.result, file });
       renderThumbs();
       syncFiles();
       postExtras.classList.remove('hidden');
       extrasToggle.textContent = '− Less';
-    });
+    };
     reader.readAsDataURL(file);
     photoInput.value = '';
-  });
-
-  document.getElementById('rotate-left').addEventListener('click', () => cropper?.rotate(-90));
-  document.getElementById('rotate-right').addEventListener('click', () => cropper?.rotate(90));
-  document.getElementById('photo-cancel').addEventListener('click', closeEditor);
-
-  document.getElementById('photo-confirm').addEventListener('click', () => {
-    if (!cropper) return;
-    const canvas = cropper.getCroppedCanvas({ maxWidth: 1600, maxHeight: 1600, imageSmoothingQuality: 'high' });
-    canvas.toBlob(blob => {
-      const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
-      const thumbUrl = canvas.toDataURL('image/jpeg', 0.5);
-      closeEditor();
-      if (cropCallback) { cropCallback(thumbUrl, file); cropCallback = null; }
-    }, 'image/jpeg', 0.92);
   });
 </script>
 </body></html>
