@@ -86,6 +86,8 @@ body { font-family: 'Crimson Pro', Georgia, serif; }
 
 .fn-input {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border: 1px solid rgba(139, 115, 85, 0.32);
   background: #fdfaf6;
   color: #2c1810;
@@ -263,6 +265,7 @@ body { font-family: 'Crimson Pro', Georgia, serif; }
   box-shadow: 0 1px 8px rgba(44, 24, 16, 0.06), 0 0 0 1px rgba(139, 115, 85, 0.16);
   padding: 1.75rem 2rem;
   margin-bottom: 1.25rem;
+  overflow: hidden;
 }
 .dark .fn-settings-card {
   background: #231610;
