@@ -82,8 +82,9 @@ router.post('/avatar/remove', async (req, res) => {
 });
 
 router.post('/birthday', async (req, res) => {
-  const { birthday } = req.body;
-  if (!birthday) { req.flash('error', 'Birthday is required.'); return res.redirect('/profile'); }
+  const { birthday_month, birthday_day, birthday_year } = req.body;
+  if (!birthday_month || !birthday_day || !birthday_year) { req.flash('error', 'Birthday is required.'); return res.redirect('/profile'); }
+  const birthday = `${birthday_year}-${birthday_month}-${birthday_day}`;
   const date = new Date(birthday);
   if (isNaN(date.getTime()) || date >= new Date()) {
     req.flash('error', 'Please enter a valid birthday.');

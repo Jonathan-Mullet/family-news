@@ -60,11 +60,12 @@ router.get('/register', async (req, res) => {
 });
 
 router.post('/register', async (req, res) => {
-  const { invite, name, email, password, birthday } = req.body;
-  if (!name?.trim() || !email?.trim() || !password || password.length < 8 || !birthday) {
+  const { invite, name, email, password, birthday_month, birthday_day, birthday_year } = req.body;
+  if (!name?.trim() || !email?.trim() || !password || password.length < 8 || !birthday_month || !birthday_day || !birthday_year) {
     req.flash('error', 'All fields are required and password must be at least 8 characters.');
     return res.redirect(`/register?invite=${invite}`);
   }
+  const birthday = `${birthday_year}-${birthday_month}-${birthday_day}`;
   const birthdayDate = new Date(birthday);
   if (isNaN(birthdayDate.getTime()) || birthdayDate >= new Date()) {
     req.flash('error', 'Please enter a valid birthday.');
@@ -102,11 +103,12 @@ router.get('/birthday-setup', requireAuth, (req, res) => {
 });
 
 router.post('/birthday-setup', requireAuth, async (req, res) => {
-  const { birthday } = req.body;
-  if (!birthday) {
+  const { birthday_month, birthday_day, birthday_year } = req.body;
+  if (!birthday_month || !birthday_day || !birthday_year) {
     req.flash('error', 'Please enter your birthday.');
     return res.redirect('/birthday-setup');
   }
+  const birthday = `${birthday_year}-${birthday_month}-${birthday_day}`;
   const date = new Date(birthday);
   if (isNaN(date.getTime()) || date >= new Date()) {
     req.flash('error', 'Please enter a valid birthday.');

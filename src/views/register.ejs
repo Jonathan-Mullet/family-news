@@ -27,9 +27,30 @@
         </div>
 
         <div class="fn-field">
-          <label class="fn-label" for="reg-birthday">Birthday</label>
-          <div style="display:grid;grid-template-columns:minmax(0,1fr);">
-            <input class="fn-input" type="date" id="reg-birthday" name="birthday" required max="<%= new Date().toISOString().slice(0,10) %>">
+          <%
+            const _bdMonths = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+            const _bdNow = new Date().getFullYear();
+          %>
+          <label class="fn-label">Birthday</label>
+          <div style="display:flex;gap:0.5rem;">
+            <select name="birthday_month" class="fn-select" style="flex:1.5;width:auto;min-width:0;" required>
+              <option value="" disabled selected>Month</option>
+              <% _bdMonths.forEach(function(m, i) { const v = ('0'+(i+1)).slice(-2); %>
+              <option value="<%= v %>"><%= m %></option>
+              <% }); %>
+            </select>
+            <select name="birthday_day" class="fn-select" style="flex:0.8;width:auto;min-width:0;" required>
+              <option value="" disabled selected>Day</option>
+              <% for (let _d = 1; _d <= 31; _d++) { const v = ('0'+_d).slice(-2); %>
+              <option value="<%= v %>"><%= _d %></option>
+              <% } %>
+            </select>
+            <select name="birthday_year" class="fn-select" style="flex:1;width:auto;min-width:0;" required>
+              <option value="" disabled selected>Year</option>
+              <% for (let _y = _bdNow; _y >= 1920; _y--) { %>
+              <option value="<%= _y %>"><%= _y %></option>
+              <% } %>
+            </select>
           </div>
         </div>
 
