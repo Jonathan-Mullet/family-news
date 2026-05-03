@@ -35,19 +35,19 @@
       <div class="flex items-center gap-1">
         <% if (user.role === 'admin') { %>
         <form method="POST" action="/posts/<%= post.id %>/pin">
-          <button type="submit" class="p-1.5 text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" title="<%= post.pinned ? 'Unpin post' : 'Pin post' %>">
+          <button type="submit" class="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" title="<%= post.pinned ? 'Unpin post' : 'Pin post' %>">
             <span class="text-sm"><%= post.pinned ? '📌' : '📍' %></span>
           </button>
         </form>
         <% } %>
         <form method="POST" action="/posts/<%= post.id %>/toggle-big-news">
-          <button type="submit" class="p-1.5 transition-colors <%= post.big_news ? 'text-amber-500 dark:text-amber-400 hover:text-amber-700' : 'text-slate-300 dark:text-slate-600 hover:text-amber-500 dark:hover:text-amber-400' %>" title="<%= post.big_news ? 'Unmark Big News' : 'Mark as Big News' %>">
+          <button type="submit" class="min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors <%= post.big_news ? 'text-amber-500 dark:text-amber-400 hover:text-amber-700' : 'text-slate-300 dark:text-slate-600 hover:text-amber-500 dark:hover:text-amber-400' %>" title="<%= post.big_news ? 'Unmark Big News' : 'Mark as Big News' %>">
             <span class="text-sm">📣</span>
           </button>
         </form>
-        <button class="edit-toggle p-1.5 text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors text-xs" data-post-id="<%= post.id %>" title="Edit post">✏️</button>
+        <button class="edit-toggle min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors text-xs" data-post-id="<%= post.id %>" title="Edit post">✏️</button>
         <form method="POST" action="/posts/<%= post.id %>/delete" onsubmit="return confirm('Delete this post?')">
-          <button type="submit" class="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-400 transition-colors text-sm">✕</button>
+          <button type="submit" class="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-red-400 transition-colors text-sm">✕</button>
         </form>
       </div>
       <% } %>

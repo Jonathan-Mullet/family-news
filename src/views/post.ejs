@@ -41,19 +41,19 @@
         <div class="flex items-center gap-1">
           <% if (user.role === 'admin') { %>
           <form method="POST" action="/posts/<%= post.id %>/pin">
-            <button type="submit" class="p-1.5 text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" title="<%= post.pinned ? 'Unpin' : 'Pin' %>">
+            <button type="submit" class="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" title="<%= post.pinned ? 'Unpin' : 'Pin' %>">
               <span><%= post.pinned ? '📌' : '📍' %></span>
             </button>
           </form>
           <% } %>
           <form method="POST" action="/posts/<%= post.id %>/toggle-big-news">
-            <button type="submit" class="p-1.5 transition-colors <%= post.big_news ? 'text-amber-500 dark:text-amber-400 hover:text-amber-700' : 'text-slate-300 dark:text-slate-600 hover:text-amber-500 dark:hover:text-amber-400' %>" title="<%= post.big_news ? 'Unmark Big News' : 'Mark as Big News' %>">
+            <button type="submit" class="min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors <%= post.big_news ? 'text-amber-500 dark:text-amber-400 hover:text-amber-700' : 'text-slate-300 dark:text-slate-600 hover:text-amber-500 dark:hover:text-amber-400' %>" title="<%= post.big_news ? 'Unmark Big News' : 'Mark as Big News' %>">
               <span>📣</span>
             </button>
           </form>
-          <button class="edit-toggle p-1.5 text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors text-xs" data-post-id="<%= post.id %>" title="Edit post">✏️</button>
+          <button class="edit-toggle min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors text-xs" data-post-id="<%= post.id %>" title="Edit post">✏️</button>
           <form method="POST" action="/posts/<%= post.id %>/delete" onsubmit="return confirm('Delete this post?')">
-            <button type="submit" class="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-400 transition-colors">✕</button>
+            <button type="submit" class="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-red-400 transition-colors">✕</button>
           </form>
         </div>
         <% } %>
@@ -144,10 +144,10 @@
             </div>
             <div class="flex items-center gap-3 mt-1.5 px-1 flex-wrap">
               <span class="text-xs text-slate-400 dark:text-slate-500"><%= new Date(comment.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) %></span>
-              <button class="text-xs text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors reply-toggle py-1" data-target="reply-form-<%= comment.id %>">Reply</button>
+              <button class="text-xs text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors reply-toggle min-h-[36px] px-1" data-target="reply-form-<%= comment.id %>">Reply</button>
               <% if (user.id === comment.user_id || user.role === 'admin') { %>
               <form method="POST" action="/comments/<%= comment.id %>/delete" class="inline" onsubmit="return confirm('Delete comment?')">
-                <button type="submit" class="text-xs text-slate-400 dark:text-slate-500 hover:text-red-400 transition-colors py-1">Delete</button>
+                <button type="submit" class="text-xs text-slate-400 dark:text-slate-500 hover:text-red-400 transition-colors min-h-[36px] px-1">Delete</button>
               </form>
               <% } %>
             </div>
@@ -180,7 +180,7 @@
               <span class="text-xs text-slate-400 dark:text-slate-500"><%= new Date(reply.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) %></span>
               <% if (user.id === reply.user_id || user.role === 'admin') { %>
               <form method="POST" action="/comments/<%= reply.id %>/delete" class="inline" onsubmit="return confirm('Delete comment?')">
-                <button type="submit" class="text-xs text-slate-400 dark:text-slate-500 hover:text-red-400 transition-colors py-1">Delete</button>
+                <button type="submit" class="text-xs text-slate-400 dark:text-slate-500 hover:text-red-400 transition-colors min-h-[36px] px-1">Delete</button>
               </form>
               <% } %>
             </div>
