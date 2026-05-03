@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { handleAvatarUpload, deleteUploadedFile } = require('./upload');
 
 router.use(requireAuth);
 
@@ -55,6 +56,44 @@ router.post('/notifications', async (req, res) => {
     console.error(err);
     req.flash('error', 'Could not save preferences.');
   }
+  res.redirect('/profile');
+});
+
+router.post('/avatar', handleAvatarUpload, async (req, res) => {
+  if (req.uploadError) { req.flash('error', req.uploadError); return res.redirect('/profile'); }
+  if (!req.uploadedPath) { req.flash('error', 'No image received.'); return res.redirect('/profile'); }
+  try {
+    if (req.session.user.avatar_url) deleteUploadedFile(req.session.user.avatar_url);
+    await pool.query('UPDATE users SET avatar_url = ? WHERE id = ?', [req.uploadedPath, req.session.user.id]);
+    req.session.user.avatar_url = req.uploadedPath;
+    req.flash('success', 'Profile photo updated.');
+  } catch (err) { console.error(err); req.flash('error', 'Could not save photo.'); }
+  res.redirect('/profile');
+});
+
+router.post('/avatar/remove', async (req, res) => {
+  try {
+    if (req.session.user.avatar_url) deleteUploadedFile(req.session.user.avatar_url);
+    await pool.query('UPDATE users SET avatar_url = NULL WHERE id = ?', [req.session.user.id]);
+    req.session.user.avatar_url = null;
+    req.flash('success', 'Profile photo removed.');
+  } catch (err) { console.error(err); req.flash('error', 'Could not remove photo.'); }
+  res.redirect('/profile');
+});
+
+router.post('/birthday', async (req, res) => {
+  const { birthday } = req.body;
+  if (!birthday) { req.flash('error', 'Birthday is required.'); return res.redirect('/profile'); }
+  const date = new Date(birthday);
+  if (isNaN(date.getTime()) || date >= new Date()) {
+    req.flash('error', 'Please enter a valid birthday.');
+    return res.redirect('/profile');
+  }
+  try {
+    await pool.query('UPDATE users SET birthday = ? WHERE id = ?', [birthday, req.session.user.id]);
+    req.session.user.birthday = birthday;
+    req.flash('success', 'Birthday updated.');
+  } catch (err) { console.error(err); req.flash('error', 'Could not update birthday.'); }
   res.redirect('/profile');
 });
 

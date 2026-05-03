@@ -36,6 +36,26 @@ app.use((req, res, next) => {
   next();
 });
 
+// Prompt logged-in users without a birthday to set one
+const BIRTHDAY_SKIP = ['/birthday-setup', '/logout', '/login', '/register', '/forgot-password', '/reset-password'];
+app.use(async (req, res, next) => {
+  if (!req.session.user) return next();
+  if (BIRTHDAY_SKIP.some(p => req.path.startsWith(p))) return next();
+  if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path.startsWith('/css/') || req.path.startsWith('/js/')) return next();
+
+  // Sync birthday + avatar_url for sessions created before these fields existed
+  if (!('birthday' in req.session.user)) {
+    try {
+      const [[u]] = await pool.query('SELECT birthday, avatar_url FROM users WHERE id = ?', [req.session.user.id]);
+      req.session.user.birthday = u?.birthday || null;
+      if (!('avatar_url' in req.session.user)) req.session.user.avatar_url = u?.avatar_url || null;
+    } catch { return next(); }
+  }
+
+  if (req.session.user.birthday === null) return res.redirect('/birthday-setup');
+  next();
+});
+
 app.use('/', require('./routes/auth'));
 app.use('/', require('./routes/posts'));
 app.use('/', require('./routes/reactions'));

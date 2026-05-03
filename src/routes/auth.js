@@ -20,7 +20,16 @@ router.post('/login', async (req, res) => {
       return res.redirect('/login');
     }
     const u = rows[0];
-    req.session.user = { id: u.id, name: u.name, email: u.email, role: u.role, notify_posts: u.notify_posts ?? 1, notify_comments: u.notify_comments ?? 1 };
+    req.session.user = {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      notify_posts: u.notify_posts ?? 1,
+      notify_comments: u.notify_comments ?? 1,
+      birthday: u.birthday || null,
+      avatar_url: u.avatar_url || null,
+    };
     if (remember) req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 90;
     res.redirect('/');
   } catch (err) {
@@ -51,9 +60,14 @@ router.get('/register', async (req, res) => {
 });
 
 router.post('/register', async (req, res) => {
-  const { invite, name, email, password } = req.body;
-  if (!name?.trim() || !email?.trim() || !password || password.length < 8) {
+  const { invite, name, email, password, birthday } = req.body;
+  if (!name?.trim() || !email?.trim() || !password || password.length < 8 || !birthday) {
     req.flash('error', 'All fields are required and password must be at least 8 characters.');
+    return res.redirect(`/register?invite=${invite}`);
+  }
+  const birthdayDate = new Date(birthday);
+  if (isNaN(birthdayDate.getTime()) || birthdayDate >= new Date()) {
+    req.flash('error', 'Please enter a valid birthday.');
     return res.redirect(`/register?invite=${invite}`);
   }
   try {
@@ -65,8 +79,8 @@ router.post('/register', async (req, res) => {
 
     const hash = await bcrypt.hash(password, 12);
     const [result] = await pool.query(
-      'INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)',
-      [name.trim(), email.trim().toLowerCase(), hash]
+      'INSERT INTO users (name, email, password_hash, birthday) VALUES (?, ?, ?, ?)',
+      [name.trim(), email.trim().toLowerCase(), hash, birthday]
     );
     await pool.query('UPDATE invites SET used_by = ?, used_at = NOW() WHERE token = ?', [result.insertId, invite]);
 
@@ -79,6 +93,33 @@ router.post('/register', async (req, res) => {
     }
     console.error(err);
     res.render('error', { message: 'Something went wrong.' });
+  }
+});
+
+router.get('/birthday-setup', requireAuth, (req, res) => {
+  if (req.session.user.birthday) return res.redirect('/');
+  res.render('birthday-setup');
+});
+
+router.post('/birthday-setup', requireAuth, async (req, res) => {
+  const { birthday } = req.body;
+  if (!birthday) {
+    req.flash('error', 'Please enter your birthday.');
+    return res.redirect('/birthday-setup');
+  }
+  const date = new Date(birthday);
+  if (isNaN(date.getTime()) || date >= new Date()) {
+    req.flash('error', 'Please enter a valid birthday.');
+    return res.redirect('/birthday-setup');
+  }
+  try {
+    await pool.query('UPDATE users SET birthday = ? WHERE id = ?', [birthday, req.session.user.id]);
+    req.session.user.birthday = birthday;
+    res.redirect('/');
+  } catch (err) {
+    console.error(err);
+    req.flash('error', 'Something went wrong.');
+    res.redirect('/birthday-setup');
   }
 });
 

@@ -111,6 +111,9 @@ async function initDb() {
     `ALTER TABLE users ADD COLUMN notify_posts TINYINT(1) DEFAULT 1`,
     `ALTER TABLE users ADD COLUMN notify_comments TINYINT(1) DEFAULT 1`,
     `ALTER TABLE posts ADD COLUMN publish_at TIMESTAMP NULL`,
+    `ALTER TABLE users ADD COLUMN birthday DATE`,
+    `ALTER TABLE users ADD COLUMN avatar_url VARCHAR(2048)`,
+    `ALTER TABLE posts ADD COLUMN big_news TINYINT(1) DEFAULT 0`,
   ];
   for (const q of migrations) {
     try { await pool.query(q); } catch { /* column already exists */ }

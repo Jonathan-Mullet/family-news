@@ -53,6 +53,31 @@ function handleUpload(req, res, next) {
   });
 }
 
+async function processAndSaveAvatar(buffer) {
+  const filename = `avatar-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+  const outPath = path.join(UPLOADS_DIR, filename);
+  await sharp(buffer)
+    .resize(256, 256, { fit: 'cover', position: 'centre' })
+    .jpeg({ quality: 85 })
+    .toFile(outPath);
+  return filename;
+}
+
+function handleAvatarUpload(req, res, next) {
+  upload.single('avatar')(req, res, async (err) => {
+    if (err) { req.uploadError = err.message; return next(); }
+    if (!req.file) return next();
+    try {
+      const filename = await processAndSaveAvatar(req.file.buffer);
+      req.uploadedPath = `/uploads/${filename}`;
+    } catch (e) {
+      console.error('Sharp avatar error:', e.message);
+      req.uploadError = 'Could not process image.';
+    }
+    next();
+  });
+}
+
 function deleteUploadedFile(photoUrl) {
   if (!photoUrl || !photoUrl.startsWith('/uploads/')) return;
   const filename = path.basename(photoUrl);
@@ -62,4 +87,4 @@ function deleteUploadedFile(photoUrl) {
   });
 }
 
-module.exports = { handleUpload, deleteUploadedFile };
+module.exports = { handleUpload, handleAvatarUpload, deleteUploadedFile };

@@ -6,7 +6,11 @@
 
   <%# Post %>
   <article class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden" data-post-id="<%= post.id %>">
-    <% if (post.pinned) { %>
+    <% if (post.big_news) { %>
+    <div class="px-5 pt-3 pb-0 flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 font-medium">
+      <span>📣</span><span>Big News</span>
+    </div>
+    <% } else if (post.pinned) { %>
     <div class="px-5 pt-3 pb-0 flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 font-medium">
       <span>📌</span><span>Pinned post</span>
     </div>
@@ -14,9 +18,13 @@
     <div class="p-5">
       <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-2">
+          <% if (post.author_avatar) { %>
+          <img src="<%= post.author_avatar %>" class="w-10 h-10 rounded-full object-cover flex-shrink-0" alt="">
+          <% } else { %>
           <div class="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-600/20 flex items-center justify-center text-brand-600 dark:text-brand-400 font-semibold flex-shrink-0">
             <%= post.author_name.charAt(0).toUpperCase() %>
           </div>
+          <% } %>
           <div>
             <p class="font-semibold text-slate-800 dark:text-slate-100"><%= post.author_name %></p>
             <p class="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
@@ -38,6 +46,11 @@
             </button>
           </form>
           <% } %>
+          <form method="POST" action="/posts/<%= post.id %>/toggle-big-news">
+            <button type="submit" class="p-1.5 transition-colors <%= post.big_news ? 'text-amber-500 dark:text-amber-400 hover:text-amber-700' : 'text-slate-300 dark:text-slate-600 hover:text-amber-500 dark:hover:text-amber-400' %>" title="<%= post.big_news ? 'Unmark Big News' : 'Mark as Big News' %>">
+              <span>📣</span>
+            </button>
+          </form>
           <button class="edit-toggle p-1.5 text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors text-xs" data-post-id="<%= post.id %>" title="Edit post">✏️</button>
           <form method="POST" action="/posts/<%= post.id %>/delete" onsubmit="return confirm('Delete this post?')">
             <button type="submit" class="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-400 transition-colors">✕</button>
@@ -68,7 +81,6 @@
       </div>
       <% } %>
 
-      <%# Link preview (only when no photo) %>
       <% if (post.preview_url && !post.photo_url) { %>
       <a href="<%= post.preview_url %>" target="_blank" rel="noopener" class="mt-3 flex gap-3 border border-slate-200 dark:border-slate-600 rounded-xl p-3 hover:border-brand-400 dark:hover:border-brand-500 transition-colors overflow-hidden">
         <% if (post.og_image) { %><img src="<%= post.og_image %>" class="w-16 h-16 object-cover rounded-lg flex-shrink-0" loading="lazy" onerror="this.remove()"><% } %>
@@ -95,7 +107,6 @@
       </button>
       <% }) %>
 
-      <%# Extended emoji picker %>
       <div class="relative ml-1">
         <button class="emoji-picker-toggle p-1.5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm min-h-[40px] min-w-[40px]" data-post-id="<%= post.id %>">＋</button>
         <div class="emoji-picker hidden absolute bottom-12 left-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-2xl shadow-xl p-2 z-20 grid grid-cols-4 gap-1 w-40">
@@ -119,9 +130,13 @@
     <% comments.forEach(comment => { %>
       <div class="space-y-3">
         <div class="flex gap-3">
+          <% if (comment.author_avatar) { %>
+          <img src="<%= comment.author_avatar %>" class="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-0.5" alt="">
+          <% } else { %>
           <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 font-semibold text-xs flex-shrink-0 mt-0.5">
             <%= comment.author_name.charAt(0).toUpperCase() %>
           </div>
+          <% } %>
           <div class="flex-1 min-w-0">
             <div class="bg-slate-50 dark:bg-slate-700/60 rounded-xl px-3 py-2.5">
               <p class="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-0.5"><%= comment.author_name %></p>
@@ -149,9 +164,13 @@
 
         <% comment.replies.forEach(reply => { %>
         <div class="flex gap-3 pl-11">
+          <% if (reply.author_avatar) { %>
+          <img src="<%= reply.author_avatar %>" class="w-8 h-8 rounded-full object-cover flex-shrink-0 mt-0.5" alt="">
+          <% } else { %>
           <div class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 font-semibold text-xs flex-shrink-0 mt-0.5">
             <%= reply.author_name.charAt(0).toUpperCase() %>
           </div>
+          <% } %>
           <div class="flex-1 min-w-0">
             <div class="bg-slate-50 dark:bg-slate-700/60 rounded-xl px-3 py-2.5">
               <p class="text-xs font-semibold text-slate-700 dark:text-slate-200 mb-0.5"><%= reply.author_name %></p>
@@ -192,8 +211,7 @@
 
   document.querySelectorAll('.edit-toggle').forEach(btn => {
     btn.addEventListener('click', () => {
-      const postId = btn.dataset.postId;
-      const article = document.querySelector(`article[data-post-id="${postId}"]`);
+      const article = document.querySelector(`article[data-post-id="${btn.dataset.postId}"]`);
       article.querySelector('.post-content-display').classList.add('hidden');
       article.querySelector('.post-edit-form').classList.remove('hidden');
     });
@@ -201,8 +219,7 @@
 
   document.querySelectorAll('.edit-cancel').forEach(btn => {
     btn.addEventListener('click', () => {
-      const postId = btn.dataset.postId;
-      const article = document.querySelector(`article[data-post-id="${postId}"]`);
+      const article = document.querySelector(`article[data-post-id="${btn.dataset.postId}"]`);
       article.querySelector('.post-content-display').classList.remove('hidden');
       article.querySelector('.post-edit-form').classList.add('hidden');
     });

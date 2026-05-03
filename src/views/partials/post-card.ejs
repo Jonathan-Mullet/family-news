@@ -1,0 +1,122 @@
+<article class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden" data-post-id="<%= post.id %>">
+  <% if (post.big_news) { %>
+  <div class="px-4 pt-2 pb-0 flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400 font-medium">
+    <span>📣</span><span>Big News</span>
+  </div>
+  <% } else if (post.pinned) { %>
+  <div class="px-4 pt-2 pb-0 flex items-center gap-1 text-xs text-brand-600 dark:text-brand-400 font-medium">
+    <span>📌</span><span>Pinned</span>
+  </div>
+  <% } %>
+  <div class="p-4">
+    <%# Header %>
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center gap-2">
+        <% if (post.author_avatar) { %>
+        <img src="<%= post.author_avatar %>" class="w-9 h-9 rounded-full object-cover flex-shrink-0" alt="">
+        <% } else { %>
+        <div class="w-9 h-9 rounded-full bg-brand-100 dark:bg-brand-600/20 flex items-center justify-center text-brand-600 dark:text-brand-400 font-semibold text-sm flex-shrink-0">
+          <%= post.author_name.charAt(0).toUpperCase() %>
+        </div>
+        <% } %>
+        <div>
+          <p class="text-sm font-semibold text-slate-800 dark:text-slate-100"><%= post.author_name %></p>
+          <p class="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+            <% if (isScheduled && (user.id === post.user_id || user.role === 'admin')) { %>
+            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded font-medium">🕐 Scheduled</span>
+            <% } else { %>
+            <%= new Date(post.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }) %>
+            <% if (post.edited_at) { %><span class="italic"> · edited</span><% } %>
+            <% } %>
+          </p>
+        </div>
+      </div>
+      <% if (user.id === post.user_id || user.role === 'admin') { %>
+      <div class="flex items-center gap-1">
+        <% if (user.role === 'admin') { %>
+        <form method="POST" action="/posts/<%= post.id %>/pin">
+          <button type="submit" class="p-1.5 text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" title="<%= post.pinned ? 'Unpin post' : 'Pin post' %>">
+            <span class="text-sm"><%= post.pinned ? '📌' : '📍' %></span>
+          </button>
+        </form>
+        <% } %>
+        <form method="POST" action="/posts/<%= post.id %>/toggle-big-news">
+          <button type="submit" class="p-1.5 transition-colors <%= post.big_news ? 'text-amber-500 dark:text-amber-400 hover:text-amber-700' : 'text-slate-300 dark:text-slate-600 hover:text-amber-500 dark:hover:text-amber-400' %>" title="<%= post.big_news ? 'Unmark Big News' : 'Mark as Big News' %>">
+            <span class="text-sm">📣</span>
+          </button>
+        </form>
+        <button class="edit-toggle p-1.5 text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors text-xs" data-post-id="<%= post.id %>" title="Edit post">✏️</button>
+        <form method="POST" action="/posts/<%= post.id %>/delete" onsubmit="return confirm('Delete this post?')">
+          <button type="submit" class="p-1.5 text-slate-300 dark:text-slate-600 hover:text-red-400 transition-colors text-sm">✕</button>
+        </form>
+      </div>
+      <% } %>
+    </div>
+
+    <%# Content display %>
+    <div class="post-content-display">
+      <% if (post.title) { %><h2 class="font-semibold text-slate-800 dark:text-slate-100 mb-1"><%= post.title %></h2><% } %>
+      <p class="text-slate-700 dark:text-slate-300 text-sm leading-relaxed whitespace-pre-wrap"><%= post.content %></p>
+    </div>
+
+    <%# Inline edit form %>
+    <form method="POST" action="/posts/<%= post.id %>/edit" class="post-edit-form hidden space-y-2">
+      <input type="text" name="title" placeholder="Title (optional)" value="<%= post.title || '' %>"
+        class="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600">
+      <textarea name="content" rows="4" required maxlength="2000"
+        class="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-600"><%= post.content %></textarea>
+      <div class="flex gap-2 justify-end">
+        <button type="button" class="edit-cancel text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 px-3 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg transition-colors" data-post-id="<%= post.id %>">Cancel</button>
+        <button type="submit" class="text-xs bg-brand-600 hover:bg-brand-700 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">Save</button>
+      </div>
+    </form>
+
+    <%# Photo %>
+    <% if (post.photo_url) { %>
+    <div class="mt-3 rounded-xl overflow-hidden border border-slate-100 dark:border-slate-700">
+      <img src="<%= post.photo_url %>" alt="" class="w-full object-cover max-h-80" loading="lazy" onerror="this.parentElement.remove()">
+    </div>
+    <% } %>
+
+    <%# Link preview %>
+    <% if (post.preview_url && !post.photo_url) { %>
+    <a href="<%= post.preview_url %>" target="_blank" rel="noopener" class="mt-3 flex gap-3 border border-slate-200 dark:border-slate-600 rounded-xl p-3 hover:border-brand-400 dark:hover:border-brand-500 transition-colors overflow-hidden">
+      <% if (post.og_image) { %><img src="<%= post.og_image %>" class="w-16 h-16 object-cover rounded-lg flex-shrink-0" loading="lazy" onerror="this.remove()"><% } %>
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate"><%= post.og_title || post.preview_url %></p>
+        <% if (post.og_description) { %><p class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5"><%= post.og_description %></p><% } %>
+      </div>
+    </a>
+    <% } %>
+  </div>
+
+  <%# Reactions %>
+  <div class="px-4 py-2 border-t border-slate-100 dark:border-slate-700 flex items-center gap-1 flex-wrap">
+    <% ['❤️','👍','😂','😮','😢'].forEach(emoji => {
+      const r = reactionsByPost[post.id]?.[emoji];
+      const count = r?.count || 0;
+      const active = r?.userReacted;
+    %>
+    <button class="reaction-btn flex items-center gap-1 px-2.5 py-1.5 rounded-full text-sm transition-all min-h-[36px]
+      <%= active ? 'bg-brand-50 dark:bg-brand-600/20 border border-brand-200 dark:border-brand-700' : 'hover:bg-slate-50 dark:hover:bg-slate-700 border border-transparent' %>"
+      data-post-id="<%= post.id %>" data-emoji="<%= emoji %>">
+      <span><%= emoji %></span>
+      <span class="reaction-count text-xs text-slate-500 dark:text-slate-400 <%= count === 0 ? 'hidden' : '' %>"><%= count %></span>
+    </button>
+    <% }) %>
+
+    <div class="relative ml-1">
+      <button class="emoji-picker-toggle p-1.5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm min-h-[36px] min-w-[36px]" data-post-id="<%= post.id %>">＋</button>
+      <div class="emoji-picker hidden absolute bottom-10 left-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-2xl shadow-xl p-2 z-20 grid grid-cols-4 gap-1 w-40">
+        <% ['🎉','🙏','🔥','💯','🫶','👏','🥳','😍','🤣','😭','💪','🎂','🌟','👀','🤔','💔'].forEach(e => { %>
+        <button class="reaction-btn text-lg p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors min-h-[40px]" data-post-id="<%= post.id %>" data-emoji="<%= e %>"><%= e %></button>
+        <% }) %>
+      </div>
+    </div>
+
+    <a href="/post/<%= post.id %>" class="ml-auto text-xs text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors px-2 py-1.5 min-h-[36px] flex items-center gap-1.5">
+      <% if (post.read_count > 0) { %><span class="text-slate-300 dark:text-slate-600">👁 <%= post.read_count %></span><span class="text-slate-300 dark:text-slate-600">·</span><% } %>
+      <%= post.comment_count %> comment<%= post.comment_count !== 1 ? 's' : '' %> →
+    </a>
+  </div>
+</article>

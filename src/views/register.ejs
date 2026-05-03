@@ -27,6 +27,11 @@
         </div>
 
         <div class="fn-field">
+          <label class="fn-label" for="reg-birthday">Birthday</label>
+          <input class="fn-input" type="date" id="reg-birthday" name="birthday" required max="<%= new Date().toISOString().slice(0,10) %>">
+        </div>
+
+        <div class="fn-field">
           <label class="fn-label" for="reg-password">Password <span style="font-weight:400;letter-spacing:0;text-transform:none;opacity:0.7;">(min 8 characters)</span></label>
           <input class="fn-input" type="password" id="reg-password" name="password" required minlength="8" autocomplete="new-password">
         </div>

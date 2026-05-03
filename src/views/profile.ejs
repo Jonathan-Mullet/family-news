@@ -7,6 +7,30 @@
   <% if (flash.error) { %><div class="fn-flash-error"><%= flash.error %></div><% } %>
   <% if (flash.success) { %><div class="fn-flash-success"><%= flash.success %></div><% } %>
 
+  <%# Avatar %>
+  <div class="fn-settings-card">
+    <h2 class="fn-settings-card-title">Profile Photo</h2>
+    <div style="display:flex;align-items:center;gap:1.25rem;flex-wrap:wrap;">
+      <div id="avatar-preview" style="width:80px;height:80px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--brand-100,#f5e8d5);display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:700;color:var(--brand-600,#8b5e3c);border:2px solid rgba(139,94,60,0.15);">
+        <% if (user.avatar_url) { %>
+          <img src="<%= user.avatar_url %>" style="width:100%;height:100%;object-fit:cover;" alt="" id="avatar-img">
+        <% } else { %>
+          <span id="avatar-initial"><%= user.name.charAt(0).toUpperCase() %></span>
+        <% } %>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:0.5rem;">
+        <input type="file" name="avatar" id="avatar-file-input" accept="image/*" class="hidden">
+        <button type="button" id="avatar-select-btn" class="fn-btn">Change photo</button>
+        <% if (user.avatar_url) { %>
+        <form method="POST" action="/profile/avatar/remove">
+          <button type="submit" class="fn-btn-ghost" style="color:#c0392b;">Remove photo</button>
+        </form>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <%# Display name %>
   <div class="fn-settings-card">
     <h2 class="fn-settings-card-title">Display Name</h2>
     <form method="POST" action="/profile/name">
@@ -18,6 +42,19 @@
     </form>
   </div>
 
+  <%# Birthday %>
+  <div class="fn-settings-card">
+    <h2 class="fn-settings-card-title">Birthday</h2>
+    <form method="POST" action="/profile/birthday">
+      <div class="fn-field">
+        <label class="fn-label" for="prof-birthday">Your birthday</label>
+        <input class="fn-input" type="date" id="prof-birthday" name="birthday" value="<%= user.birthday ? new Date(user.birthday).toISOString().slice(0,10) : '' %>" required max="<%= new Date().toISOString().slice(0,10) %>">
+      </div>
+      <button type="submit" class="fn-btn">Update Birthday</button>
+    </form>
+  </div>
+
+  <%# Change password %>
   <div class="fn-settings-card">
     <h2 class="fn-settings-card-title">Change Password</h2>
     <form method="POST" action="/profile/password">
@@ -33,6 +70,7 @@
     </form>
   </div>
 
+  <%# Email notifications %>
   <div class="fn-settings-card">
     <h2 class="fn-settings-card-title">Email Notifications</h2>
     <form method="POST" action="/profile/notifications">
@@ -50,6 +88,7 @@
     </form>
   </div>
 
+  <%# Account info %>
   <div class="fn-settings-card">
     <h2 class="fn-settings-card-title">Account</h2>
     <div class="fn-meta-row">
@@ -63,5 +102,91 @@
   </div>
 </div>
 
+<%# Avatar crop modal %>
+<div id="avatar-modal" class="hidden fixed inset-0 bg-black z-[60] flex flex-col" style="padding-bottom:env(safe-area-inset-bottom)">
+  <div class="flex items-center justify-between px-4 py-3 bg-slate-900 shrink-0 gap-3">
+    <span class="text-white font-semibold text-sm">Crop Photo</span>
+    <div class="flex gap-2">
+      <button id="av-rotate-left" type="button" class="p-2 rounded-lg bg-slate-700 text-white text-xl leading-none hover:bg-slate-600 transition-colors">↺</button>
+      <button id="av-rotate-right" type="button" class="p-2 rounded-lg bg-slate-700 text-white text-xl leading-none hover:bg-slate-600 transition-colors">↻</button>
+    </div>
+  </div>
+  <div class="flex-1 min-h-0 overflow-hidden">
+    <img id="av-crop-img" src="" alt="" class="block max-w-full">
+  </div>
+  <div class="flex gap-3 px-4 py-4 bg-slate-900 shrink-0">
+    <button type="button" id="av-cancel" class="flex-1 py-3 border border-slate-600 text-slate-200 rounded-xl text-sm font-medium hover:bg-slate-700 transition-colors">Cancel</button>
+    <button type="button" id="av-confirm" class="flex-1 py-3 bg-brand-600 text-white rounded-xl text-sm font-semibold hover:bg-brand-700 transition-colors">Use Photo</button>
+  </div>
+</div>
+
+<%# Hidden upload form — submitted programmatically after crop %>
+<form id="avatar-upload-form" method="POST" action="/profile/avatar" enctype="multipart/form-data" class="hidden">
+  <input type="file" name="avatar" id="avatar-upload-input">
+</form>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
 <script src="/js/app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+<script>
+  const avatarFileInput = document.getElementById('avatar-file-input');
+  const avatarSelectBtn = document.getElementById('avatar-select-btn');
+  const avatarModal = document.getElementById('avatar-modal');
+  const avCropImg = document.getElementById('av-crop-img');
+  const avatarUploadInput = document.getElementById('avatar-upload-input');
+  const avatarUploadForm = document.getElementById('avatar-upload-form');
+  let avCropper = null;
+
+  avatarSelectBtn.addEventListener('click', () => avatarFileInput.click());
+
+  avatarFileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      avCropImg.src = ev.target.result;
+      avatarModal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      if (avCropper) { avCropper.destroy(); avCropper = null; }
+      setTimeout(() => {
+        avCropper = new Cropper(avCropImg, {
+          aspectRatio: 1,
+          viewMode: 1,
+          autoCropArea: 0.9,
+          movable: true,
+          zoomable: true,
+          scalable: false,
+          background: false,
+          guides: false,
+        });
+      }, 80);
+    };
+    reader.readAsDataURL(file);
+    avatarFileInput.value = '';
+  });
+
+  document.getElementById('av-rotate-left').addEventListener('click', () => avCropper?.rotate(-90));
+  document.getElementById('av-rotate-right').addEventListener('click', () => avCropper?.rotate(90));
+
+  document.getElementById('av-cancel').addEventListener('click', () => {
+    avatarModal.classList.add('hidden');
+    document.body.style.overflow = '';
+    if (avCropper) { avCropper.destroy(); avCropper = null; }
+  });
+
+  document.getElementById('av-confirm').addEventListener('click', () => {
+    if (!avCropper) return;
+    const canvas = avCropper.getCroppedCanvas({ width: 512, height: 512, imageSmoothingQuality: 'high' });
+    canvas.toBlob(blob => {
+      const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      avatarUploadInput.files = dt.files;
+      avatarModal.classList.add('hidden');
+      document.body.style.overflow = '';
+      if (avCropper) { avCropper.destroy(); avCropper = null; }
+      avatarUploadForm.submit();
+    }, 'image/jpeg', 0.92);
+  });
+</script>
 </body></html>

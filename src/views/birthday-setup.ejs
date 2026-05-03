@@ -1,0 +1,28 @@
+<%- include('partials/head', { title: 'Birthday Setup' }) %>
+<%- include('partials/nav') %>
+
+<div class="fn-page">
+  <div class="fn-page-inner">
+    <div class="fn-page-header">
+      <h1 class="fn-page-title">One quick thing</h1>
+      <p class="fn-page-sub">When's your birthday? We'll celebrate it with the family. 🎂</p>
+    </div>
+
+    <div class="fn-card">
+      <% if (flash.error) { %>
+        <div class="fn-flash-error"><%= flash.error %></div>
+      <% } %>
+
+      <form method="POST" action="/birthday-setup">
+        <div class="fn-field">
+          <label class="fn-label" for="bday-input">Your birthday</label>
+          <input class="fn-input" type="date" id="bday-input" name="birthday" required max="<%= new Date().toISOString().slice(0,10) %>">
+        </div>
+        <button type="submit" class="fn-submit">Save and continue</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+</body></html>
