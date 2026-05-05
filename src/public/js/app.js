@@ -168,7 +168,10 @@ document.addEventListener('click', e => {
 // all platforms including iOS PWA. No floating-position math needed.
 
 const _pickerSheet = document.createElement('div');
-_pickerSheet.className = 'fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-slate-800 rounded-t-2xl shadow-2xl border-t border-slate-200 dark:border-slate-700 p-4 translate-y-full transition-transform duration-300';
+_pickerSheet.className = 'fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-slate-800 rounded-t-2xl shadow-2xl border-t border-slate-200 dark:border-slate-700 p-4';
+// Inline styles for transform — Tailwind CDN may not compile translate-y-full for JS-created elements
+_pickerSheet.style.transform = 'translateY(100%)';
+_pickerSheet.style.transition = 'transform 0.3s ease';
 document.body.appendChild(_pickerSheet);
 
 const _pickerHeader = document.createElement('div');
@@ -218,28 +221,31 @@ function _syncPickerState(postId) {
 }
 
 function _showPickerSheet(postId) {
+  if (_pickerPostId) return; // already open
   _pickerPostId = postId;
   _syncPickerState(postId);
   _pickerOverlay = document.createElement('div');
-  _pickerOverlay.className = 'fixed inset-0 z-40 bg-black/30';
+  _pickerOverlay.style.cssText = 'position:fixed;inset:0;z-index:40;background:rgba(0,0,0,0.3)';
   document.body.appendChild(_pickerOverlay);
-  _pickerOverlay.addEventListener('click', _hidePickerSheet);
-  requestAnimationFrame(() => _pickerSheet.classList.remove('translate-y-full'));
+  // Defer listener so the tap that opened the sheet doesn't immediately close it (iOS)
+  setTimeout(() => {
+    if (_pickerOverlay) _pickerOverlay.addEventListener('click', _hidePickerSheet);
+  }, 100);
+  requestAnimationFrame(() => { _pickerSheet.style.transform = 'translateY(0)'; });
 }
 
 function _hidePickerSheet() {
-  _pickerSheet.classList.add('translate-y-full');
+  _pickerSheet.style.transform = 'translateY(100%)';
   if (_pickerOverlay) { _pickerOverlay.remove(); _pickerOverlay = null; }
   _pickerPostId = null;
 }
 
-_pickerCloseBtn.addEventListener('click', _hidePickerSheet);
+_pickerCloseBtn.addEventListener('click', e => { e.stopPropagation(); _hidePickerSheet(); });
 
-document.querySelectorAll('.emoji-picker-toggle').forEach(toggleBtn => {
-  toggleBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    _showPickerSheet(toggleBtn.dataset.postId);
-  });
+// Event delegation — works for any post, including ones added after page load
+document.addEventListener('click', e => {
+  const toggleBtn = e.target.closest('.emoji-picker-toggle');
+  if (toggleBtn) _showPickerSheet(toggleBtn.dataset.postId);
 });
 
 // Auto-refresh polling (feed page only)
