@@ -1,9 +1,28 @@
+/**
+ * Nodemailer wrapper for all outbound email from Family News.
+ *
+ * All send functions are fire-and-forget — errors are logged to stderr but
+ * never thrown to callers, so a broken SMTP configuration does not crash
+ * request handlers. If `EMAIL_HOST` is not set in the environment the module
+ * is a no-op and no mail is sent.
+ */
+
 const nodemailer = require('nodemailer');
+
+// ── Transporter (lazy init) ───────────────────────────────────────────────────
 
 let transporter = null;
 
+/**
+ * Returns a cached Nodemailer transporter, creating it on first call.
+ * Returns null when `EMAIL_HOST` is not configured so callers can
+ * short-circuit without throwing.
+ *
+ * @returns {import('nodemailer').Transporter | null}
+ */
 function getTransporter() {
   if (!process.env.EMAIL_HOST) return null;
+  // Lazy-init: create the transporter once and reuse the connection pool.
   if (!transporter) {
     transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
@@ -15,6 +34,17 @@ function getTransporter() {
   return transporter;
 }
 
+// ── Core send helper ──────────────────────────────────────────────────────────
+
+/**
+ * Sends an HTML email. Silently no-ops when email is not configured.
+ * Errors from the SMTP transport are caught and logged — never re-thrown.
+ *
+ * @param {string} to - Recipient email address.
+ * @param {string} subject - Email subject line.
+ * @param {string} html - HTML body of the email.
+ * @returns {Promise<void>}
+ */
 async function sendMail(to, subject, html) {
   const t = getTransporter();
   if (!t) return;
@@ -26,10 +56,21 @@ async function sendMail(to, subject, html) {
       html,
     });
   } catch (err) {
+    // Log but swallow so a broken SMTP config never surfaces to the user.
     console.error('Email error:', err.message);
   }
 }
 
+// ── Notification senders ──────────────────────────────────────────────────────
+
+/**
+ * Sends a password-reset email containing a tokenised link that expires in
+ * 1 hour. The link is constructed from `BASE_URL` + the provided token.
+ *
+ * @param {string} email - Recipient email address.
+ * @param {string} token - One-time reset token (stored in password_reset_tokens).
+ * @returns {Promise<void>}
+ */
 async function sendPasswordReset(email, token) {
   const url = `${process.env.BASE_URL}/reset-password?token=${token}`;
   await sendMail(email, 'Reset your Family News password', `
@@ -42,6 +83,16 @@ async function sendPasswordReset(email, token) {
   `);
 }
 
+/**
+ * Notifies all eligible family members that a new post has been published.
+ * Skips the poster themselves and any user who has opted out of post
+ * notifications (`notify_posts === 0`).
+ *
+ * @param {Array<{id: number, email: string, notify_posts: number}>} toUsers - All active users.
+ * @param {{id: number, name: string}} poster - The user who created the post.
+ * @param {{id: number, title: string, content: string}} post - The new post.
+ * @returns {Promise<void>}
+ */
 async function sendNewPostNotification(toUsers, poster, post) {
   const url = `${process.env.BASE_URL}/post/${post.id}`;
   for (const user of toUsers) {
@@ -61,6 +112,16 @@ async function sendNewPostNotification(toUsers, poster, post) {
   }
 }
 
+/**
+ * Notifies the post author that someone commented on their post.
+ * Skips if commenter and post owner are the same user, or if the owner
+ * has opted out of comment notifications (`notify_comments === 0`).
+ *
+ * @param {{id: number, email: string, notify_comments: number}} toUser - Post owner.
+ * @param {{id: number, name: string}} fromUser - User who left the comment.
+ * @param {{id: number, title: string}} post - The post that received a comment.
+ * @returns {Promise<void>}
+ */
 async function sendCommentNotification(toUser, fromUser, post) {
   if (toUser.id === fromUser.id) return;
   // Skip if user has opted out of comment notifications
@@ -74,6 +135,16 @@ async function sendCommentNotification(toUser, fromUser, post) {
   `);
 }
 
+/**
+ * Sends a highlighted "Big News" notification to all family members except
+ * the poster. Unlike regular post notifications this does not respect the
+ * `notify_posts` preference — big news is always delivered via email.
+ *
+ * @param {Array<{id: number, email: string}>} toUsers - All active users.
+ * @param {{id: number, name: string}} poster - The user who created the post.
+ * @param {{id: number, title: string, content: string}} post - The big-news post.
+ * @returns {Promise<void>}
+ */
 async function sendBigNewsNotification(toUsers, poster, post) {
   const url = `${process.env.BASE_URL}/post/${post.id}`;
   for (const user of toUsers) {

@@ -1,5 +1,28 @@
+/**
+ * Fetches Open Graph metadata from URLs found in post content.
+ *
+ * Returns a plain object with `url`, `og_title`, `og_description`, and
+ * `og_image` on success, or `null` on any failure (network error, timeout,
+ * missing OG tags, etc.). Callers should always handle the null case.
+ *
+ * The fetch is intentionally limited to the first 100 KB of the response and
+ * aborts after 5 seconds to prevent slow or huge pages from blocking the
+ * Node.js event loop. OG tags nearly always appear in the <head>, so 100 KB
+ * is sufficient for the overwhelming majority of pages.
+ */
+
 const MAX_BYTES = 100 * 1024; // 100KB
 
+// ── Main export ───────────────────────────────────────────────────────────────
+
+/**
+ * Fetches and parses Open Graph meta tags from the given URL.
+ * Uses a streaming read with an early abort to cap memory usage and latency.
+ *
+ * @param {string} url - The URL to fetch OG data from.
+ * @returns {Promise<{url: string, og_title: string|null, og_description: string|null, og_image: string|null} | null>}
+ *   Parsed OG data, or null if the fetch failed or no OG tags were found.
+ */
 async function fetchOgPreview(url) {
   try {
     const controller = new AbortController();
@@ -16,7 +39,11 @@ async function fetchOgPreview(url) {
 
     if (!res.ok) return null;
 
-    // Read up to MAX_BYTES
+    // ── Streaming read with byte cap ──────────────────────────────────────────
+    // We stream the body instead of calling res.text() so we can stop reading
+    // as soon as we've accumulated MAX_BYTES. This avoids buffering multi-MB
+    // pages (e.g. pages that embed large inline scripts) into memory.
+    // reader.cancel() signals the server to close the connection early.
     const reader = res.body.getReader();
     const chunks = [];
     let totalBytes = 0;
@@ -54,6 +81,8 @@ async function fetchOgPreview(url) {
 
     return { url, og_title, og_description, og_image };
   } catch (err) {
+    // Any error (network failure, timeout abort, parse error) returns null
+    // so the caller can silently skip the preview without crashing the post.
     console.error('OG fetch error:', err.message);
     return null;
   }
