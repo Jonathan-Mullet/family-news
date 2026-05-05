@@ -133,6 +133,54 @@
     </form>
   </div>
 
+  <%# Push notifications %>
+  <div class="fn-settings-card" id="push-section"
+    data-notify-posts="<%= user.push_notify_posts != null ? user.push_notify_posts : 1 %>"
+    data-notify-comments="<%= user.push_notify_comments != null ? user.push_notify_comments : 1 %>"
+    data-notify-big-news="<%= user.push_notify_big_news != null ? user.push_notify_big_news : 1 %>">
+    <h2 class="fn-settings-card-title">Push Notifications</h2>
+
+    <div id="push-state-default" class="hidden">
+      <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">Get notified on this device even when the app is closed.</p>
+      <button id="push-enable-btn" class="fn-btn">Enable push notifications</button>
+    </div>
+
+    <div id="push-state-enabled" class="hidden space-y-3">
+      <p class="text-sm text-green-600 dark:text-green-400 font-medium">Push notifications are on</p>
+      <form method="POST" action="/profile/push-prefs" class="space-y-2">
+        <label class="fn-checkbox-label">
+          <input class="fn-checkbox" type="checkbox" name="push_notify_posts" value="1">
+          <span>Notify me when someone posts</span>
+        </label>
+        <label class="fn-checkbox-label">
+          <input class="fn-checkbox" type="checkbox" name="push_notify_comments" value="1">
+          <span>Notify me when someone comments on my post</span>
+        </label>
+        <label class="fn-checkbox-label">
+          <input class="fn-checkbox" type="checkbox" name="push_notify_big_news" value="1">
+          <span>Notify me for Big News</span>
+        </label>
+        <div style="margin-top:1rem;">
+          <button type="submit" class="fn-btn">Save Preferences</button>
+        </div>
+      </form>
+      <button id="push-disable-btn" class="fn-btn-ghost text-sm">Turn off push notifications</button>
+    </div>
+
+    <div id="push-state-denied" class="hidden">
+      <p class="text-sm text-slate-500 dark:text-slate-400 mb-2">Notifications are blocked in your browser.</p>
+      <p class="text-sm text-slate-500 dark:text-slate-400" id="push-denied-instructions"></p>
+    </div>
+
+    <div id="push-ios-notice" class="hidden">
+      <p class="text-sm text-slate-500 dark:text-slate-400">To enable push notifications on iPhone, first add Family News to your Home Screen via the Share button (□↑).</p>
+    </div>
+
+    <div id="push-email-notice" class="hidden mt-3 text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3">
+      Push is on. Email notifications for posts and comments have been turned off — you can re-enable them in the Email Notifications section above.
+    </div>
+  </div>
+
   <%# Account info %>
   <div class="fn-settings-card">
     <h2 class="fn-settings-card-title">Account</h2>
