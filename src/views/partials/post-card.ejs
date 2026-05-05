@@ -129,9 +129,6 @@
         </div>
       </div>
 
-      <a href="/post/<%= post.id %>" class="ml-auto flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-600 text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 transition-colors min-h-[32px] whitespace-nowrap">
-        💬 <%= post.comment_count > 0 ? post.comment_count + (post.comment_count !== 1 ? ' comments' : ' comment') : 'Add a comment' %>
-      </a>
     </div>
 
     <%# Reaction names summary line %>
