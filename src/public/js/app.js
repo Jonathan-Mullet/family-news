@@ -131,6 +131,37 @@ function renderReactionChips(postId) {
   if (_pickerPostId === postId) _syncPickerState(postId);
 }
 
+async function renderReactionSummary(postId) {
+  const names = await fetchReactionNames(postId);
+  const article = document.querySelector(`article[data-post-id="${postId}"]`);
+  if (article) article.dataset.reactionNames = JSON.stringify(names);
+
+  const chipsArea = document.getElementById(`reaction-chips-${postId}`);
+  if (!chipsArea) return;
+  const container = chipsArea.parentElement;
+  let summaryBtn = container.querySelector('.reaction-summary');
+
+  const parts = EMOJI_ORDER
+    .filter(e => names[e]?.length)
+    .map(e => {
+      const ns = names[e];
+      return ns.length <= 2
+        ? e + ' ' + ns.join(', ')
+        : e + ' ' + ns.slice(0, 2).join(', ') + ' +' + (ns.length - 2);
+    });
+
+  if (parts.length) {
+    if (!summaryBtn) {
+      summaryBtn = document.createElement('button');
+      summaryBtn.className = 'reaction-summary text-xs text-slate-400 dark:text-slate-500 mt-1 py-1 leading-relaxed text-left w-full hover:text-slate-600 dark:hover:text-slate-300 transition-colors';
+      container.appendChild(summaryBtn);
+    }
+    summaryBtn.textContent = parts.join(' · ');
+  } else if (summaryBtn) {
+    summaryBtn.remove();
+  }
+}
+
 async function handleReactionClick(postId, emoji) {
   hideTooltip();
   // Invalidate the cached reaction names so the updated list is re-fetched
@@ -150,6 +181,7 @@ async function handleReactionClick(postId, emoji) {
       reactionState[postId][emoji] = { count: data.count, userReacted: data.userReacted };
     }
     renderReactionChips(postId);
+    renderReactionSummary(postId);
   } catch (e) { console.error(e); }
 }
 
