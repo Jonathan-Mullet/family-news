@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { enrichPosts } = require('../utils/feedData');
 
 // Render a member's profile page with their post history and engagement data.
 router.get('/member/:id', requireAuth, async (req, res) => {
@@ -27,54 +28,7 @@ router.get('/member/:id', requireAuth, async (req, res) => {
       ORDER BY p.created_at DESC
     `, [memberId, req.session.user.id]);
 
-    posts.forEach(p => { p.photos = []; });
-    let reactionsByPost = {};
-    let reactionNames = {};
-    let latestCommentByPost = {};
-
-    if (posts.length) {
-      const ids = posts.map(p => p.id);
-      const userId = req.session.user.id;
-
-      const [reactions] = await pool.query(`
-        SELECT post_id, emoji, COUNT(*) AS count,
-          MAX(CASE WHEN user_id = ? THEN 1 ELSE 0 END) AS user_reacted
-        FROM reactions WHERE post_id IN (?)
-        GROUP BY post_id, emoji
-      `, [userId, ids]);
-      reactions.forEach(r => {
-        if (!reactionsByPost[r.post_id]) reactionsByPost[r.post_id] = {};
-        reactionsByPost[r.post_id][r.emoji] = { count: r.count, userReacted: r.user_reacted === 1 };
-      });
-
-      const [nameRows] = await pool.query(`
-        SELECT r.post_id, r.emoji, u.name
-        FROM reactions r JOIN users u ON r.user_id = u.id
-        WHERE r.post_id IN (?)
-        ORDER BY r.post_id, r.emoji, u.name
-      `, [ids]);
-      nameRows.forEach(r => {
-        if (!reactionNames[r.post_id]) reactionNames[r.post_id] = {};
-        if (!reactionNames[r.post_id][r.emoji]) reactionNames[r.post_id][r.emoji] = [];
-        reactionNames[r.post_id][r.emoji].push(r.name);
-      });
-
-      const [photoRows] = await pool.query(
-        'SELECT post_id, photo_url FROM post_photos WHERE post_id IN (?) ORDER BY sort_order',
-        [ids]
-      );
-      photoRows.forEach(ph => {
-        const post = posts.find(p => p.id === ph.post_id);
-        if (post) post.photos.push(ph.photo_url);
-      });
-
-      const [latestCommentRows] = await pool.query(`
-        SELECT c.post_id, c.content, u.name AS author_name, u.avatar_url AS author_avatar, u.id AS author_id
-        FROM comments c JOIN users u ON c.user_id = u.id
-        WHERE c.id IN (SELECT MAX(id) FROM comments WHERE post_id IN (?) GROUP BY post_id)
-      `, [ids]);
-      latestCommentRows.forEach(c => { latestCommentByPost[c.post_id] = c; });
-    }
+    const { reactionsByPost, reactionNames, latestCommentByPost } = await enrichPosts(posts, req.session.user.id);
 
     res.render('member', { profileUser, posts, reactionsByPost, reactionNames, latestCommentByPost });
   } catch (err) {

@@ -7,6 +7,7 @@ const { sendNewPostNotification, sendBigNewsNotification } = require('../email')
 const { sendPushToAllUsers } = require('../push');
 const { handleMultiUpload, deleteUploadedFile } = require('./upload');
 const { fetchOgPreview } = require('../utils/ogFetch');
+const { enrichPosts } = require('../utils/feedData');
 
 const MAX_CONTENT = 2000;
 // Posts older than BIG_NEWS_DAYS are shown in the archived big-news section rather than the active banner.
@@ -53,23 +54,11 @@ router.get('/', requireAuth, async (req, res) => {
       .filter(p => !p.big_news)
       .sort((a, b) => (b.pinned - a.pinned) || (new Date(b.created_at) - new Date(a.created_at)));
 
-    allPosts.forEach(p => { p.photos = []; });
-    let reactionsByPost = {};
-    let reactionNames = {};
-    let latestCommentByPost = {};
+    const { reactionsByPost, reactionNames, latestCommentByPost } = await enrichPosts(allPosts, userId);
+
+    // Feed also shows how many members have read each post (not needed on member pages)
     if (allPosts.length) {
       const ids = allPosts.map(p => p.id);
-      const [reactions] = await pool.query(`
-        SELECT post_id, emoji, COUNT(*) AS count,
-          MAX(CASE WHEN user_id = ? THEN 1 ELSE 0 END) AS user_reacted
-        FROM reactions WHERE post_id IN (?)
-        GROUP BY post_id, emoji
-      `, [userId, ids]);
-      reactions.forEach(r => {
-        if (!reactionsByPost[r.post_id]) reactionsByPost[r.post_id] = {};
-        reactionsByPost[r.post_id][r.emoji] = { count: r.count, userReacted: r.user_reacted === 1 };
-      });
-
       const [readRows] = await pool.query(
         'SELECT post_id, COUNT(*) AS read_count FROM post_reads WHERE post_id IN (?) GROUP BY post_id',
         [ids]
@@ -77,34 +66,6 @@ router.get('/', requireAuth, async (req, res) => {
       const readMap = {};
       readRows.forEach(r => { readMap[r.post_id] = r.read_count; });
       allPosts.forEach(p => { p.read_count = readMap[p.id] || 0; });
-
-      const [photoRows] = await pool.query(
-        'SELECT post_id, photo_url FROM post_photos WHERE post_id IN (?) ORDER BY sort_order',
-        [ids]
-      );
-      photoRows.forEach(ph => {
-        const post = allPosts.find(p => p.id === ph.post_id);
-        if (post) post.photos.push(ph.photo_url);
-      });
-
-      const [nameRows] = await pool.query(`
-        SELECT r.post_id, r.emoji, u.name
-        FROM reactions r JOIN users u ON r.user_id = u.id
-        WHERE r.post_id IN (?)
-        ORDER BY r.post_id, r.emoji, u.name
-      `, [ids]);
-      nameRows.forEach(r => {
-        if (!reactionNames[r.post_id]) reactionNames[r.post_id] = {};
-        if (!reactionNames[r.post_id][r.emoji]) reactionNames[r.post_id][r.emoji] = [];
-        reactionNames[r.post_id][r.emoji].push(r.name);
-      });
-
-      const [latestCommentRows] = await pool.query(`
-        SELECT c.post_id, c.content, u.name AS author_name, u.avatar_url AS author_avatar, u.id AS author_id
-        FROM comments c JOIN users u ON c.user_id = u.id
-        WHERE c.id IN (SELECT MAX(id) FROM comments WHERE post_id IN (?) GROUP BY post_id)
-      `, [ids]);
-      latestCommentRows.forEach(c => { latestCommentByPost[c.post_id] = c; });
     }
 
     const latestPostId = allPosts[0]?.id || 0;
