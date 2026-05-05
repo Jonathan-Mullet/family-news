@@ -90,7 +90,48 @@ async function fetchReactionNames(postId) {
   return nameCache[postId];
 }
 
-// Handle a reaction click (shared between inline buttons and emoji picker)
+// ── Reactions ─────────────────────────────────────────────────────────────────
+
+const EMOJI_ORDER = ['❤️','👍','😂','😮','😢','🎉','🙏','🔥','💯','🫶','👏','🥳','😍','🤣','😭','💪','🎂','🌟','👀','🤔','💔'];
+
+// Seed reaction state from server-rendered data attributes
+const reactionState = {};
+document.querySelectorAll('[id^="reaction-chips-"]').forEach(el => {
+  const postId = el.id.replace('reaction-chips-', '');
+  try { reactionState[postId] = JSON.parse(el.dataset.reactions || '{}'); }
+  catch { reactionState[postId] = {}; }
+});
+
+function renderReactionChips(postId) {
+  const chipsArea = document.getElementById(`reaction-chips-${postId}`);
+  if (!chipsArea) return;
+  const state = reactionState[postId] || {};
+  const reactBtnDiv = chipsArea.querySelector('.relative');
+
+  chipsArea.querySelectorAll('.reaction-chip').forEach(c => c.remove());
+
+  EMOJI_ORDER.forEach(emoji => {
+    const r = state[emoji];
+    if (!r || r.count === 0) return;
+    const chip = document.createElement('button');
+    chip.className = 'reaction-chip reaction-btn flex items-center gap-1 px-2 py-1 rounded-full text-sm border transition-all min-h-[30px] ' +
+      (r.userReacted
+        ? 'bg-brand-50 dark:bg-brand-600/20 border-brand-300 dark:border-brand-600'
+        : 'bg-slate-50 dark:bg-slate-700/40 border-slate-200 dark:border-slate-600 hover:border-brand-300 dark:hover:border-brand-500');
+    chip.dataset.postId = postId;
+    chip.dataset.emoji = emoji;
+    chip.innerHTML = `<span>${emoji}</span><span class="reaction-count text-xs font-medium text-slate-500 dark:text-slate-400">${r.count}</span>`;
+    chipsArea.insertBefore(chip, reactBtnDiv);
+  });
+
+  // Keep picker button highlights in sync
+  chipsArea.querySelectorAll('.emoji-picker .reaction-btn').forEach(b => {
+    const active = !!state[b.dataset.emoji]?.userReacted;
+    b.classList.toggle('bg-brand-50', active);
+    b.classList.toggle('dark:bg-brand-600/20', active);
+  });
+}
+
 async function handleReactionClick(postId, emoji) {
   hideTooltip();
   delete nameCache[postId];
@@ -101,72 +142,53 @@ async function handleReactionClick(postId, emoji) {
       body: JSON.stringify({ emoji }),
     });
     const data = await res.json();
-
-    document.querySelectorAll(`.reaction-btn[data-post-id="${postId}"][data-emoji="${emoji}"]`).forEach(b => {
-      const countEl = b.querySelector('.reaction-count');
-      if (countEl) {
-        countEl.textContent = data.count;
-        countEl.classList.toggle('hidden', data.count === 0);
-      }
-      b.classList.toggle('bg-brand-50', data.userReacted);
-      b.classList.toggle('dark:bg-brand-600/20', data.userReacted);
-      b.classList.toggle('border-brand-200', data.userReacted);
-      b.classList.toggle('dark:border-brand-700', data.userReacted);
-      b.classList.toggle('border-transparent', !data.userReacted);
-    });
+    if (!reactionState[postId]) reactionState[postId] = {};
+    if (data.count === 0) {
+      delete reactionState[postId][emoji];
+    } else {
+      reactionState[postId][emoji] = { count: data.count, userReacted: data.userReacted };
+    }
+    renderReactionChips(postId);
   } catch (e) { console.error(e); }
 }
 
-// Reactions
-document.querySelectorAll('.reaction-btn').forEach(btn => {
-  if (btn.closest('.emoji-picker')) return;
-  btn.addEventListener('click', () => {
-    const postId = btn.dataset.postId;
-    const emoji = btn.dataset.emoji;
-    handleReactionClick(postId, emoji, btn);
-  });
-});
-
-document.querySelectorAll('.reaction-summary').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const article = btn.closest('article[data-post-id]');
+// Event delegation — chips and summary (handles dynamically-created chips too)
+document.addEventListener('click', e => {
+  const chip = e.target.closest('.reaction-chip');
+  if (chip && !chip.closest('.emoji-picker')) {
+    handleReactionClick(chip.dataset.postId, chip.dataset.emoji);
+    return;
+  }
+  const summary = e.target.closest('.reaction-summary');
+  if (summary) {
+    const article = summary.closest('article[data-post-id]');
     if (!article) return;
-    try {
-      _showReactionSheet(JSON.parse(article.dataset.reactionNames || '{}'));
-    } catch {}
-  });
+    try { _showReactionSheet(JSON.parse(article.dataset.reactionNames || '{}')); }
+    catch {}
+  }
 });
 
 // Emoji picker toggle
 document.querySelectorAll('.emoji-picker-toggle').forEach(toggleBtn => {
-  toggleBtn.addEventListener('click', (e) => {
+  toggleBtn.addEventListener('click', e => {
     e.stopPropagation();
-    const container = toggleBtn.closest('.relative');
-    const picker = container.querySelector('.emoji-picker');
+    const picker = toggleBtn.closest('.relative')?.querySelector('.emoji-picker');
     if (!picker) return;
-
-    // Close all other open pickers
-    document.querySelectorAll('.emoji-picker').forEach(p => {
-      if (p !== picker) p.classList.add('hidden');
-    });
+    document.querySelectorAll('.emoji-picker').forEach(p => { if (p !== picker) p.classList.add('hidden'); });
     picker.classList.toggle('hidden');
   });
 });
 
-// Emoji picker reaction buttons (inside the picker)
+// Picker emoji buttons
 document.querySelectorAll('.emoji-picker .reaction-btn').forEach(btn => {
-  btn.addEventListener('click', (e) => {
+  btn.addEventListener('click', e => {
     e.stopPropagation();
-    const postId = btn.dataset.postId;
-    const emoji = btn.dataset.emoji;
-    // Close the picker
-    const picker = btn.closest('.emoji-picker');
-    if (picker) picker.classList.add('hidden');
-    handleReactionClick(postId, emoji);
+    btn.closest('.emoji-picker')?.classList.add('hidden');
+    handleReactionClick(btn.dataset.postId, btn.dataset.emoji);
   });
 });
 
-// Close emoji pickers on outside click
+// Close pickers on outside click
 document.addEventListener('click', () => {
   document.querySelectorAll('.emoji-picker').forEach(p => p.classList.add('hidden'));
 });
@@ -192,6 +214,47 @@ if (feedEl && refreshToast) {
 
   setInterval(poll, 25000);
   refreshToast.addEventListener('click', () => location.reload());
+}
+
+// Pull-to-refresh (standalone PWA only — avoids conflicting with Safari's native gesture in browser)
+if (feedEl && (navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches)) {
+  const PTR_THRESHOLD = 80;
+  let ptrStartY = 0;
+  let ptrActive = false;
+  let ptrDist = 0;
+
+  const ptrEl = document.createElement('div');
+  ptrEl.style.cssText = 'position:fixed;top:0;left:0;right:0;display:flex;justify-content:center;z-index:50;pointer-events:none;transform:translateY(-64px);transition:transform 0.15s ease';
+  ptrEl.innerHTML = '<div style="margin-top:12px;width:36px;height:36px;background:var(--tw-bg-opacity,white);border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center" class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"><svg id="ptr-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" style="width:18px;height:18px;transform-origin:center;color:#8b5e3c"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="56.5" stroke-dashoffset="14" opacity="0.25"/><path d="M12 3a9 9 0 0 1 9 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg></div>';
+  document.body.appendChild(ptrEl);
+
+  document.addEventListener('touchstart', e => {
+    if (window.scrollY === 0) { ptrStartY = e.touches[0].clientY; ptrActive = true; ptrDist = 0; }
+  }, { passive: true });
+
+  document.addEventListener('touchmove', e => {
+    if (!ptrActive) return;
+    const dy = e.touches[0].clientY - ptrStartY;
+    if (dy <= 0) { ptrActive = false; ptrEl.style.transform = 'translateY(-64px)'; return; }
+    ptrDist = dy;
+    const progress = Math.min(dy / PTR_THRESHOLD, 1);
+    ptrEl.style.transform = `translateY(${-64 + 72 * progress}px)`;
+    const icon = document.getElementById('ptr-icon');
+    if (icon) icon.style.transform = `rotate(${progress * 360}deg)`;
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => {
+    if (!ptrActive) return;
+    ptrActive = false;
+    if (ptrDist >= PTR_THRESHOLD) {
+      const icon = document.getElementById('ptr-icon');
+      if (icon) { icon.style.transition = 'transform 0.4s linear'; icon.style.transform = 'rotate(720deg)'; }
+      setTimeout(() => location.reload(), 350);
+    } else {
+      ptrEl.style.transform = 'translateY(-64px)';
+    }
+    ptrDist = 0;
+  });
 }
 
 // Service worker registration (required for push on all platforms)

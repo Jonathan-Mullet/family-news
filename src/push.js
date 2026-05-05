@@ -19,7 +19,7 @@ async function _sendToSubscription(sub, payload) {
     if (err.statusCode === 410 || err.statusCode === 404) {
       await pool.query('DELETE FROM push_subscriptions WHERE endpoint = ?', [sub.endpoint]);
     } else {
-      console.error('Push send error:', err.message);
+      console.error('Push send error:', err.statusCode, err.message, err.body || '');
     }
   }
 }

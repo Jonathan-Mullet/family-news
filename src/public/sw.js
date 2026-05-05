@@ -3,8 +3,7 @@ self.addEventListener('push', event => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'Family News', {
       body: data.body || '',
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      icon: self.location.origin + '/icon-192.png',
       data: { url: data.url || '/' }
     })
   );

@@ -104,47 +104,64 @@
     <% } %>
   </div>
 
-  <%# Reactions %>
+  <%# Reactions — Teams-like chip+picker %>
+  <%
+    const _emojiOrder = ['❤️','👍','😂','😮','😢','🎉','🙏','🔥','💯','🫶','👏','🥳','😍','🤣','😭','💪','🎂','🌟','👀','🤔','💔'];
+    const _reactData = {};
+    _emojiOrder.forEach(e => {
+      const r = reactionsByPost?.[post.id]?.[e];
+      if (r?.count) _reactData[e] = { count: r.count, userReacted: !!r.userReacted };
+    });
+    const _rn = (reactionNames && reactionNames[post.id]) ? reactionNames[post.id] : {};
+    const _summaryParts = _emojiOrder
+      .filter(e => _rn[e]?.length > 0)
+      .map(e => {
+        const ns = _rn[e];
+        if (ns.length <= 2) return e + ' ' + ns.join(', ');
+        return e + ' ' + ns.slice(0, 2).join(', ') + ' +' + (ns.length - 2);
+      });
+  %>
   <div class="px-4 py-2 border-t border-slate-100 dark:border-slate-700">
-    <div class="flex items-center gap-1 flex-wrap">
-      <% ['❤️','👍','😂','😮','😢'].forEach(emoji => {
-        const r = reactionsByPost?.[post.id]?.[emoji];
-        const count = r?.count || 0;
-        const active = r?.userReacted;
+    <div class="flex items-center gap-1.5 flex-wrap" id="reaction-chips-<%= post.id %>" data-reactions="<%= JSON.stringify(_reactData) %>">
+
+      <%# Chips for all currently-reacted emojis %>
+      <% _emojiOrder.forEach(emoji => {
+        if (!_reactData[emoji]) return;
+        const r = _reactData[emoji];
       %>
-      <button class="reaction-btn flex items-center gap-1 px-2.5 py-1.5 rounded-full text-sm transition-all min-h-[36px]
-        <%= active ? 'bg-brand-50 dark:bg-brand-600/20 border border-brand-200 dark:border-brand-700' : 'hover:bg-slate-50 dark:hover:bg-slate-700 border border-transparent' %>"
+      <button class="reaction-chip reaction-btn flex items-center gap-1 px-2 py-1 rounded-full text-sm border transition-all min-h-[30px]
+        <%= r.userReacted ? 'bg-brand-50 dark:bg-brand-600/20 border-brand-300 dark:border-brand-600' : 'bg-slate-50 dark:bg-slate-700/40 border-slate-200 dark:border-slate-600 hover:border-brand-300 dark:hover:border-brand-500' %>"
         data-post-id="<%= post.id %>" data-emoji="<%= emoji %>">
         <span><%= emoji %></span>
-        <span class="reaction-count text-xs text-slate-500 dark:text-slate-400 <%= count === 0 ? 'hidden' : '' %>"><%= count %></span>
+        <span class="reaction-count text-xs font-medium text-slate-500 dark:text-slate-400"><%= r.count %></span>
       </button>
       <% }) %>
 
-      <div class="relative ml-1">
-        <button class="emoji-picker-toggle p-1.5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm min-h-[36px] min-w-[36px]" data-post-id="<%= post.id %>">＋</button>
-        <div class="emoji-picker hidden absolute bottom-10 left-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-2xl shadow-xl p-2 z-20 grid grid-cols-4 gap-1 w-40">
-          <% ['🎉','🙏','🔥','💯','🫶','👏','🥳','😍','🤣','😭','💪','🎂','🌟','👀','🤔','💔'].forEach(e => { %>
-          <button class="reaction-btn text-lg p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors min-h-[40px]" data-post-id="<%= post.id %>" data-emoji="<%= e %>"><%= e %></button>
-          <% }) %>
+      <%# React button + floating picker %>
+      <div class="relative">
+        <button class="emoji-picker-toggle flex items-center gap-1 text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors px-2 py-1 rounded-full border border-transparent hover:border-slate-200 dark:hover:border-slate-600 min-h-[30px]" data-post-id="<%= post.id %>">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 shrink-0">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.536-4.464a.75.75 0 10-1.061-1.061 3.5 3.5 0 01-4.95 0 .75.75 0 00-1.06 1.06 5 5 0 007.07 0zM9 8.5c0 .828-.448 1.5-1 1.5s-1-.672-1-1.5S7.448 7 8 7s1 .672 1 1.5zm3 1.5c.552 0 1-.672 1-1.5S12.552 7 12 7s-1 .672-1 1.5.448 1.5 1 1.5z" clip-rule="evenodd" />
+          </svg>
+          React
+        </button>
+        <div class="emoji-picker hidden absolute bottom-full mb-1 left-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-2xl shadow-xl p-2 z-20">
+          <div class="grid grid-cols-7 gap-0.5">
+            <% _emojiOrder.forEach(e => {
+              const active = !!_reactData[e]?.userReacted;
+            %>
+            <button class="reaction-btn text-xl p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center<%= active ? ' bg-brand-50 dark:bg-brand-600/20' : '' %>"
+              data-post-id="<%= post.id %>" data-emoji="<%= e %>"><%= e %></button>
+            <% }) %>
+          </div>
         </div>
       </div>
 
     </div>
 
-    <%# Reaction names summary line %>
-    <%
-      const _rn = (reactionNames && reactionNames[post.id]) ? reactionNames[post.id] : {};
-      const _emojiOrder = ['❤️','👍','😂','😮','😢','🎉','🙏','🔥','💯','🫶','👏','🥳','😍','🤣','😭','💪','🎂','🌟','👀','🤔','💔'];
-      const _summaryParts = _emojiOrder
-        .filter(e => _rn[e] && _rn[e].length > 0)
-        .map(e => {
-          const ns = _rn[e];
-          if (ns.length <= 2) return e + ' ' + ns.join(', ');
-          return e + ' ' + ns.slice(0, 2).join(', ') + ' and ' + (ns.length - 2) + ' other' + (ns.length - 2 > 1 ? 's' : '');
-        });
-    %>
+    <%# Names summary — tap to see who reacted %>
     <% if (_summaryParts.length) { %>
-    <button class="reaction-summary text-xs text-slate-400 dark:text-slate-500 mt-1 py-1.5 leading-relaxed text-left w-full hover:text-slate-600 dark:hover:text-slate-300 transition-colors"><%= _summaryParts.join(' · ') %></button>
+    <button class="reaction-summary text-xs text-slate-400 dark:text-slate-500 mt-1 py-1 leading-relaxed text-left w-full hover:text-slate-600 dark:hover:text-slate-300 transition-colors"><%= _summaryParts.join(' · ') %></button>
     <% } %>
   </div>
 
