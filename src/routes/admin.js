@@ -3,6 +3,8 @@ const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
 const { pool } = require('../db');
 const { requireAdmin } = require('../middleware/auth');
+const crypto = require('crypto');
+const { sendPasswordReset } = require('../email');
 
 router.use(requireAdmin);
 
@@ -97,6 +99,46 @@ router.post('/events/:id/delete', async (req, res) => {
   try {
     await pool.query('DELETE FROM events WHERE id = ?', [req.params.id]);
   } catch (err) { console.error(err); }
+  res.redirect('/admin');
+});
+
+router.post('/users/:id/send-reset', async (req, res) => {
+  try {
+    const [[user]] = await pool.query('SELECT id, name, email FROM users WHERE id = ?', [req.params.id]);
+    if (!user) { req.flash('error', 'User not found.'); return res.redirect('/admin'); }
+    const token = crypto.randomBytes(32).toString('hex');
+    await pool.query(
+      'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 1 HOUR))',
+      [user.id, token]
+    );
+    sendPasswordReset(user.email, token);
+    req.flash('success', `Password reset email sent to ${user.name}.`);
+  } catch (err) {
+    console.error(err);
+    req.flash('error', 'Could not send reset email.');
+  }
+  res.redirect('/admin');
+});
+
+router.post('/users/:id/update-email', async (req, res) => {
+  const newEmail = req.body.email?.trim().toLowerCase();
+  if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+    req.flash('error', 'Invalid email address.');
+    return res.redirect('/admin');
+  }
+  try {
+    const [[existing]] = await pool.query(
+      'SELECT id FROM users WHERE email = ? AND id != ?', [newEmail, req.params.id]
+    );
+    if (existing) { req.flash('error', 'That email is already in use.'); return res.redirect('/admin'); }
+    const [[user]] = await pool.query('SELECT name FROM users WHERE id = ?', [req.params.id]);
+    if (!user) { req.flash('error', 'User not found.'); return res.redirect('/admin'); }
+    await pool.query('UPDATE users SET email = ? WHERE id = ?', [newEmail, req.params.id]);
+    req.flash('success', `Email updated for ${user.name}.`);
+  } catch (err) {
+    console.error(err);
+    req.flash('error', 'Could not update email.');
+  }
   res.redirect('/admin');
 });
 
