@@ -8,40 +8,52 @@ const path = require('path');
 const { pool, initDb } = require('./db');
 const { startCron } = require('./cron');
 
+// ── Express setup ────────────────────────────────────────────────────────────
 const app = express();
+// Required for secure session cookies to work behind the Nginx reverse proxy;
+// without this, Express sees every request as non-HTTPS and won't set Secure cookies.
 app.set('trust proxy', 1);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+// ── Static files ─────────────────────────────────────────────────────────────
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res, filePath) {
     if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+      // no-cache forces the browser to revalidate on every load, preventing iOS
+      // PWA from serving stale JS/CSS assets after a deploy.
       res.set('Cache-Control', 'no-cache');
     }
   }
 }));
-// Serve uploaded photos
+// /uploads is a Docker volume mount — uploaded photos live outside the container
+// image so they survive image rebuilds and deploys.
 app.use('/uploads', express.static('/app/uploads'));
 
+// ── Session ───────────────────────────────────────────────────────────────────
 const sessionStore = new MySQLStore({}, pool);
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  // rolling: true resets the cookie expiry on every request, keeping active
+  // users logged in indefinitely rather than being logged out after 30 days.
   rolling: true,
   store: sessionStore,
   cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 1000 * 60 * 60 * 24 * 30 },
 }));
 app.use(flash());
 
+// ── Request locals ────────────────────────────────────────────────────────────
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.flash = req.flash();
   next();
 });
 
+// ── Birthday redirect ─────────────────────────────────────────────────────────
 // Prompt logged-in users without a birthday to set one
 const BIRTHDAY_SKIP = ['/birthday-setup', '/logout', '/login', '/register', '/forgot-password', '/reset-password'];
 app.use(async (req, res, next) => {
@@ -49,7 +61,9 @@ app.use(async (req, res, next) => {
   if (BIRTHDAY_SKIP.some(p => req.path.startsWith(p))) return next();
   if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path.startsWith('/css/') || req.path.startsWith('/js/')) return next();
 
-  // Sync birthday + avatar_url for sessions created before these fields existed
+  // Migration safety: syncs birthday and avatar_url into sessions that were
+  // created before those DB columns were added, so old sessions don't get
+  // stuck in redirect loops or show stale missing-avatar states.
   if (!('birthday' in req.session.user)) {
     try {
       const [[u]] = await pool.query('SELECT birthday, avatar_url FROM users WHERE id = ?', [req.session.user.id]);
@@ -62,6 +76,7 @@ app.use(async (req, res, next) => {
   next();
 });
 
+// ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/', require('./routes/auth'));
 app.use('/', require('./routes/posts'));
 app.use('/', require('./routes/reactions'));
@@ -71,7 +86,10 @@ app.use('/admin', require('./routes/admin'));
 app.use('/', require('./routes/members'));
 app.use('/push', require('./routes/push'));
 
+// ── Server startup ────────────────────────────────────────────────────────────
 async function start() {
+  // Retry loop gives the MySQL container time to fully boot before Express
+  // starts accepting connections — avoids immediate crash on cold docker start.
   for (let i = 0; i < 10; i++) {
     try { await pool.query('SELECT 1'); break; }
     catch { console.log('Waiting for database...'); await new Promise(r => setTimeout(r, 3000)); }
@@ -79,6 +97,8 @@ async function start() {
 
   await initDb();
 
+  // Seed the first admin account when the DB is empty and ADMIN_* env vars are
+  // set — lets a fresh deployment bootstrap without manual SQL inserts.
   const [[{ count }]] = await pool.query('SELECT COUNT(*) AS count FROM users');
   if (count === 0 && process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {
     const hash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 12);

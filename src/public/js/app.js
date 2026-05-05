@@ -1,4 +1,6 @@
-// Convert all timestamps to the viewer's local timezone.
+// ── Timestamp localization ────────────────────────────────────────────────────
+// Server renders timestamps in its own timezone; we rewrite them to the
+// viewer's local timezone client-side.
 // EJS renders timestamps server-side (wrong TZ), so we emit bare <time data-ts="ISO">
 // elements and fill them here. data-fmt="long" = weekday+long month, "compact" = no year.
 document.querySelectorAll('time[data-ts]').forEach(el => {
@@ -11,6 +13,7 @@ document.querySelectorAll('time[data-ts]').forEach(el => {
   el.textContent = new Date(el.dataset.ts).toLocaleString('en-US', opts);
 });
 
+// ── Dark mode ────────────────────────────────────────────────────────────────
 // Dark mode toggle
 const darkToggle = document.getElementById('dark-toggle');
 if (darkToggle) {
@@ -20,6 +23,7 @@ if (darkToggle) {
   });
 }
 
+// ── Reaction names bottom sheet ───────────────────────────────────────────────
 // Reaction names bottom sheet (mobile long-press)
 const _reactionSheet = document.createElement('div');
 _reactionSheet.id = 'reaction-sheet';
@@ -61,7 +65,7 @@ function _hideReactionSheet() {
 
 document.getElementById('reaction-sheet-close').addEventListener('click', _hideReactionSheet);
 
-// Reaction tooltip
+// ── Tooltip (desktop) ────────────────────────────────────────────────────────
 let tooltipEl = null;
 const nameCache = {};
 
@@ -90,11 +94,11 @@ async function fetchReactionNames(postId) {
   return nameCache[postId];
 }
 
-// ── Reactions ─────────────────────────────────────────────────────────────────
+// ── Reaction chips + state ─────────────────────────────────────────────────────
 
 const EMOJI_ORDER = ['❤️','👍','😂','😮','😢','🎉','🙏','🔥','💯','🫶','👏','🥳','😍','🤣','😭','💪','🎂','🌟','👀','🤔','💔'];
 
-// Seed reaction state from server-rendered data attributes
+// Seeded from data-reactions attributes set by the server so initial render is instant.
 const reactionState = {};
 document.querySelectorAll('[id^="reaction-chips-"]').forEach(el => {
   const postId = el.id.replace('reaction-chips-', '');
@@ -129,6 +133,8 @@ function renderReactionChips(postId) {
 
 async function handleReactionClick(postId, emoji) {
   hideTooltip();
+  // Invalidate the cached reaction names so the updated list is re-fetched
+  // on the next hover or tap rather than showing stale data.
   delete nameCache[postId];
   try {
     const res = await fetch(`/posts/${postId}/react`, {
@@ -169,7 +175,8 @@ document.addEventListener('click', e => {
 
 const _pickerSheet = document.createElement('div');
 _pickerSheet.className = 'fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-slate-800 rounded-t-2xl shadow-2xl border-t border-slate-200 dark:border-slate-700 p-4';
-// Inline styles for transform — Tailwind CDN may not compile translate-y-full for JS-created elements
+// Tailwind CDN only compiles classes for DOM nodes present at scan time —
+// JS-created elements must use inline styles instead of utility classes.
 _pickerSheet.style.transform = 'translateY(100%)';
 _pickerSheet.style.transition = 'transform 0.3s ease';
 document.body.appendChild(_pickerSheet);
@@ -227,7 +234,9 @@ function _showPickerSheet(postId) {
   _pickerOverlay = document.createElement('div');
   _pickerOverlay.style.cssText = 'position:fixed;inset:0;z-index:40;background:rgba(0,0,0,0.3)';
   document.body.appendChild(_pickerOverlay);
-  // Defer listener so the tap that opened the sheet doesn't immediately close it (iOS)
+  // Defer the overlay click listener by 100 ms so the tap that opened the
+  // sheet doesn't bubble up and immediately close it on iOS — iOS fires
+  // touchend and a synthetic click in the same event loop tick.
   setTimeout(() => {
     if (_pickerOverlay) _pickerOverlay.addEventListener('click', _hidePickerSheet);
   }, 100);
@@ -248,6 +257,7 @@ document.addEventListener('click', e => {
   if (toggleBtn) _showPickerSheet(toggleBtn.dataset.postId);
 });
 
+// ── Feed auto-refresh ─────────────────────────────────────────────────────────
 // Auto-refresh polling (feed page only)
 const feedEl = document.getElementById('feed');
 const refreshToast = document.getElementById('refresh-toast');
@@ -271,7 +281,10 @@ if (feedEl && refreshToast) {
   refreshToast.addEventListener('click', () => location.reload());
 }
 
-// Pull-to-refresh (standalone PWA only — avoids conflicting with Safari's native gesture in browser)
+// ── Pull-to-refresh (standalone PWA only) ─────────────────────────────────────
+// PTR is disabled in the browser because it conflicts with Safari's native
+// overscroll/bounce-back gesture — enabling it there causes double-refresh
+// and a broken scroll feel. In standalone PWA mode that gesture is absent.
 if (feedEl && (navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches)) {
   const PTR_THRESHOLD = 80;
   let ptrStartY = 0;
@@ -312,11 +325,13 @@ if (feedEl && (navigator.standalone === true || window.matchMedia('(display-mode
   });
 }
 
+// ── Service worker ────────────────────────────────────────────────────────────
 // Service worker registration (required for push on all platforms)
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
+// ── VAPID key helper ──────────────────────────────────────────────────────────
 // Convert URL-safe base64 VAPID public key to Uint8Array for pushManager.subscribe
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -325,6 +340,7 @@ function urlBase64ToUint8Array(base64String) {
   return new Uint8Array([...raw].map(c => c.charCodeAt(0)));
 }
 
+// ── iOS Add to Home Screen banner ─────────────────────────────────────────────
 // iOS Add to Home Screen banner (feed page only)
 const _iosBanner = document.getElementById('ios-pwa-banner');
 if (_iosBanner) {
@@ -341,7 +357,9 @@ if (_iosBanner) {
   });
 }
 
-// Push notifications UI (profile page only)
+// ── Push notification UI (profile page only) ──────────────────────────────────
+// This section only runs on the profile page where #push-section exists;
+// the guard prevents errors on every other page that lacks the element.
 const _pushSection = document.getElementById('push-section');
 if (_pushSection) {
   const _pushIsIOSNonStandalone = /iP(hone|ad|od)/.test(navigator.userAgent) && navigator.standalone !== true;
