@@ -48,6 +48,8 @@ router.get('/', requireAuth, async (req, res) => {
 
     allPosts.forEach(p => { p.photos = []; });
     let reactionsByPost = {};
+    let reactionNames = {};
+    let latestCommentByPost = {};
     if (allPosts.length) {
       const ids = allPosts.map(p => p.id);
       const [reactions] = await pool.query(`
@@ -77,10 +79,29 @@ router.get('/', requireAuth, async (req, res) => {
         const post = allPosts.find(p => p.id === ph.post_id);
         if (post) post.photos.push(ph.photo_url);
       });
+
+      const [nameRows] = await pool.query(`
+        SELECT r.post_id, r.emoji, u.name
+        FROM reactions r JOIN users u ON r.user_id = u.id
+        WHERE r.post_id IN (?)
+        ORDER BY r.post_id, r.emoji, u.name
+      `, [ids]);
+      nameRows.forEach(r => {
+        if (!reactionNames[r.post_id]) reactionNames[r.post_id] = {};
+        if (!reactionNames[r.post_id][r.emoji]) reactionNames[r.post_id][r.emoji] = [];
+        reactionNames[r.post_id][r.emoji].push(r.name);
+      });
+
+      const [latestCommentRows] = await pool.query(`
+        SELECT c.post_id, c.content, u.name AS author_name, u.avatar_url AS author_avatar, u.id AS author_id
+        FROM comments c JOIN users u ON c.user_id = u.id
+        WHERE c.id IN (SELECT MAX(id) FROM comments WHERE post_id IN (?) GROUP BY post_id)
+      `, [ids]);
+      latestCommentRows.forEach(c => { latestCommentByPost[c.post_id] = c; });
     }
 
     const latestPostId = allPosts[0]?.id || 0;
-    res.render('feed', { bigNewsPosts, regularPosts, archivedBigNews, reactionsByPost, latestPostId });
+    res.render('feed', { bigNewsPosts, regularPosts, archivedBigNews, reactionsByPost, reactionNames, latestCommentByPost, latestPostId });
   } catch (err) {
     console.error(err);
     res.render('error', { message: 'Could not load posts.' });
@@ -127,6 +148,18 @@ router.get('/post/:id', requireAuth, async (req, res) => {
     const reactionMap = {};
     reactions.forEach(r => { reactionMap[r.emoji] = { count: r.count, userReacted: r.user_reacted === 1 }; });
 
+    const [reactionNameRows] = await pool.query(`
+      SELECT r.emoji, u.name
+      FROM reactions r JOIN users u ON r.user_id = u.id
+      WHERE r.post_id = ?
+      ORDER BY r.emoji, u.name
+    `, [post.id]);
+    const reactionNames = {};
+    reactionNameRows.forEach(r => {
+      if (!reactionNames[r.emoji]) reactionNames[r.emoji] = [];
+      reactionNames[r.emoji].push(r.name);
+    });
+
     const [comments] = await pool.query(`
       SELECT c.*, u.name AS author_name, u.avatar_url AS author_avatar FROM comments c
       JOIN users u ON c.user_id = u.id
@@ -135,7 +168,7 @@ router.get('/post/:id', requireAuth, async (req, res) => {
     const topLevel = comments.filter(c => !c.parent_id);
     topLevel.forEach(c => { c.replies = comments.filter(r => r.parent_id === c.id); });
 
-    res.render('post', { post, reactions: reactionMap, comments: topLevel });
+    res.render('post', { post, reactions: reactionMap, comments: topLevel, reactionNames });
   } catch (err) {
     console.error(err);
     res.render('error', { message: 'Could not load post.' });

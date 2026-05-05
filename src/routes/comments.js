@@ -28,6 +28,13 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
       console.error('Comment notification error:', notifyErr.message);
     }
   } catch (err) { console.error(err); }
+  const ref = req.get('Referer') || '';
+  try {
+    const refPath = new URL(ref).pathname;
+    if (refPath === '/' || refPath.match(/^\/member\/\d+$/)) {
+      return res.redirect(refPath);
+    }
+  } catch {}
   res.redirect(`/post/${req.params.id}`);
 });
 

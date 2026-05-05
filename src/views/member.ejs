@@ -1,0 +1,54 @@
+<%- include('partials/head', { title: profileUser.name }) %>
+<%- include('partials/nav') %>
+
+<div class="max-w-2xl mx-auto px-4 py-6 space-y-4">
+  <a href="/" class="text-sm text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">← Feed</a>
+
+  <%# Profile header %>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 flex items-center gap-4">
+    <% if (profileUser.avatar_url) { %>
+    <img src="<%= profileUser.avatar_url %>" class="w-16 h-16 rounded-full object-cover flex-shrink-0" alt="">
+    <% } else { %>
+    <div class="w-16 h-16 rounded-full bg-brand-100 dark:bg-brand-600/20 flex items-center justify-center text-brand-600 dark:text-brand-400 font-bold text-2xl flex-shrink-0">
+      <%= profileUser.name.charAt(0).toUpperCase() %>
+    </div>
+    <% } %>
+    <div class="min-w-0">
+      <h1 class="text-lg font-bold text-slate-800 dark:text-slate-100 truncate"><%= profileUser.name %></h1>
+      <p class="text-sm text-slate-400 dark:text-slate-500">Member since <%= new Date(profileUser.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) %></p>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5"><%= posts.length %> post<%= posts.length !== 1 ? 's' : '' %></p>
+    </div>
+  </div>
+
+  <%# Empty state %>
+  <% if (!posts.length) { %>
+  <div class="text-center py-16 text-slate-400 dark:text-slate-500">
+    <div class="text-4xl mb-3">🌱</div>
+    <p>No posts yet.</p>
+  </div>
+  <% } %>
+
+  <%# Posts %>
+  <% posts.forEach(post => { const isScheduled = post.publish_at && new Date(post.publish_at) > new Date(); %>
+  <%- include('partials/post-card', { post, isScheduled, reactionsByPost, reactionNames, latestCommentByPost }) %>
+  <% }) %>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+  document.querySelectorAll('.edit-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const article = document.querySelector(`article[data-post-id="${btn.dataset.postId}"]`);
+      article.querySelector('.post-content-display').classList.add('hidden');
+      article.querySelector('.post-edit-form').classList.remove('hidden');
+    });
+  });
+  document.querySelectorAll('.edit-cancel').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const article = document.querySelector(`article[data-post-id="${btn.dataset.postId}"]`);
+      article.querySelector('.post-content-display').classList.remove('hidden');
+      article.querySelector('.post-edit-form').classList.add('hidden');
+    });
+  });
+</script>
+</body></html>

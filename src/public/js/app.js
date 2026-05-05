@@ -20,6 +20,48 @@ if (darkToggle) {
   });
 }
 
+// Reaction names bottom sheet (mobile long-press)
+const _reactionSheet = document.createElement('div');
+_reactionSheet.id = 'reaction-sheet';
+_reactionSheet.className = 'fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-slate-800 rounded-t-2xl shadow-2xl border-t border-slate-200 dark:border-slate-700 p-5 translate-y-full transition-transform duration-300';
+_reactionSheet.innerHTML = '<div class="flex items-center justify-between mb-4"><h3 class="font-semibold text-slate-700 dark:text-slate-200 text-sm">Reactions</h3><button id="reaction-sheet-close" class="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 text-xl min-h-[36px] min-w-[36px] flex items-center justify-center">✕</button></div><div id="reaction-sheet-content" class="space-y-3 max-h-64 overflow-y-auto"></div>';
+document.body.appendChild(_reactionSheet);
+
+let _sheetOverlay = null;
+let _longPressActive = false;
+
+function _showReactionSheet(names) {
+  _hideReactionSheet();
+  const content = document.getElementById('reaction-sheet-content');
+  content.innerHTML = '';
+  const order = ['❤️','👍','😂','😮','😢','🎉','🙏','🔥','💯','🫶','👏','🥳','😍','🤣','😭','💪','🎂','🌟','👀','🤔','💔'];
+  order.filter(e => names[e]?.length).forEach(e => {
+    const div = document.createElement('div');
+    div.className = 'flex items-start gap-3';
+    const emojiSpan = document.createElement('span');
+    emojiSpan.className = 'text-xl leading-none';
+    emojiSpan.textContent = e;
+    const nameP = document.createElement('p');
+    nameP.className = 'text-sm text-slate-700 dark:text-slate-200';
+    nameP.textContent = names[e].join(', ');
+    div.appendChild(emojiSpan);
+    div.appendChild(nameP);
+    content.appendChild(div);
+  });
+  _sheetOverlay = document.createElement('div');
+  _sheetOverlay.className = 'fixed inset-0 z-40 bg-black/30';
+  document.body.appendChild(_sheetOverlay);
+  _sheetOverlay.addEventListener('click', _hideReactionSheet);
+  requestAnimationFrame(() => _reactionSheet.classList.remove('translate-y-full'));
+}
+
+function _hideReactionSheet() {
+  _reactionSheet.classList.add('translate-y-full');
+  if (_sheetOverlay) { _sheetOverlay.remove(); _sheetOverlay = null; }
+}
+
+document.getElementById('reaction-sheet-close').addEventListener('click', _hideReactionSheet);
+
 // Reaction tooltip
 let tooltipEl = null;
 const nameCache = {};
@@ -91,7 +133,28 @@ document.querySelectorAll('.reaction-btn').forEach(btn => {
 
   btn.addEventListener('mouseleave', hideTooltip);
 
-  btn.addEventListener('click', () => handleReactionClick(postId, emoji));
+  // Long-press for mobile (500ms hold → bottom sheet with all reactors)
+  let _pressTimer = null;
+  btn.addEventListener('touchstart', () => {
+    _pressTimer = setTimeout(() => {
+      _pressTimer = null;
+      _longPressActive = true;
+      const article = btn.closest('article');
+      if (!article) return;
+      try { _showReactionSheet(JSON.parse(article.dataset.reactionNames || '{}')); } catch {}
+    }, 500);
+  }, { passive: true });
+  btn.addEventListener('touchmove', () => {
+    if (_pressTimer) { clearTimeout(_pressTimer); _pressTimer = null; }
+  }, { passive: true });
+  btn.addEventListener('touchend', () => {
+    if (_pressTimer) { clearTimeout(_pressTimer); _pressTimer = null; }
+  }, { passive: true });
+
+  btn.addEventListener('click', () => {
+    if (_longPressActive) { _longPressActive = false; return; }
+    handleReactionClick(postId, emoji);
+  });
 });
 
 // Emoji picker toggle

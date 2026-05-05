@@ -61,7 +61,7 @@
     </div>
     <div class="divide-y divide-amber-200 dark:divide-amber-800">
     <% bigNewsPosts.forEach(post => { const isScheduled = post.publish_at && new Date(post.publish_at) > new Date(); %>
-    <%- include('partials/post-card', { post, isScheduled, reactionsByPost }) %>
+    <%- include('partials/post-card', { post, isScheduled, reactionsByPost, reactionNames, latestCommentByPost }) %>
     <% }) %>
     </div>
   </div>
@@ -78,7 +78,7 @@
   <%# Regular feed %>
   <div id="feed" data-latest="<%= latestPostId %>">
   <% regularPosts.forEach(post => { const isScheduled = post.publish_at && new Date(post.publish_at) > new Date(); %>
-  <%- include('partials/post-card', { post, isScheduled, reactionsByPost }) %>
+  <%- include('partials/post-card', { post, isScheduled, reactionsByPost, reactionNames, latestCommentByPost }) %>
   <% }) %>
   </div>
 
@@ -92,7 +92,7 @@
     </summary>
     <div class="mt-2 space-y-4">
     <% archivedBigNews.forEach(post => { const isScheduled = post.publish_at && new Date(post.publish_at) > new Date(); %>
-    <%- include('partials/post-card', { post, isScheduled, reactionsByPost }) %>
+    <%- include('partials/post-card', { post, isScheduled, reactionsByPost, reactionNames, latestCommentByPost }) %>
     <% }) %>
     </div>
   </details>
