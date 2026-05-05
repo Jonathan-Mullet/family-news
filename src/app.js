@@ -15,7 +15,13 @@ app.set('views', path.join(__dirname, 'views'));
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res, filePath) {
+    if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+      res.set('Cache-Control', 'no-cache');
+    }
+  }
+}));
 // Serve uploaded photos
 app.use('/uploads', express.static('/app/uploads'));
 
