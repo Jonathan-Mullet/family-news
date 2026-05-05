@@ -108,6 +108,15 @@ async function initDb() {
       UNIQUE KEY unique_photo_sort (post_id, sort_order),
       FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      endpoint VARCHAR(2048) NOT NULL UNIQUE,
+      p256dh VARCHAR(512) NOT NULL,
+      auth VARCHAR(256) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
   ];
   for (const q of tables) await pool.query(q);
 
@@ -126,6 +135,9 @@ async function initDb() {
     `ALTER TABLE invites ADD COLUMN max_uses INT DEFAULT 1`,
     `ALTER TABLE invites ADD COLUMN use_count INT DEFAULT 0`,
     `UPDATE invites SET use_count = 1 WHERE used_at IS NOT NULL AND use_count = 0`,
+    `ALTER TABLE users ADD COLUMN push_notify_posts TINYINT(1) DEFAULT 1`,
+    `ALTER TABLE users ADD COLUMN push_notify_comments TINYINT(1) DEFAULT 1`,
+    `ALTER TABLE users ADD COLUMN push_notify_big_news TINYINT(1) DEFAULT 1`,
   ];
   for (const q of migrations) {
     try { await pool.query(q); } catch { /* column already exists */ }
