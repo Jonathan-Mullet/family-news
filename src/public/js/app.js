@@ -193,3 +193,122 @@ if (feedEl && refreshToast) {
   setInterval(poll, 25000);
   refreshToast.addEventListener('click', () => location.reload());
 }
+
+// Service worker registration (required for push on all platforms)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// Convert URL-safe base64 VAPID public key to Uint8Array for pushManager.subscribe
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return new Uint8Array([...raw].map(c => c.charCodeAt(0)));
+}
+
+// iOS Add to Home Screen banner (feed page only)
+const _iosBanner = document.getElementById('ios-pwa-banner');
+if (_iosBanner) {
+  const _isIOS = /iP(hone|ad|od)/.test(navigator.userAgent);
+  const _isStandalone = navigator.standalone === true;
+  const _pwaGranted = typeof Notification !== 'undefined' && Notification.permission === 'granted';
+  const _pwaDismissed = localStorage.getItem('pwa-banner-dismissed');
+  if (_isIOS && !_isStandalone && !_pwaGranted && !_pwaDismissed) {
+    _iosBanner.classList.remove('hidden');
+  }
+  document.getElementById('ios-pwa-banner-dismiss')?.addEventListener('click', () => {
+    localStorage.setItem('pwa-banner-dismissed', '1');
+    _iosBanner.classList.add('hidden');
+  });
+}
+
+// Push notifications UI (profile page only)
+const _pushSection = document.getElementById('push-section');
+if (_pushSection) {
+  const _pushIsIOSNonStandalone = /iP(hone|ad|od)/.test(navigator.userAgent) && navigator.standalone !== true;
+
+  function _showPushState(id) {
+    ['push-state-default', 'push-state-enabled', 'push-state-denied', 'push-ios-notice'].forEach(s => {
+      document.getElementById(s)?.classList.add('hidden');
+    });
+    document.getElementById(id)?.classList.remove('hidden');
+  }
+
+  function _populatePushCheckboxes() {
+    const sec = document.getElementById('push-section');
+    const posts = document.querySelector('#push-state-enabled input[name="push_notify_posts"]');
+    const comments = document.querySelector('#push-state-enabled input[name="push_notify_comments"]');
+    const bigNews = document.querySelector('#push-state-enabled input[name="push_notify_big_news"]');
+    if (posts) posts.checked = sec.dataset.notifyPosts !== '0';
+    if (comments) comments.checked = sec.dataset.notifyComments !== '0';
+    if (bigNews) bigNews.checked = sec.dataset.notifyBigNews !== '0';
+  }
+
+  async function _initPushSection() {
+    if (_pushIsIOSNonStandalone) { _showPushState('push-ios-notice'); return; }
+    if (typeof Notification === 'undefined' || !('PushManager' in window)) {
+      _pushSection.querySelector('h2').insertAdjacentHTML('afterend',
+        '<p class="text-sm text-slate-400 dark:text-slate-500">Push notifications are not supported in this browser.</p>'
+      );
+      return;
+    }
+    if (Notification.permission === 'denied') {
+      _showPushState('push-state-denied');
+      const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent);
+      const el = document.getElementById('push-denied-instructions');
+      if (el) el.textContent = isIOS
+        ? 'To re-enable: go to Settings → Safari → Notifications and allow Family News.'
+        : 'To re-enable: tap the lock icon in the address bar and allow notifications.';
+      return;
+    }
+    try {
+      const sw = await navigator.serviceWorker.ready;
+      const sub = await sw.pushManager.getSubscription();
+      if (sub) {
+        _showPushState('push-state-enabled');
+        _populatePushCheckboxes();
+      } else {
+        _showPushState('push-state-default');
+      }
+    } catch { _showPushState('push-state-default'); }
+  }
+
+  async function _enablePush() {
+    try {
+      const sw = await navigator.serviceWorker.ready;
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { _showPushState('push-state-denied'); return; }
+      const { publicKey } = await fetch('/push/vapid-public-key').then(r => r.json());
+      const sub = await sw.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
+      const body = JSON.stringify({
+        endpoint: sub.endpoint,
+        p256dh: btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))),
+        auth: btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth'))))
+      });
+      const data = await fetch('/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).then(r => r.json());
+      if (data.emailsOptedOut) {
+        document.getElementById('push-email-notice')?.classList.remove('hidden');
+      }
+      _showPushState('push-state-enabled');
+      _populatePushCheckboxes();
+    } catch (err) { console.error('Push enable error:', err); }
+  }
+
+  async function _disablePush() {
+    try {
+      const sw = await navigator.serviceWorker.ready;
+      const sub = await sw.pushManager.getSubscription();
+      if (sub) {
+        await fetch('/push/unsubscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: sub.endpoint }) });
+        await sub.unsubscribe();
+      }
+      _showPushState('push-state-default');
+    } catch (err) { console.error('Push disable error:', err); }
+  }
+
+  document.getElementById('push-enable-btn')?.addEventListener('click', _enablePush);
+  document.getElementById('push-disable-btn')?.addEventListener('click', _disablePush);
+
+  _initPushSection();
+}
