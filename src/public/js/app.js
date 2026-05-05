@@ -165,43 +165,68 @@ document.addEventListener('click', e => {
 });
 
 // ── Floating emoji picker (body-level, escapes overflow:hidden on article cards) ──
+// Built entirely with inline styles — Tailwind CDN does not scan innerHTML strings
+// on dynamically-created elements, so grid/layout classes would silently not apply.
 
 const _floatingPicker = document.createElement('div');
-_floatingPicker.className = 'hidden fixed bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-2xl shadow-xl p-2 z-50';
-_floatingPicker.style.maxWidth = '260px';
-_floatingPicker.innerHTML = '<div class="grid grid-cols-7 gap-0.5">' +
-  EMOJI_ORDER.map(e => `<button class="fp-btn text-xl p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center justify-center" style="min-height:38px;min-width:34px" data-emoji="${e}">${e}</button>`).join('') +
-  '</div>';
+_floatingPicker.style.cssText = 'display:none;position:fixed;z-index:9999;padding:8px;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,0.18);max-width:260px;';
+
+const _pickerGrid = document.createElement('div');
+_pickerGrid.style.cssText = 'display:grid;grid-template-columns:repeat(7,1fr);gap:2px;';
+
+const _pickerBtns = {};
+EMOJI_ORDER.forEach(e => {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = e;
+  btn.dataset.emoji = e;
+  btn.style.cssText = 'font-size:1.25rem;padding:6px;border-radius:8px;border:none;background:none;cursor:pointer;min-height:38px;min-width:34px;display:flex;align-items:center;justify-content:center;transition:background 0.1s;';
+  btn.addEventListener('mouseover', () => { if (!btn.dataset.active) btn.style.background = _isDark() ? '#334155' : '#f1f5f9'; });
+  btn.addEventListener('mouseout', () => { if (!btn.dataset.active) btn.style.background = 'none'; });
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (_pickerPostId) handleReactionClick(_pickerPostId, btn.dataset.emoji);
+    _hidePicker();
+  });
+  _pickerGrid.appendChild(btn);
+  _pickerBtns[e] = btn;
+});
+
+_floatingPicker.appendChild(_pickerGrid);
 document.body.appendChild(_floatingPicker);
 
 let _pickerPostId = null;
 
+function _isDark() { return document.documentElement.classList.contains('dark'); }
+
 function _syncPickerState(postId) {
   const state = reactionState[postId] || {};
-  _floatingPicker.querySelectorAll('.fp-btn').forEach(b => {
-    const active = !!state[b.dataset.emoji]?.userReacted;
-    b.style.background = active ? 'var(--picker-active-bg, #fdf6f0)' : '';
-    b.style.outline = active ? '2px solid #c4895a' : '';
-    b.style.outlineOffset = active ? '-2px' : '';
+  EMOJI_ORDER.forEach(e => {
+    const btn = _pickerBtns[e];
+    const active = !!state[e]?.userReacted;
+    btn.dataset.active = active ? '1' : '';
+    btn.style.background = active ? '#fdf6f0' : 'none';
+    btn.style.outline = active ? '2px solid #c4895a' : 'none';
+    btn.style.outlineOffset = '-2px';
   });
 }
 
 function _showPicker(postId, anchorBtn) {
   _pickerPostId = postId;
+  const isDark = _isDark();
+  _floatingPicker.style.background = isDark ? '#1e293b' : '#ffffff';
+  _floatingPicker.style.border = isDark ? '1px solid #475569' : '1px solid #e2e8f0';
   _syncPickerState(postId);
-  _floatingPicker.classList.remove('hidden');
+  _floatingPicker.style.display = 'block';
 
   const rect = anchorBtn.getBoundingClientRect();
-  const pw = _floatingPicker.offsetWidth || 252;
-  const ph = _floatingPicker.offsetHeight || 170;
+  const pw = _floatingPicker.offsetWidth;
+  const ph = _floatingPicker.offsetHeight;
   const margin = 8;
 
   let left = rect.left;
   let top = rect.top - ph - margin;
-
-  // Flip below if not enough room above
   if (top < margin) top = rect.bottom + margin;
-  // Keep within viewport horizontally
   if (left + pw > window.innerWidth - margin) left = window.innerWidth - pw - margin;
   if (left < margin) left = margin;
 
@@ -210,17 +235,9 @@ function _showPicker(postId, anchorBtn) {
 }
 
 function _hidePicker() {
-  _floatingPicker.classList.add('hidden');
+  _floatingPicker.style.display = 'none';
   _pickerPostId = null;
 }
-
-_floatingPicker.querySelectorAll('.fp-btn').forEach(btn => {
-  btn.addEventListener('click', e => {
-    e.stopPropagation();
-    if (_pickerPostId) handleReactionClick(_pickerPostId, btn.dataset.emoji);
-    _hidePicker();
-  });
-});
 
 document.querySelectorAll('.emoji-picker-toggle').forEach(toggleBtn => {
   toggleBtn.addEventListener('click', e => {
