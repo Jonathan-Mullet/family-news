@@ -106,7 +106,7 @@ function renderReactionChips(postId) {
   const chipsArea = document.getElementById(`reaction-chips-${postId}`);
   if (!chipsArea) return;
   const state = reactionState[postId] || {};
-  const reactBtnDiv = chipsArea.querySelector('.relative');
+  const toggleBtn = chipsArea.querySelector('.emoji-picker-toggle');
 
   chipsArea.querySelectorAll('.reaction-chip').forEach(c => c.remove());
 
@@ -121,10 +121,9 @@ function renderReactionChips(postId) {
     chip.dataset.postId = postId;
     chip.dataset.emoji = emoji;
     chip.innerHTML = `<span>${emoji}</span><span class="reaction-count text-xs font-medium text-slate-500 dark:text-slate-400">${r.count}</span>`;
-    chipsArea.insertBefore(chip, reactBtnDiv);
+    chipsArea.insertBefore(chip, toggleBtn);
   });
 
-  // Keep floating picker highlights in sync if it's open for this post
   if (_pickerPostId === postId) _syncPickerState(postId);
 }
 
@@ -164,95 +163,84 @@ document.addEventListener('click', e => {
   }
 });
 
-// ── Floating emoji picker (body-level, escapes overflow:hidden on article cards) ──
-// Built entirely with inline styles — Tailwind CDN does not scan innerHTML strings
-// on dynamically-created elements, so grid/layout classes would silently not apply.
+// ── Emoji picker bottom sheet ─────────────────────────────────────────────────
+// Mirrors _reactionSheet exactly — same proven show/hide pattern that works on
+// all platforms including iOS PWA. No floating-position math needed.
 
-const _floatingPicker = document.createElement('div');
-_floatingPicker.style.cssText = 'display:none;position:fixed;z-index:9999;padding:8px;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,0.18);max-width:260px;';
+const _pickerSheet = document.createElement('div');
+_pickerSheet.className = 'fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-slate-800 rounded-t-2xl shadow-2xl border-t border-slate-200 dark:border-slate-700 p-4 translate-y-full transition-transform duration-300';
+document.body.appendChild(_pickerSheet);
+
+const _pickerHeader = document.createElement('div');
+_pickerHeader.className = 'flex items-center justify-between mb-3';
+const _pickerTitle = document.createElement('h3');
+_pickerTitle.className = 'font-semibold text-slate-700 dark:text-slate-200 text-sm';
+_pickerTitle.textContent = 'Add a reaction';
+const _pickerCloseBtn = document.createElement('button');
+_pickerCloseBtn.className = 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 text-xl min-h-[36px] min-w-[36px] flex items-center justify-center';
+_pickerCloseBtn.textContent = '✕';
+_pickerHeader.appendChild(_pickerTitle);
+_pickerHeader.appendChild(_pickerCloseBtn);
+_pickerSheet.appendChild(_pickerHeader);
 
 const _pickerGrid = document.createElement('div');
-_pickerGrid.style.cssText = 'display:grid;grid-template-columns:repeat(7,1fr);gap:2px;';
+_pickerGrid.style.cssText = 'display:grid;grid-template-columns:repeat(7,1fr);gap:4px;';
+_pickerSheet.appendChild(_pickerGrid);
 
+let _pickerPostId = null;
+let _pickerOverlay = null;
 const _pickerBtns = {};
+
 EMOJI_ORDER.forEach(e => {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.textContent = e;
   btn.dataset.emoji = e;
-  btn.style.cssText = 'font-size:1.25rem;padding:6px;border-radius:8px;border:none;background:none;cursor:pointer;min-height:38px;min-width:34px;display:flex;align-items:center;justify-content:center;transition:background 0.1s;';
-  btn.addEventListener('mouseover', () => { if (!btn.dataset.active) btn.style.background = _isDark() ? '#334155' : '#f1f5f9'; });
-  btn.addEventListener('mouseout', () => { if (!btn.dataset.active) btn.style.background = 'none'; });
-  btn.addEventListener('click', e => {
-    e.stopPropagation();
-    if (_pickerPostId) handleReactionClick(_pickerPostId, btn.dataset.emoji);
-    _hidePicker();
+  btn.style.cssText = 'font-size:1.5rem;padding:8px;border-radius:10px;border:2px solid transparent;background:none;cursor:pointer;min-height:48px;display:flex;align-items:center;justify-content:center;';
+  btn.addEventListener('click', ev => {
+    ev.stopPropagation();
+    const postId = _pickerPostId;
+    _hidePickerSheet();
+    if (postId) handleReactionClick(postId, e);
   });
   _pickerGrid.appendChild(btn);
   _pickerBtns[e] = btn;
 });
-
-_floatingPicker.appendChild(_pickerGrid);
-document.body.appendChild(_floatingPicker);
-
-let _pickerPostId = null;
-
-function _isDark() { return document.documentElement.classList.contains('dark'); }
 
 function _syncPickerState(postId) {
   const state = reactionState[postId] || {};
   EMOJI_ORDER.forEach(e => {
     const btn = _pickerBtns[e];
     const active = !!state[e]?.userReacted;
-    btn.dataset.active = active ? '1' : '';
     btn.style.background = active ? '#fdf6f0' : 'none';
-    btn.style.outline = active ? '2px solid #c4895a' : 'none';
-    btn.style.outlineOffset = '-2px';
+    btn.style.borderColor = active ? '#c4895a' : 'transparent';
   });
 }
 
-function _showPicker(postId, anchorBtn) {
+function _showPickerSheet(postId) {
   _pickerPostId = postId;
-  const isDark = _isDark();
-  _floatingPicker.style.background = isDark ? '#1e293b' : '#ffffff';
-  _floatingPicker.style.border = isDark ? '1px solid #475569' : '1px solid #e2e8f0';
   _syncPickerState(postId);
-  _floatingPicker.style.display = 'block';
-
-  const rect = anchorBtn.getBoundingClientRect();
-  const pw = _floatingPicker.offsetWidth;
-  const ph = _floatingPicker.offsetHeight;
-  const margin = 8;
-
-  let left = rect.left;
-  let top = rect.top - ph - margin;
-  if (top < margin) top = rect.bottom + margin;
-  if (left + pw > window.innerWidth - margin) left = window.innerWidth - pw - margin;
-  if (left < margin) left = margin;
-
-  _floatingPicker.style.left = left + 'px';
-  _floatingPicker.style.top = top + 'px';
+  _pickerOverlay = document.createElement('div');
+  _pickerOverlay.className = 'fixed inset-0 z-40 bg-black/30';
+  document.body.appendChild(_pickerOverlay);
+  _pickerOverlay.addEventListener('click', _hidePickerSheet);
+  requestAnimationFrame(() => _pickerSheet.classList.remove('translate-y-full'));
 }
 
-function _hidePicker() {
-  _floatingPicker.style.display = 'none';
+function _hidePickerSheet() {
+  _pickerSheet.classList.add('translate-y-full');
+  if (_pickerOverlay) { _pickerOverlay.remove(); _pickerOverlay = null; }
   _pickerPostId = null;
 }
+
+_pickerCloseBtn.addEventListener('click', _hidePickerSheet);
 
 document.querySelectorAll('.emoji-picker-toggle').forEach(toggleBtn => {
   toggleBtn.addEventListener('click', e => {
     e.stopPropagation();
-    const postId = toggleBtn.dataset.postId;
-    if (!_floatingPicker.classList.contains('hidden') && _pickerPostId === postId) {
-      _hidePicker();
-    } else {
-      _showPicker(postId, toggleBtn);
-    }
+    _showPickerSheet(toggleBtn.dataset.postId);
   });
 });
-
-// Close on outside click
-document.addEventListener('click', () => _hidePicker());
 
 // Auto-refresh polling (feed page only)
 const feedEl = document.getElementById('feed');
