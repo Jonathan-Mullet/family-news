@@ -41,7 +41,7 @@ async function sendPushToUser(userId, payload, { checkColumn } = {}) {
   }
 }
 
-async function sendPushToAllUsers(payload, { excludeUserId, checkColumn }) {
+async function sendPushToAllUsers(payload, { excludeUserId = 0, checkColumn }) {
   if (!process.env.VAPID_PUBLIC_KEY) return;
   if (!checkColumn) return;
   try {
