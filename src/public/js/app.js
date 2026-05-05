@@ -124,12 +124,8 @@ function renderReactionChips(postId) {
     chipsArea.insertBefore(chip, reactBtnDiv);
   });
 
-  // Keep picker button highlights in sync
-  chipsArea.querySelectorAll('.emoji-picker .reaction-btn').forEach(b => {
-    const active = !!state[b.dataset.emoji]?.userReacted;
-    b.classList.toggle('bg-brand-50', active);
-    b.classList.toggle('dark:bg-brand-600/20', active);
-  });
+  // Keep floating picker highlights in sync if it's open for this post
+  if (_pickerPostId === postId) _syncPickerState(postId);
 }
 
 async function handleReactionClick(postId, emoji) {
@@ -168,30 +164,78 @@ document.addEventListener('click', e => {
   }
 });
 
-// Emoji picker toggle
+// ── Floating emoji picker (body-level, escapes overflow:hidden on article cards) ──
+
+const _floatingPicker = document.createElement('div');
+_floatingPicker.className = 'hidden fixed bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-2xl shadow-xl p-2 z-50';
+_floatingPicker.style.maxWidth = '260px';
+_floatingPicker.innerHTML = '<div class="grid grid-cols-7 gap-0.5">' +
+  EMOJI_ORDER.map(e => `<button class="fp-btn text-xl p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center justify-center" style="min-height:38px;min-width:34px" data-emoji="${e}">${e}</button>`).join('') +
+  '</div>';
+document.body.appendChild(_floatingPicker);
+
+let _pickerPostId = null;
+
+function _syncPickerState(postId) {
+  const state = reactionState[postId] || {};
+  _floatingPicker.querySelectorAll('.fp-btn').forEach(b => {
+    const active = !!state[b.dataset.emoji]?.userReacted;
+    b.style.background = active ? 'var(--picker-active-bg, #fdf6f0)' : '';
+    b.style.outline = active ? '2px solid #c4895a' : '';
+    b.style.outlineOffset = active ? '-2px' : '';
+  });
+}
+
+function _showPicker(postId, anchorBtn) {
+  _pickerPostId = postId;
+  _syncPickerState(postId);
+  _floatingPicker.classList.remove('hidden');
+
+  const rect = anchorBtn.getBoundingClientRect();
+  const pw = _floatingPicker.offsetWidth || 252;
+  const ph = _floatingPicker.offsetHeight || 170;
+  const margin = 8;
+
+  let left = rect.left;
+  let top = rect.top - ph - margin;
+
+  // Flip below if not enough room above
+  if (top < margin) top = rect.bottom + margin;
+  // Keep within viewport horizontally
+  if (left + pw > window.innerWidth - margin) left = window.innerWidth - pw - margin;
+  if (left < margin) left = margin;
+
+  _floatingPicker.style.left = left + 'px';
+  _floatingPicker.style.top = top + 'px';
+}
+
+function _hidePicker() {
+  _floatingPicker.classList.add('hidden');
+  _pickerPostId = null;
+}
+
+_floatingPicker.querySelectorAll('.fp-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (_pickerPostId) handleReactionClick(_pickerPostId, btn.dataset.emoji);
+    _hidePicker();
+  });
+});
+
 document.querySelectorAll('.emoji-picker-toggle').forEach(toggleBtn => {
   toggleBtn.addEventListener('click', e => {
     e.stopPropagation();
-    const picker = toggleBtn.closest('.relative')?.querySelector('.emoji-picker');
-    if (!picker) return;
-    document.querySelectorAll('.emoji-picker').forEach(p => { if (p !== picker) p.classList.add('hidden'); });
-    picker.classList.toggle('hidden');
+    const postId = toggleBtn.dataset.postId;
+    if (!_floatingPicker.classList.contains('hidden') && _pickerPostId === postId) {
+      _hidePicker();
+    } else {
+      _showPicker(postId, toggleBtn);
+    }
   });
 });
 
-// Picker emoji buttons
-document.querySelectorAll('.emoji-picker .reaction-btn').forEach(btn => {
-  btn.addEventListener('click', e => {
-    e.stopPropagation();
-    btn.closest('.emoji-picker')?.classList.add('hidden');
-    handleReactionClick(btn.dataset.postId, btn.dataset.emoji);
-  });
-});
-
-// Close pickers on outside click
-document.addEventListener('click', () => {
-  document.querySelectorAll('.emoji-picker').forEach(p => p.classList.add('hidden'));
-});
+// Close on outside click
+document.addEventListener('click', () => _hidePicker());
 
 // Auto-refresh polling (feed page only)
 const feedEl = document.getElementById('feed');
