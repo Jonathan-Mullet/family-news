@@ -22,7 +22,7 @@ let transporter = null;
  */
 function getTransporter() {
   if (!process.env.EMAIL_HOST) return null;
-  // Lazy-init: create the transporter once and reuse the connection pool.
+  // Lazy-init: create the transporter object once rather than rebuilding it on every call.
   if (!transporter) {
     transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST,
