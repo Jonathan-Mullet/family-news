@@ -17,7 +17,7 @@ router.post('/subscribe', async (req, res) => {
     await pool.query(
       `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
        VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), p256dh = VALUES(p256dh), auth = VALUES(auth)`,
+       ON DUPLICATE KEY UPDATE p256dh = VALUES(p256dh), auth = VALUES(auth)`,
       [userId, endpoint, p256dh, auth]
     );
     const [[user]] = await pool.query('SELECT notify_posts, notify_comments FROM users WHERE id = ?', [userId]);
