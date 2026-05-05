@@ -14,7 +14,7 @@ const { pool } = require('../db');
 /**
  * Loads reactions, photos, reaction names, and latest comments for a set of posts.
  *
- * @param {Array<{id: number}>} posts        - Post objects (must have .id field)
+ * @param {Array<{id: number}>} posts        - Post objects (must have .id; mutated in-place: .photos array added to each)
  * @param {number}              viewerUserId - Session user ID (for userReacted flags)
  * @returns {Promise<{
  *   reactionsByPost:     Object,
