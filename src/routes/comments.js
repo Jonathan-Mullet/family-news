@@ -3,6 +3,7 @@ const router = express.Router();
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { sendCommentNotification } = require('../email');
+const { sendPushToUser } = require('../push');
 
 router.post('/posts/:id/comments', requireAuth, async (req, res) => {
   const { content, parent_id } = req.body;
@@ -23,6 +24,13 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
         const post = postRows[0];
         const toUser = { id: post.user_id, email: post.email, notify_comments: post.notify_comments };
         sendCommentNotification(toUser, req.session.user, { id: post.id, title: post.title });
+        if (post.user_id !== req.session.user.id) {
+          sendPushToUser(
+            post.user_id,
+            { title: `${req.session.user.name} commented on your post`, body: content.trim().substring(0, 100), url: `/post/${post.id}` },
+            { checkColumn: 'push_notify_comments' }
+          );
+        }
       }
     } catch (notifyErr) {
       console.error('Comment notification error:', notifyErr.message);

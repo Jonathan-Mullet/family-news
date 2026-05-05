@@ -3,6 +3,7 @@ const router = express.Router();
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { sendNewPostNotification, sendBigNewsNotification } = require('../email');
+const { sendPushToAllUsers } = require('../push');
 const { handleMultiUpload, deleteUploadedFile } = require('./upload');
 const { fetchOgPreview } = require('../utils/ogFetch');
 
@@ -207,8 +208,16 @@ router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
     const [users] = await pool.query('SELECT id, email, notify_posts FROM users WHERE active = 1');
     if (isBigNews) {
       sendBigNewsNotification(users, req.session.user, { id: postId, title: title?.trim() || null, content: content.trim() });
+      sendPushToAllUsers(
+        { title: `📣 Big News from ${req.session.user.name}`, body: (title?.trim() || content.trim()).substring(0, 100), url: `/post/${postId}` },
+        { excludeUserId: req.session.user.id, checkColumn: 'push_notify_big_news' }
+      );
     } else {
       sendNewPostNotification(users, req.session.user, { id: postId, title: title?.trim() || null, content: content.trim() });
+      sendPushToAllUsers(
+        { title: `${req.session.user.name} posted`, body: content.trim().substring(0, 100), url: '/' },
+        { excludeUserId: req.session.user.id, checkColumn: 'push_notify_posts' }
+      );
     }
 
     const urlMatch = content.match(/(https?:\/\/[^\s]+)/);
@@ -269,6 +278,13 @@ router.post('/posts/:id/toggle-big-news', requireAuth, async (req, res) => {
     if (!rows.length) return res.redirect('/');
     if (rows[0].user_id !== req.session.user.id && req.session.user.role !== 'admin') return res.status(403).end();
     await pool.query('UPDATE posts SET big_news = NOT big_news WHERE id = ?', [req.params.id]);
+    const [[post]] = await pool.query('SELECT id, title, content, big_news FROM posts WHERE id = ?', [req.params.id]);
+    if (post && post.big_news) {
+      sendPushToAllUsers(
+        { title: `📣 Big News from ${req.session.user.name}`, body: (post.title || post.content).substring(0, 100), url: `/post/${post.id}` },
+        { excludeUserId: req.session.user.id, checkColumn: 'push_notify_big_news' }
+      );
+    }
   } catch (err) { console.error(err); }
   const ref = req.headers.referer || '/';
   res.redirect(ref.includes('/post/') ? ref : '/');
