@@ -28,7 +28,6 @@ _reactionSheet.innerHTML = '<div class="flex items-center justify-between mb-4">
 document.body.appendChild(_reactionSheet);
 
 let _sheetOverlay = null;
-let _longPressActive = false;
 
 function _showReactionSheet(names) {
   _hideReactionSheet();
@@ -120,40 +119,21 @@ async function handleReactionClick(postId, emoji) {
 
 // Reactions
 document.querySelectorAll('.reaction-btn').forEach(btn => {
-  const postId = btn.dataset.postId;
-  const emoji = btn.dataset.emoji;
-
-  btn.addEventListener('mouseenter', async () => {
-    const countEl = btn.querySelector('.reaction-count');
-    if (countEl?.classList.contains('hidden')) return;
-    const names = await fetchReactionNames(postId);
-    const list = names[emoji];
-    if (list?.length) showTooltip(list.join(', '), btn);
-  });
-
-  btn.addEventListener('mouseleave', hideTooltip);
-
-  // Long-press for mobile (500ms hold → bottom sheet with all reactors)
-  let _pressTimer = null;
-  btn.addEventListener('touchstart', () => {
-    _pressTimer = setTimeout(() => {
-      _pressTimer = null;
-      _longPressActive = true;
-      const article = btn.closest('article');
-      if (!article) return;
-      try { _showReactionSheet(JSON.parse(article.dataset.reactionNames || '{}')); } catch {}
-    }, 500);
-  }, { passive: true });
-  btn.addEventListener('touchmove', () => {
-    if (_pressTimer) { clearTimeout(_pressTimer); _pressTimer = null; }
-  }, { passive: true });
-  btn.addEventListener('touchend', () => {
-    if (_pressTimer) { clearTimeout(_pressTimer); _pressTimer = null; }
-  }, { passive: true });
-
+  if (btn.closest('.emoji-picker')) return;
   btn.addEventListener('click', () => {
-    if (_longPressActive) { _longPressActive = false; return; }
-    handleReactionClick(postId, emoji);
+    const postId = btn.dataset.postId;
+    const emoji = btn.dataset.emoji;
+    handleReactionClick(postId, emoji, btn);
+  });
+});
+
+document.querySelectorAll('.reaction-summary').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const article = btn.closest('article[data-post-id]');
+    if (!article) return;
+    try {
+      _showReactionSheet(JSON.parse(article.dataset.reactionNames || '{}'));
+    } catch {}
   });
 });
 
