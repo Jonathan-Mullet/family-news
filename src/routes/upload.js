@@ -1,8 +1,10 @@
+// Multer + Sharp image processing middleware for single photo, multi-photo gallery, and avatar uploads.
 const multer = require('multer');
 const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs');
 
+// This path is a Docker volume mount: /app/uploads inside the container maps to a persistent directory on the Pi host.
 const UPLOADS_DIR = '/app/uploads';
 
 // Ensure uploads directory exists
@@ -27,6 +29,8 @@ async function processAndSave(buffer) {
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
   const outPath = path.join(UPLOADS_DIR, filename);
   await sharp(buffer)
+    // .rotate() with no argument reads the EXIF orientation tag and auto-rotates the image,
+    // which fixes sideways or upside-down photos taken on phones.
     .rotate()
     .resize({ width: 1200, withoutEnlargement: true })
     .jpeg({ quality: 82 })
@@ -58,6 +62,7 @@ async function processAndSaveAvatar(buffer) {
   const filename = `avatar-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
   const outPath = path.join(UPLOADS_DIR, filename);
   await sharp(buffer)
+    // .rotate() auto-corrects EXIF orientation so selfies aren't sideways.
     .rotate()
     .resize(256, 256, { fit: 'cover', position: 'centre' })
     .jpeg({ quality: 85 })
@@ -65,6 +70,7 @@ async function processAndSaveAvatar(buffer) {
   return filename;
 }
 
+// Middleware: process a single avatar upload, crop to 256x256, and attach the path to the request.
 function handleAvatarUpload(req, res, next) {
   upload.single('avatar')(req, res, async (err) => {
     if (err) { req.uploadError = err.message; return next(); }
@@ -80,6 +86,7 @@ function handleAvatarUpload(req, res, next) {
   });
 }
 
+// Middleware: process up to 5 photos for a gallery post and attach an array of paths to the request.
 function handleMultiUpload(req, res, next) {
   upload.array('photos', 5)(req, res, async (err) => {
     if (err) { req.uploadError = err.message; return next(); }
@@ -98,6 +105,7 @@ function handleMultiUpload(req, res, next) {
   });
 }
 
+// Delete an uploaded file from the uploads volume by its URL path; silently ignores missing files.
 function deleteUploadedFile(photoUrl) {
   if (!photoUrl || !photoUrl.startsWith('/uploads/')) return;
   const filename = path.basename(photoUrl);

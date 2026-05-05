@@ -1,3 +1,4 @@
+// Post CRUD, feed/detail views, feed-state polling API, and pin/big-news/delete actions.
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
@@ -8,8 +9,10 @@ const { handleMultiUpload, deleteUploadedFile } = require('./upload');
 const { fetchOgPreview } = require('../utils/ogFetch');
 
 const MAX_CONTENT = 2000;
+// Posts older than BIG_NEWS_DAYS are shown in the archived big-news section rather than the active banner.
 const BIG_NEWS_DAYS = 14;
 
+// Lightweight polling endpoint so the client can detect new posts without a full page reload.
 router.get('/api/feed-state', requireAuth, async (req, res) => {
   try {
     const userId = req.session.user.id;
@@ -25,6 +28,8 @@ router.get('/api/feed-state', requireAuth, async (req, res) => {
   } catch { res.json({ latestId: 0, total: 0 }); }
 });
 
+// Render the main feed; posts are split three ways: active big news (< 14 days old), archived big news (>= 14 days old),
+// and regular posts sorted pin-first then by recency.
 router.get('/', requireAuth, async (req, res) => {
   try {
     const userId = req.session.user.id;
@@ -43,6 +48,7 @@ router.get('/', requireAuth, async (req, res) => {
     const now = Date.now();
     const bigNewsPosts = allPosts.filter(p => p.big_news && (now - new Date(p.created_at).getTime()) < cutoffMs);
     const archivedBigNews = allPosts.filter(p => p.big_news && (now - new Date(p.created_at).getTime()) >= cutoffMs);
+    // Pinned posts rise to the top; within each group, newest first.
     const regularPosts = allPosts
       .filter(p => !p.big_news)
       .sort((a, b) => (b.pinned - a.pinned) || (new Date(b.created_at) - new Date(a.created_at)));
@@ -109,6 +115,7 @@ router.get('/', requireAuth, async (req, res) => {
   }
 });
 
+// Show a single post with its full comment thread and reactions; marks the post as read for the current user.
 router.get('/post/:id', requireAuth, async (req, res) => {
   try {
     const userId = req.session.user.id;
@@ -176,6 +183,8 @@ router.get('/post/:id', requireAuth, async (req, res) => {
   }
 });
 
+// Create a new post with optional photo gallery and send email + push notifications to all members.
+// The link-preview fetch is fire-and-forget (async IIFE) so it never blocks the redirect response.
 router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
   const { title, content, publish_at, big_news } = req.body;
   if (!content?.trim()) { req.flash('error', 'Post content is required.'); return res.redirect('/'); }
@@ -220,6 +229,7 @@ router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
       );
     }
 
+    // Fire-and-forget: fetch Open Graph metadata for any URL in the post body and persist it for the link-preview card.
     const urlMatch = content.match(/(https?:\/\/[^\s]+)/);
     if (urlMatch) {
       (async () => {
@@ -243,6 +253,7 @@ router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
   }
 });
 
+// Edit post content; only the post author or an admin may submit changes.
 router.post('/posts/:id/edit', requireAuth, async (req, res) => {
   const { content, title } = req.body;
   if (!content?.trim()) return res.redirect('/');
@@ -263,6 +274,7 @@ router.post('/posts/:id/edit', requireAuth, async (req, res) => {
   } catch (err) { console.error(err); res.redirect('/'); }
 });
 
+// Toggle pinned status on a post (admin only); pinned posts sort to the top of the regular feed.
 router.post('/posts/:id/pin', requireAuth, async (req, res) => {
   if (req.session.user.role !== 'admin') return res.status(403).end();
   try {
@@ -272,6 +284,7 @@ router.post('/posts/:id/pin', requireAuth, async (req, res) => {
   res.redirect(ref.includes('/post/') ? ref : '/');
 });
 
+// Toggle big-news flag; sends a push notification when a post is promoted to big news.
 router.post('/posts/:id/toggle-big-news', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT user_id FROM posts WHERE id = ?', [req.params.id]);
@@ -290,6 +303,7 @@ router.post('/posts/:id/toggle-big-news', requireAuth, async (req, res) => {
   res.redirect(ref.includes('/post/') ? ref : '/');
 });
 
+// Delete a post (and its associated photo files) permanently; only the author or an admin may delete.
 router.post('/posts/:id/delete', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT user_id FROM posts WHERE id = ?', [req.params.id]);

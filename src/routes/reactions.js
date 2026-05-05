@@ -1,10 +1,13 @@
+// Emoji reaction toggle (add/remove) and reaction names lookup for tooltips and mobile sheet.
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 
+// Server-side whitelist of permitted emoji; the frontend emoji picker mirrors this exact list.
 const ALLOWED = ['❤️', '👍', '😂', '😮', '😢', '🎉', '🙏', '🔥', '💯', '🫶', '👏', '🥳', '😍', '🤣', '😭', '💪', '🎂', '🌟', '👀', '🤔', '💔'];
 
+// Return the names of everyone who reacted to a post, grouped by emoji; used to populate hover tooltips and the mobile reaction sheet.
 router.get('/posts/:id/reaction-names', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -22,6 +25,7 @@ router.get('/posts/:id/reaction-names', requireAuth, async (req, res) => {
   } catch { res.json({}); }
 });
 
+// Toggle a reaction on a post — adds it if the user hasn't reacted yet, removes it if they have.
 router.post('/posts/:id/react', requireAuth, async (req, res) => {
   const { emoji } = req.body;
   if (!ALLOWED.includes(emoji)) return res.status(400).json({ error: 'Invalid emoji' });

@@ -1,3 +1,5 @@
+// Admin-only routes (protected by requireAdmin on the router itself): user management,
+// invite creation, and birthday/anniversary event management.
 const express = require('express');
 const router = express.Router();
 const { v4: uuidv4 } = require('uuid');
@@ -6,8 +8,10 @@ const { requireAdmin } = require('../middleware/auth');
 const crypto = require('crypto');
 const { sendPasswordReset } = require('../email');
 
+// All routes in this file require admin role; non-admins are rejected before any handler runs.
 router.use(requireAdmin);
 
+// Render the admin dashboard with users, recent invites, and calendar events.
 router.get('/', async (req, res) => {
   try {
     const [users] = await pool.query(
@@ -28,6 +32,8 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Create an invite link; open invites allow up to 50 uses and expire in 2 days (for sharing broadly),
+// while single-use invites allow exactly 1 use and expire in 7 days (for one specific person).
 router.post('/invites', async (req, res) => {
   const isOpen = req.body.type === 'open';
   try {
@@ -46,6 +52,7 @@ router.post('/invites', async (req, res) => {
   }
 });
 
+// Immediately expire an invite so it can no longer be used.
 router.post('/invites/:id/revoke', async (req, res) => {
   try {
     await pool.query('UPDATE invites SET expires_at = NOW() WHERE id = ?', [req.params.id]);
@@ -54,6 +61,7 @@ router.post('/invites/:id/revoke', async (req, res) => {
   res.redirect('/admin');
 });
 
+// Toggle a user's active flag (enable/disable login); an admin cannot deactivate their own account.
 router.post('/users/:id/toggle-active', async (req, res) => {
   if (parseInt(req.params.id) === req.session.user.id) {
     req.flash('error', 'You cannot deactivate your own account.');
@@ -65,6 +73,7 @@ router.post('/users/:id/toggle-active', async (req, res) => {
   res.redirect('/admin');
 });
 
+// Toggle a user's role between member and admin; an admin cannot demote themselves.
 router.post('/users/:id/toggle-role', async (req, res) => {
   if (parseInt(req.params.id) === req.session.user.id) {
     req.flash('error', 'You cannot change your own role.');
@@ -79,6 +88,7 @@ router.post('/users/:id/toggle-role', async (req, res) => {
   res.redirect('/admin');
 });
 
+// Add a birthday or anniversary event to the shared family calendar.
 router.post('/events', async (req, res) => {
   const { name, type, month, day, note } = req.body;
   const m = parseInt(month), d = parseInt(day);
@@ -95,6 +105,7 @@ router.post('/events', async (req, res) => {
   res.redirect('/admin');
 });
 
+// Remove a calendar event permanently.
 router.post('/events/:id/delete', async (req, res) => {
   try {
     await pool.query('DELETE FROM events WHERE id = ?', [req.params.id]);
@@ -102,6 +113,7 @@ router.post('/events/:id/delete', async (req, res) => {
   res.redirect('/admin');
 });
 
+// Send a password reset email to any user on behalf of an admin (e.g., when a member is locked out).
 router.post('/users/:id/send-reset', async (req, res) => {
   try {
     const [[user]] = await pool.query('SELECT id, name, email FROM users WHERE id = ?', [req.params.id]);
@@ -120,6 +132,7 @@ router.post('/users/:id/send-reset', async (req, res) => {
   res.redirect('/admin');
 });
 
+// Update the email address on file for any user account.
 router.post('/users/:id/update-email', async (req, res) => {
   const newEmail = req.body.email?.trim().toLowerCase();
   if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {

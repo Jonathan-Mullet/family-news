@@ -1,3 +1,4 @@
+// Authentication routes: login, logout, registration (invite-required), birthday setup, and password reset.
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
@@ -6,11 +7,13 @@ const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { sendPasswordReset } = require('../email');
 
+// Show login form (redirect home if already logged in).
 router.get('/login', (req, res) => {
   if (req.session.user) return res.redirect('/');
   res.render('login');
 });
 
+// Authenticate user; active = 1 check blocks disabled accounts from signing in.
 router.post('/login', async (req, res) => {
   const { email, password, remember } = req.body;
   try {
@@ -42,10 +45,12 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// Destroy session and redirect to login.
 router.get('/logout', requireAuth, (req, res) => {
   req.session.destroy(() => res.redirect('/login'));
 });
 
+// Show registration form; validates that the invite token is still valid before rendering.
 router.get('/register', async (req, res) => {
   const { invite } = req.query;
   if (!invite) return res.render('error', { message: 'An invite link is required to register.' });
@@ -62,6 +67,7 @@ router.get('/register', async (req, res) => {
   }
 });
 
+// Create a new account; multi-use invite logic — use_count < max_uses allows up to max_uses registrations per token.
 router.post('/register', async (req, res) => {
   const { invite, name, email, password, birthday_month, birthday_day, birthday_year } = req.body;
   if (!name?.trim() || !email?.trim() || !password || password.length < 8 || !birthday_month || !birthday_day || !birthday_year) {
@@ -103,11 +109,13 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// Show birthday-setup form for users who registered without a birthday.
 router.get('/birthday-setup', requireAuth, (req, res) => {
   if (req.session.user.birthday) return res.redirect('/');
   res.render('birthday-setup');
 });
 
+// Save birthday for the currently logged-in user and update session.
 router.post('/birthday-setup', requireAuth, async (req, res) => {
   const { birthday_month, birthday_day, birthday_year } = req.body;
   if (!birthday_month || !birthday_day || !birthday_year) {
@@ -131,14 +139,17 @@ router.post('/birthday-setup', requireAuth, async (req, res) => {
   }
 });
 
+// Show forgot-password form (redirect home if already logged in).
 router.get('/forgot-password', (req, res) => {
   if (req.session.user) return res.redirect('/');
   res.render('forgot-password');
 });
 
+// Generate a password reset token and email it; always shows a generic success message to prevent email enumeration.
 router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
   try {
+    // active = 1 check ensures disabled accounts cannot trigger a reset email.
     const [rows] = await pool.query('SELECT id FROM users WHERE email = ? AND active = 1', [email?.trim().toLowerCase()]);
     if (rows.length) {
       const token = crypto.randomBytes(32).toString('hex');
@@ -157,6 +168,7 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
+// Show the reset-password form; validates the token before rendering.
 router.get('/reset-password', async (req, res) => {
   const { token } = req.query;
   if (!token) return res.redirect('/login');
@@ -173,6 +185,7 @@ router.get('/reset-password', async (req, res) => {
   }
 });
 
+// Apply the new password and mark the reset token as used so it cannot be replayed.
 router.post('/reset-password', async (req, res) => {
   const { token, password } = req.body;
   if (!password || password.length < 8) {

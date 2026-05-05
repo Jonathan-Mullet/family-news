@@ -1,3 +1,4 @@
+// Comment creation and deletion; fires email + push notifications to the post author on new comments.
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
@@ -5,6 +6,7 @@ const { requireAuth } = require('../middleware/auth');
 const { sendCommentNotification } = require('../email');
 const { sendPushToUser } = require('../push');
 
+// Post a new comment (or reply) on a post and notify the post author.
 router.post('/posts/:id/comments', requireAuth, async (req, res) => {
   const { content, parent_id } = req.body;
   if (!content?.trim()) return res.redirect(`/post/${req.params.id}`);
@@ -36,6 +38,8 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
       console.error('Comment notification error:', notifyErr.message);
     }
   } catch (err) { console.error(err); }
+  // Redirect back to wherever the user came from — the main feed or a member profile page — so they
+  // stay in context rather than always being bounced to the individual post detail view.
   const ref = req.get('Referer') || '';
   try {
     const refPath = new URL(ref).pathname;
@@ -46,6 +50,7 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
   res.redirect(`/post/${req.params.id}`);
 });
 
+// Delete a comment; only the comment author or an admin may delete.
 router.post('/comments/:id/delete', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT user_id, post_id FROM comments WHERE id = ?', [req.params.id]);

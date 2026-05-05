@@ -1,14 +1,19 @@
+// Push notification subscription management — subscribe/unsubscribe endpoints and VAPID public key endpoint.
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 
+// All push routes require an authenticated session.
 router.use(requireAuth);
 
+// Return the VAPID public key so the browser service worker can create a push subscription.
 router.get('/vapid-public-key', (req, res) => {
   res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || '' });
 });
 
+// Save a push subscription for the current user; also auto-opts the user out of email notifications
+// when push is enabled — a deliberate UX choice to avoid double-notifying on the same event.
 router.post('/subscribe', async (req, res) => {
   const { endpoint, p256dh, auth } = req.body;
   if (!endpoint || !p256dh || !auth) return res.status(400).json({ error: 'Missing fields' });
@@ -35,6 +40,7 @@ router.post('/subscribe', async (req, res) => {
   }
 });
 
+// Remove a push subscription by endpoint so no further notifications are sent to that browser.
 router.post('/unsubscribe', async (req, res) => {
   const { endpoint } = req.body;
   if (!endpoint) return res.status(400).json({ error: 'Missing endpoint' });

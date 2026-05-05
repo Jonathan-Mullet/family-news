@@ -1,8 +1,10 @@
+// Member profile page — shows all posts by a specific user with reactions, photos, and latest comments.
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 
+// Render a member's profile page with their post history and engagement data.
 router.get('/member/:id', requireAuth, async (req, res) => {
   try {
     const memberId = parseInt(req.params.id);
