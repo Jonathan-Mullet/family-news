@@ -27,6 +27,9 @@ router.post('/login', async (req, res) => {
       role: u.role,
       notify_posts: u.notify_posts ?? 1,
       notify_comments: u.notify_comments ?? 1,
+      push_notify_posts: u.push_notify_posts ?? 1,
+      push_notify_comments: u.push_notify_comments ?? 1,
+      push_notify_big_news: u.push_notify_big_news ?? 1,
       birthday: u.birthday || null,
       avatar_url: u.avatar_url || null,
     };

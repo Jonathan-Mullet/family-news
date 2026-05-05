@@ -121,4 +121,24 @@ router.post('/birthday', async (req, res) => {
   res.redirect('/profile');
 });
 
+router.post('/push-prefs', async (req, res) => {
+  const push_notify_posts = req.body.push_notify_posts ? 1 : 0;
+  const push_notify_comments = req.body.push_notify_comments ? 1 : 0;
+  const push_notify_big_news = req.body.push_notify_big_news ? 1 : 0;
+  try {
+    await pool.query(
+      'UPDATE users SET push_notify_posts = ?, push_notify_comments = ?, push_notify_big_news = ? WHERE id = ?',
+      [push_notify_posts, push_notify_comments, push_notify_big_news, req.session.user.id]
+    );
+    req.session.user.push_notify_posts = push_notify_posts;
+    req.session.user.push_notify_comments = push_notify_comments;
+    req.session.user.push_notify_big_news = push_notify_big_news;
+    req.flash('success', 'Push notification preferences saved.');
+  } catch (err) {
+    console.error(err);
+    req.flash('error', 'Could not save push preferences.');
+  }
+  res.redirect('/profile');
+});
+
 module.exports = router;
