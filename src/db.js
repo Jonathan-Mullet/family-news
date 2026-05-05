@@ -111,7 +111,7 @@ async function initDb() {
     `CREATE TABLE IF NOT EXISTS push_subscriptions (
       id INT AUTO_INCREMENT PRIMARY KEY,
       user_id INT NOT NULL,
-      endpoint VARCHAR(2048) NOT NULL UNIQUE,
+      endpoint VARCHAR(512) NOT NULL UNIQUE,
       p256dh VARCHAR(512) NOT NULL,
       auth VARCHAR(256) NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
