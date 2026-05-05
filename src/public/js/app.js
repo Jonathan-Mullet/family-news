@@ -398,6 +398,7 @@ if (_pushSection) {
       const perm = await Notification.requestPermission();
       if (perm !== 'granted') { _showPushState('push-state-denied'); return; }
       const { publicKey } = await fetch('/push/vapid-public-key').then(r => r.json());
+      if (!publicKey) throw new Error('Push notifications are not configured on this server (missing VAPID key).');
       const sub = await sw.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
       const body = JSON.stringify({
         endpoint: sub.endpoint,
