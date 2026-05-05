@@ -88,6 +88,13 @@ app.use('/push', require('./routes/push'));
 
 // ── Server startup ────────────────────────────────────────────────────────────
 async function start() {
+  // Fail fast rather than running in a silently broken state.
+  const missing = ['SESSION_SECRET', 'DB_USER', 'DB_PASSWORD'].filter(k => !process.env[k]);
+  if (missing.length) {
+    console.error('ERROR: Missing required environment variables:', missing.join(', '));
+    process.exit(1);
+  }
+
   // Retry loop gives the MySQL container time to fully boot before Express
   // starts accepting connections — avoids immediate crash on cold docker start.
   for (let i = 0; i < 10; i++) {

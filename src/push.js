@@ -10,6 +10,10 @@
 const webpush = require('web-push');
 const { pool } = require('./db');
 
+// Columns on the `users` table that are valid push preference flags.
+// Whitelisting prevents SQL injection if a call site ever passes user-controlled data.
+const PUSH_PREF_COLUMNS = new Set(['push_notify_posts', 'push_notify_comments', 'push_notify_big_news']);
+
 // ── VAPID initialisation ──────────────────────────────────────────────────────
 
 // Only configure VAPID details when both keys are present; the module degrades
@@ -70,6 +74,10 @@ async function sendPushToUser(userId, payload, { checkColumn } = {}) {
   if (!process.env.VAPID_PUBLIC_KEY) return;
   try {
     if (checkColumn) {
+      if (!PUSH_PREF_COLUMNS.has(checkColumn)) {
+        console.error('sendPushToUser: unexpected checkColumn value:', checkColumn);
+        return;
+      }
       const [[user]] = await pool.query(`SELECT \`${checkColumn}\` AS pref FROM users WHERE id = ?`, [userId]);
       if (!user || !user.pref) return;
     }
@@ -99,6 +107,10 @@ async function sendPushToUser(userId, payload, { checkColumn } = {}) {
 async function sendPushToAllUsers(payload, { excludeUserId = 0, checkColumn }) {
   if (!process.env.VAPID_PUBLIC_KEY) return;
   if (!checkColumn) return;
+  if (!PUSH_PREF_COLUMNS.has(checkColumn)) {
+    console.error('sendPushToAllUsers: unexpected checkColumn value:', checkColumn);
+    return;
+  }
   try {
     const [subs] = await pool.query(
       `SELECT ps.endpoint, ps.p256dh, ps.auth

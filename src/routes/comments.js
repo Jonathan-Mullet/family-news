@@ -6,10 +6,16 @@ const { requireAuth } = require('../middleware/auth');
 const { sendCommentNotification } = require('../email');
 const { sendPushToUser } = require('../push');
 
+const MAX_COMMENT = 2000;
+
 // Post a new comment (or reply) on a post and notify the post author.
 router.post('/posts/:id/comments', requireAuth, async (req, res) => {
   const { content, parent_id } = req.body;
   if (!content?.trim()) return res.redirect(`/post/${req.params.id}`);
+  if (content.trim().length > MAX_COMMENT) {
+    req.flash('error', `Comments cannot exceed ${MAX_COMMENT} characters.`);
+    return res.redirect(`/post/${req.params.id}`);
+  }
   try {
     await pool.query(
       'INSERT INTO comments (post_id, parent_id, user_id, content) VALUES (?, ?, ?, ?)',

@@ -9,6 +9,23 @@
 
 const nodemailer = require('nodemailer');
 
+// ── HTML escaping ──────────────────────────────────────────────────────────────
+
+/**
+ * Escapes HTML special characters to prevent user content from rendering as
+ * markup in email client HTML bodies.
+ *
+ * @param {string} str
+ * @returns {string}
+ */
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 // ── Transporter (lazy init) ───────────────────────────────────────────────────
 
 let transporter = null;
@@ -101,10 +118,10 @@ async function sendNewPostNotification(toUsers, poster, post) {
     if (user.notify_posts === 0) continue;
     await sendMail(user.email, `${poster.name} posted on Family News`, `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
-        <p style="color:#475569"><strong style="color:#1e293b">${poster.name}</strong> shared something on Family News:</p>
-        ${post.title ? `<h3 style="color:#1e293b;margin:8px 0">${post.title}</h3>` : ''}
+        <p style="color:#475569"><strong style="color:#1e293b">${escapeHtml(poster.name)}</strong> shared something on Family News:</p>
+        ${post.title ? `<h3 style="color:#1e293b;margin:8px 0">${escapeHtml(post.title)}</h3>` : ''}
         <p style="color:#374151;background:#f8fafc;padding:12px;border-radius:8px;border-left:3px solid #4f46e5">
-          ${post.content.substring(0, 300)}${post.content.length > 300 ? '…' : ''}
+          ${escapeHtml(post.content.substring(0, 300))}${post.content.length > 300 ? '…' : ''}
         </p>
         <a href="${url}" style="display:inline-block;background:#4f46e5;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:500;margin-top:8px">Read and react →</a>
       </div>
@@ -129,7 +146,7 @@ async function sendCommentNotification(toUser, fromUser, post) {
   const url = `${process.env.BASE_URL}/post/${post.id}`;
   await sendMail(toUser.email, `${fromUser.name} commented on your post`, `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
-      <p style="color:#475569"><strong style="color:#1e293b">${fromUser.name}</strong> commented on your post${post.title ? ` "<em>${post.title}</em>"` : ''}.</p>
+      <p style="color:#475569"><strong style="color:#1e293b">${escapeHtml(fromUser.name)}</strong> commented on your post${post.title ? ` "<em>${escapeHtml(post.title)}</em>"` : ''}.</p>
       <a href="${url}" style="display:inline-block;background:#4f46e5;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:500;margin-top:8px">See the comment →</a>
     </div>
   `);
@@ -149,14 +166,14 @@ async function sendBigNewsNotification(toUsers, poster, post) {
   const url = `${process.env.BASE_URL}/post/${post.id}`;
   for (const user of toUsers) {
     if (user.id === poster.id) continue;
-    await sendMail(user.email, `📣 Big News from ${poster.name}`, `
+    await sendMail(user.email, `📣 Big News from ${escapeHtml(poster.name)}`, `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
         <div style="background:#92400e;color:#fff;padding:10px 16px;border-radius:8px 8px 0 0;font-weight:700;font-size:15px;letter-spacing:0.02em">📣 Big News</div>
         <div style="border:2px solid #92400e;border-top:none;border-radius:0 0 8px 8px;padding:16px">
-          <p style="color:#475569;margin:0 0 8px"><strong style="color:#1e293b">${poster.name}</strong> shared big news on Family News:</p>
-          ${post.title ? `<h3 style="color:#1e293b;margin:0 0 8px">${post.title}</h3>` : ''}
+          <p style="color:#475569;margin:0 0 8px"><strong style="color:#1e293b">${escapeHtml(poster.name)}</strong> shared big news on Family News:</p>
+          ${post.title ? `<h3 style="color:#1e293b;margin:0 0 8px">${escapeHtml(post.title)}</h3>` : ''}
           <p style="color:#374151;background:#fffbeb;padding:12px;border-radius:8px;border-left:3px solid #f59e0b;margin:0 0 12px">
-            ${post.content.substring(0, 300)}${post.content.length > 300 ? '…' : ''}
+            ${escapeHtml(post.content.substring(0, 300))}${post.content.length > 300 ? '…' : ''}
           </p>
           <a href="${url}" style="display:inline-block;background:#92400e;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:500">Read the full story →</a>
         </div>
