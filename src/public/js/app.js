@@ -286,7 +286,9 @@ if (_pushSection) {
         p256dh: btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))),
         auth: btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth'))))
       });
-      const data = await fetch('/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).then(r => r.json());
+      const _subResp = await fetch('/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+      if (!_subResp.ok) throw new Error(`Subscribe failed: ${_subResp.status}`);
+      const data = await _subResp.json();
       if (data.emailsOptedOut) {
         document.getElementById('push-email-notice')?.classList.remove('hidden');
       }
