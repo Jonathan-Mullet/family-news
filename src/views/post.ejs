@@ -80,12 +80,14 @@
       <% if (post.photos && post.photos.length) { %>
       <div class="mt-4">
         <% if (post.photos.length === 1) { %>
+      <%# Single photo: natural aspect ratio, max 500px tall, tappable for lightbox %>
         <div class="photo-single-wrap rounded-xl overflow-hidden border border-slate-100 dark:border-slate-700 cursor-pointer"
              style="max-height:500px;"
              data-photos="<%= JSON.stringify(post.photos) %>">
           <img src="<%= post.photos[0] %>" alt="" class="w-full" style="height:auto;display:block;" loading="lazy" onerror="this.parentElement.remove()">
         </div>
         <% } else { %>
+        <%# Multi-photo: focused carousel initialized by _initPhotoCarousels() in app.js %>
         <div class="photo-carousel" style="position:relative;" data-photos="<%= JSON.stringify(post.photos) %>">
           <div class="photo-carousel-track" style="display:flex;align-items:center;gap:5px;padding:4px;overflow:hidden;border-radius:8px;min-height:60px;"></div>
           <div class="photo-carousel-dots" style="display:flex;gap:4px;justify-content:center;margin-top:6px;padding-bottom:2px;"></div>
