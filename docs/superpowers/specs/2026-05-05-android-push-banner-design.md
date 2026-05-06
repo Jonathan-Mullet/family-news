@@ -46,7 +46,7 @@ Runs on page load in `app.js`. The banner is hidden by default in HTML (no flash
 - User clicks ✕ on either state
 - User successfully subscribes (enable state only)
 
-The dismissed localStorage key (`push-banner-dismissed`) is shared with the existing iOS "Add to Home Screen" banner — dismissing either one suppresses both.
+The dismissed localStorage key (`pwa-banner-dismissed`) is shared with the existing iOS "Add to Home Screen" banner — dismissing either one suppresses both.
 
 ## Visual Design
 
