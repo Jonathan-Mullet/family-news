@@ -56,7 +56,7 @@ router.get('/register', async (req, res) => {
   if (!invite) return res.render('error', { message: 'An invite link is required to register.' });
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM invites WHERE token = ? AND used_at IS NULL AND expires_at > NOW()',
+      'SELECT * FROM invites WHERE token = ? AND use_count < max_uses AND expires_at > NOW()',
       [invite]
     );
     if (!rows.length) return res.render('error', { message: 'This invite link is invalid or has expired.' });
