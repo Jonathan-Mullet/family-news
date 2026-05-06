@@ -428,8 +428,10 @@ function _initPhotoCarousels() {
     function goto(i) { current = i; render(); }
 
     function render() {
-      // Always put active photo first in the flex row so layout is [ACTIVE][THUMB][THUMB]...
-      track.insertBefore(imgs[current], track.firstChild);
+      // Symmetric DOM order: before-current thumbs L, active M, after-current thumbs R
+      for (let _i = 0; _i < current; _i++) track.appendChild(imgs[_i]);
+      track.appendChild(imgs[current]);
+      for (let _i = current + 1; _i < urls.length; _i++) track.appendChild(imgs[_i]);
 
       const cw = container.offsetWidth || 320;
       const inactiveTotal = (urls.length - 1) * (THUMB + GAP);
@@ -470,6 +472,14 @@ function _initPhotoCarousels() {
 document.querySelectorAll('.photo-single-wrap').forEach(wrap => {
   const urls = JSON.parse(wrap.dataset.photos || '[]');
   wrap.addEventListener('click', () => _openLightbox(urls, 0));
+});
+
+// Wire two-photo click → lightbox at the tapped index
+document.querySelectorAll('.photo-two-wrap').forEach(wrap => {
+  const urls = JSON.parse(wrap.dataset.photos || '[]');
+  wrap.querySelectorAll('.photo-two-img').forEach(img => {
+    img.addEventListener('click', () => _openLightbox(urls, parseInt(img.dataset.index) || 0));
+  });
 });
 
 _initPhotoCarousels();

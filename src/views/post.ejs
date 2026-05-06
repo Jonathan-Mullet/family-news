@@ -86,8 +86,16 @@
              data-photos="<%= JSON.stringify(post.photos) %>">
           <img src="<%= post.photos[0] %>" alt="" class="w-full" style="height:auto;display:block;" loading="lazy" onerror="this.parentElement.remove()">
         </div>
+        <% } else if (post.photos.length === 2) { %>
+        <%# Two photos: side by side, each tappable for lightbox %>
+        <div class="photo-two-wrap rounded-xl overflow-hidden" data-photos="<%= JSON.stringify(post.photos) %>">
+          <div style="display:flex;gap:3px;">
+            <img src="<%= post.photos[0] %>" alt="" class="photo-two-img" style="flex:1;width:0;height:180px;object-fit:cover;border-radius:8px 2px 2px 8px;cursor:pointer;" loading="lazy" data-index="0" onerror="this.style.display='none'">
+            <img src="<%= post.photos[1] %>" alt="" class="photo-two-img" style="flex:1;width:0;height:180px;object-fit:cover;border-radius:2px 8px 8px 2px;cursor:pointer;" loading="lazy" data-index="1" onerror="this.style.display='none'">
+          </div>
+        </div>
         <% } else { %>
-        <%# Multi-photo: focused carousel initialized by _initPhotoCarousels() in app.js %>
+        <%# Multi-photo (3-5): focused carousel initialized by _initPhotoCarousels() in app.js %>
         <div class="photo-carousel" style="position:relative;" data-photos="<%= JSON.stringify(post.photos) %>">
           <div class="photo-carousel-track" style="display:flex;align-items:center;gap:5px;padding:4px;overflow:hidden;border-radius:8px;min-height:60px;"></div>
           <div class="photo-carousel-dots" style="display:flex;gap:4px;justify-content:center;margin-top:6px;padding-bottom:2px;"></div>
