@@ -8,7 +8,7 @@
   <%# Post creation card %>
   <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
     <form method="POST" action="/posts" id="post-form" enctype="multipart/form-data">
-      <input type="file" name="photos" id="photo-input" accept="image/*" class="hidden">
+      <input type="file" name="photos" id="photo-input" accept="image/*" multiple class="hidden">
       <div class="space-y-3">
         <textarea name="content" rows="3" placeholder="Share some news with the family..."
           class="w-full border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent"
@@ -20,7 +20,7 @@
           <div class="flex items-center gap-3 flex-wrap">
             <button type="button" id="photo-select-btn"
               class="flex items-center gap-1.5 text-xs px-3 py-2 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors min-h-[36px]">
-              📷 Add Photo
+              📷 Add Photos
             </button>
             <div id="photo-thumbs" class="flex items-center gap-2 flex-wrap"></div>
           </div>
@@ -184,17 +184,18 @@
   photoSelectBtn.addEventListener('click', () => photoInput.click());
 
   photoInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file || selectedPhotos.length >= MAX_PHOTOS) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      selectedPhotos.push({ thumbUrl: ev.target.result, file });
-      renderThumbs();
-      syncFiles();
-      postExtras.classList.remove('hidden');
-      extrasToggle.textContent = '− Less';
-    };
-    reader.readAsDataURL(file);
+    const files = Array.from(e.target.files).slice(0, MAX_PHOTOS - selectedPhotos.length);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        selectedPhotos.push({ thumbUrl: ev.target.result, file });
+        renderThumbs();
+        syncFiles();
+        postExtras.classList.remove('hidden');
+        extrasToggle.textContent = '− Less';
+      };
+      reader.readAsDataURL(file);
+    });
     photoInput.value = '';
   });
 </script>
