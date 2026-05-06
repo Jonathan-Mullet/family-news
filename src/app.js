@@ -8,6 +8,7 @@ const path = require('path');
 const { pool, initDb } = require('./db');
 const { startCron } = require('./cron');
 const { renderContent } = require('./utils/mentions');
+const { extractVideoEmbed } = require('./utils/videoEmbed');
 
 // ── Express setup ────────────────────────────────────────────────────────────
 const app = express();
@@ -17,6 +18,7 @@ app.set('trust proxy', 1);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.locals.renderContent = renderContent;
+app.locals.extractVideoEmbed = extractVideoEmbed;
 
 // ── Static files ─────────────────────────────────────────────────────────────
 app.use(express.urlencoded({ extended: true }));
