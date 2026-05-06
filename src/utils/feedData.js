@@ -26,7 +26,7 @@ function groupCommentsByPost(rows) {
   const result = {};
   rows.forEach(row => {
     if (!result[row.post_id]) result[row.post_id] = [];
-    if (!row.parent_id) {
+    if (row.parent_id == null) {
       result[row.post_id].push({ ...row, replies: [] });
     } else {
       const parent = result[row.post_id].find(c => c.id === row.parent_id);
