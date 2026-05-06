@@ -1,8 +1,9 @@
 /**
  * Auth middleware for Express routes.
  *
- * Provides two route guards: `requireAuth` for any logged-in user and
- * `requireAdmin` for admin-only routes. Both are intended to be used as
+ * Provides three route guards: `requireAuth` for any logged-in user,
+ * `requireAdmin` for admin-only routes, and `requireMod` for routes
+ * accessible to admins and moderators. All are intended to be used as
  * Express middleware functions (passed directly to router.get/post/use).
  */
 
