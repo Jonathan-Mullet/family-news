@@ -21,6 +21,7 @@ function renderContent(content) {
 // Returns { content: string, mentionedUserIds: number[] }.
 // Tries two-word (full name) match first, then one-word (unique first name) match.
 async function resolveMentions(content, pool) {
+  if (!content) return { content: content ?? '', mentionedUserIds: [] };
   const [users] = await pool.query('SELECT id, name FROM users WHERE active = 1');
   const mentionedIds = new Set();
   const out = [];
@@ -30,6 +31,8 @@ async function resolveMentions(content, pool) {
     if (content[i] !== '@') { out.push(content[i++]); continue; }
 
     const rest = content.slice(i + 1);
+    // Two-word match only: names with 3+ words (rare on a family site) will match
+    // the first two words and leave the remainder as plain text.
     const m2 = rest.match(/^(\w+[ \t]+\w+)/);
     const m1 = rest.match(/^(\w+)/);
     let matched = false;

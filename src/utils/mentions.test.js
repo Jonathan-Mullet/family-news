@@ -89,3 +89,13 @@ test('resolveMentions: single-word user name', async () => {
   assert.equal(content, 'Hi @[Carol](4)!');
   assert.deepEqual(mentionedUserIds, [4]);
 });
+
+test('resolveMentions: returns empty for falsy content', async () => {
+  const pool = makePool([]);
+  const r1 = await resolveMentions('', pool);
+  assert.equal(r1.content, '');
+  assert.deepEqual(r1.mentionedUserIds, []);
+  const r2 = await resolveMentions(null, pool);
+  assert.equal(r2.content, '');
+  assert.deepEqual(r2.mentionedUserIds, []);
+});
