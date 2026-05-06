@@ -289,6 +289,179 @@ document.addEventListener('click', e => {
   if (toggleBtn) _showPickerSheet(toggleBtn.dataset.postId);
 });
 
+// ── Photo carousel + lightbox ─────────────────────────────────────────────────
+// Lightbox: body-level overlay (same pattern as reaction sheet / emoji picker).
+// Carousel: initialized per .photo-carousel element; active photo shows at
+// natural aspect ratio, inactive photos are 52×52 squares. Swipe to navigate
+// on touch; hover to reveal ‹ › arrows on desktop.
+
+const _lightbox = (() => {
+  const el = document.createElement('div');
+  el.style.cssText = 'display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.92);flex-direction:column;align-items:center;justify-content:center;touch-action:none;';
+  el.innerHTML = [
+    '<button id="lb-close" type="button" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:36px;height:36px;color:white;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;">✕</button>',
+    '<button id="lb-prev" type="button" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:44px;height:44px;color:white;font-size:24px;cursor:pointer;display:none;align-items:center;justify-content:center;">‹</button>',
+    '<img id="lb-img" src="" alt="" style="max-width:92vw;max-height:85vh;object-fit:contain;border-radius:4px;user-select:none;">',
+    '<button id="lb-next" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:44px;height:44px;color:white;font-size:24px;cursor:pointer;display:none;align-items:center;justify-content:center;">›</button>',
+    '<div id="lb-dots" style="position:absolute;bottom:20px;left:0;right:0;display:flex;gap:6px;justify-content:center;"></div>',
+  ].join('');
+  document.body.appendChild(el);
+  return el;
+})();
+
+let _lbUrls = [];
+let _lbIdx = 0;
+const _lbImg = document.getElementById('lb-img');
+const _lbDotsEl = document.getElementById('lb-dots');
+const _lbPrev = document.getElementById('lb-prev');
+const _lbNext = document.getElementById('lb-next');
+
+function _renderLightbox() {
+  _lbImg.src = _lbUrls[_lbIdx];
+  _lbPrev.style.display = _lbIdx > 0 ? 'flex' : 'none';
+  _lbNext.style.display = _lbIdx < _lbUrls.length - 1 ? 'flex' : 'none';
+  _lbDotsEl.innerHTML = '';
+  if (_lbUrls.length > 1) {
+    _lbUrls.forEach((_, i) => {
+      const d = document.createElement('div');
+      d.style.cssText = `width:${i === _lbIdx ? '16' : '6'}px;height:6px;border-radius:3px;background:${i === _lbIdx ? 'white' : 'rgba(255,255,255,0.35)'};transition:all 0.2s;`;
+      _lbDotsEl.appendChild(d);
+    });
+  }
+}
+
+function _openLightbox(urls, startIdx) {
+  _lbUrls = urls;
+  _lbIdx = startIdx;
+  _renderLightbox();
+  _lightbox.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function _closeLightbox() {
+  _lightbox.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+document.getElementById('lb-close').addEventListener('click', _closeLightbox);
+_lbPrev.addEventListener('click', () => { if (_lbIdx > 0) { _lbIdx--; _renderLightbox(); } });
+_lbNext.addEventListener('click', () => { if (_lbIdx < _lbUrls.length - 1) { _lbIdx++; _renderLightbox(); } });
+_lightbox.addEventListener('click', e => { if (e.target === _lightbox) _closeLightbox(); });
+
+let _lbTouchX = 0;
+_lightbox.addEventListener('touchstart', e => { _lbTouchX = e.touches[0].clientX; }, { passive: true });
+_lightbox.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - _lbTouchX;
+  if (dx < -50 && _lbIdx < _lbUrls.length - 1) { _lbIdx++; _renderLightbox(); }
+  else if (dx > 50 && _lbIdx > 0) { _lbIdx--; _renderLightbox(); }
+});
+
+function _makeCarouselArrow(label, handler) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = label;
+  btn.style.cssText = 'display:none;position:absolute;top:45%;transform:translateY(-50%);z-index:5;background:rgba(255,255,255,0.85);border:none;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.2);align-items:center;justify-content:center;';
+  btn.addEventListener('click', handler);
+  return btn;
+}
+
+function _initPhotoCarousels() {
+  const THUMB = 52;
+  const GAP = 5;
+  const MAX_H = 280;
+
+  document.querySelectorAll('.photo-carousel').forEach(container => {
+    const urls = JSON.parse(container.dataset.photos || '[]');
+    if (urls.length < 2) return;
+
+    const track = container.querySelector('.photo-carousel-track');
+    const dotsEl = container.querySelector('.photo-carousel-dots');
+    let current = 0;
+
+    const imgs = urls.map((url, i) => {
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = '';
+      img.loading = i === 0 ? 'eager' : 'lazy';
+      img.style.cssText = 'flex-shrink:0;border-radius:8px;object-fit:cover;transition:width 0.3s ease,height 0.3s ease,opacity 0.3s ease;cursor:pointer;';
+      img.addEventListener('load', () => { if (i === current) render(); });
+      img.addEventListener('click', () => { if (i === current) _openLightbox(urls, current); else goto(i); });
+      track.appendChild(img);
+      return img;
+    });
+
+    const dots = urls.map((_, i) => {
+      const d = document.createElement('div');
+      d.style.cssText = 'height:6px;border-radius:3px;background:#cbd5e1;cursor:pointer;transition:width 0.2s ease,background 0.2s ease;';
+      d.addEventListener('click', () => goto(i));
+      dotsEl.appendChild(d);
+      return d;
+    });
+
+    const LA = _makeCarouselArrow('‹', () => { if (current > 0) goto(current - 1); });
+    const RA = _makeCarouselArrow('›', () => { if (current < urls.length - 1) goto(current + 1); });
+    LA.style.left = '6px';
+    RA.style.right = '6px';
+    container.appendChild(LA);
+    container.appendChild(RA);
+
+    container.addEventListener('mouseenter', () => {
+      if (!('ontouchstart' in window)) { LA.style.display = 'flex'; RA.style.display = 'flex'; }
+    });
+    container.addEventListener('mouseleave', () => { LA.style.display = 'none'; RA.style.display = 'none'; });
+
+    let touchX = 0;
+    track.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; }, { passive: true });
+    track.addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - touchX;
+      if (dx < -40 && current < urls.length - 1) goto(current + 1);
+      else if (dx > 40 && current > 0) goto(current - 1);
+    });
+
+    function goto(i) { current = i; render(); }
+
+    function render() {
+      // Always put active photo first in the flex row so layout is [ACTIVE][THUMB][THUMB]...
+      track.insertBefore(imgs[current], track.firstChild);
+
+      const cw = container.offsetWidth || 320;
+      const inactiveTotal = (urls.length - 1) * (THUMB + GAP);
+      const activeW = Math.max(80, cw - inactiveTotal - GAP * 2);
+      const nr = (imgs[current].naturalWidth && imgs[current].naturalHeight)
+        ? imgs[current].naturalWidth / imgs[current].naturalHeight
+        : 4 / 3;
+      const activeH = Math.min(MAX_H, activeW / nr);
+
+      imgs.forEach((img, i) => {
+        if (i === current) {
+          img.style.width = Math.round(activeH * nr) + 'px';
+          img.style.height = Math.round(activeH) + 'px';
+          img.style.opacity = '1';
+        } else {
+          img.style.width = THUMB + 'px';
+          img.style.height = THUMB + 'px';
+          img.style.opacity = '0.6';
+        }
+      });
+
+      dots.forEach((d, i) => {
+        d.style.width = i === current ? '16px' : '6px';
+        d.style.background = i === current ? '#8b5e3c' : '#cbd5e1';
+      });
+    }
+
+    render();
+  });
+}
+
+// Wire single-photo click → lightbox
+document.querySelectorAll('.photo-single-wrap').forEach(wrap => {
+  const urls = JSON.parse(wrap.dataset.photos || '[]');
+  wrap.addEventListener('click', () => _openLightbox(urls, 0));
+});
+
+_initPhotoCarousels();
+
 // ── Feed auto-refresh ─────────────────────────────────────────────────────────
 // Auto-refresh polling (feed page only)
 const feedEl = document.getElementById('feed');
