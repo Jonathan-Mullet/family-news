@@ -593,3 +593,38 @@ input[type="datetime-local"].fn-input {
 .dark .fn-drawer-link--danger { color: #e08878; }
 .dark .fn-drawer-link--danger:hover { color: #f5a090; background: rgba(224, 136, 120, 0.07); }
 .dark .fn-drawer-sep { background: rgba(154, 126, 90, 0.2); }
+
+/* ── Comments UX (feed card toggle + pill input) ─────────────────────────── */
+.fn-comment-section { display: none; }
+.fn-comment-section--open { display: block; }
+
+.fn-comment-pill--active {
+  border-color: #8b5e3c !important;
+  font-style: normal;
+}
+.dark .fn-comment-pill--active { border-color: #a97c50 !important; }
+
+.fn-comment-send--hidden { display: none; }
+
+/* ── Reply overflow toggle (post detail) ─────────────────────────────────── */
+.fn-reply-toggle {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #8b5e3c;
+  background: #fdf6f0;
+  border: 1px solid #e5c9b0;
+  border-radius: 9999px;
+  padding: 3px 12px;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: background 0.15s;
+}
+.fn-reply-toggle:hover { background: #f5ebe0; }
+.dark .fn-reply-toggle {
+  color: #c49a6c;
+  background: #2c1f14;
+  border-color: #5c3d2e;
+}
+.dark .fn-reply-toggle:hover { background: #3a2a1c; }
