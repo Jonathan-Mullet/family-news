@@ -15,6 +15,7 @@
 
 const cron = require('node-cron');
 const { pool } = require('./db');
+const { deleteUploadedFile } = require('./routes/upload');
 
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,36 @@ function startCron() {
       }
     } catch (err) {
       console.error('[cron] Error processing events:', err.message);
+    }
+  });
+
+  // Run at 3am every day: hard-delete soft-deleted posts and comments older than 14 days.
+  cron.schedule('0 3 * * *', async () => {
+    console.log('[cron] Running trash purge...');
+    try {
+      const [stalePosts] = await pool.query(
+        'SELECT id FROM posts WHERE deleted_at IS NOT NULL AND deleted_at < DATE_SUB(NOW(), INTERVAL 14 DAY)'
+      );
+      for (const post of stalePosts) {
+        const [photos] = await pool.query('SELECT photo_url FROM post_photos WHERE post_id = ?', [post.id]);
+        photos.forEach(ph => deleteUploadedFile(ph.photo_url));
+        await pool.query('DELETE FROM posts WHERE id = ?', [post.id]);
+        console.log(`[cron] Purged post ${post.id}`);
+      }
+      // Purge standalone deleted comments whose parent post is still alive
+      const [staleComments] = await pool.query(`
+        SELECT c.id FROM comments c
+        JOIN posts p ON c.post_id = p.id
+        WHERE c.deleted_at IS NOT NULL AND c.deleted_at < DATE_SUB(NOW(), INTERVAL 14 DAY)
+          AND p.deleted_at IS NULL
+      `);
+      for (const comment of staleComments) {
+        await pool.query('DELETE FROM comments WHERE id = ?', [comment.id]);
+        console.log(`[cron] Purged comment ${comment.id}`);
+      }
+      console.log(`[cron] Trash purge complete: ${stalePosts.length} posts, ${staleComments.length} comments.`);
+    } catch (err) {
+      console.error('[cron] Error purging trash:', err.message);
     }
   });
 
