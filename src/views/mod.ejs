@@ -138,7 +138,7 @@
         <div class="flex-1 min-w-0">
           <p class="text-xs text-slate-500 dark:text-slate-400 mb-0.5">
             <span class="font-medium text-slate-700 dark:text-slate-200"><%= comment.author_name %></span>
-            · on "<%= comment.post_title || comment.post_content.substring(0, 40) %>"
+            · on "<%- renderContent(comment.post_title || comment.post_content.substring(0, 60)) %>"
             · deleted <time data-ts="<%= new Date(comment.deleted_at).toISOString() %>" data-fmt="compact" class="text-slate-400 dark:text-slate-500"></time>
           </p>
           <p class="text-sm text-slate-600 dark:text-slate-300 line-clamp-2 break-words"><%- renderContent(comment.content) %></p>
