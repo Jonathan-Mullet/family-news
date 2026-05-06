@@ -198,8 +198,7 @@ async function sendPromotionNotification(email, name, role) {
   const url = `${process.env.BASE_URL}/guide`;
   await sendMail(email, `You've been made a ${roleLabel} on Family News 🎉`, `
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
-      <h2 style="color:#1e293b">Congratulations, ${escapeHtml(name)}!</h2>
-      <p style="color:#475569">You've been made a <strong style="color:#7c3aed">${roleLabel}</strong> on Family News.</p>
+      <p style="color:#475569">Hi ${escapeHtml(name)}, you've been made a <strong style="color:#7c3aed">${roleLabel}</strong> on Family News.</p>
       <a href="${url}" style="display:inline-block;background:#7c3aed;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:500;margin-top:8px">See your role guide →</a>
     </div>
   `);
