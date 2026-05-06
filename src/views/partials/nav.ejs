@@ -36,6 +36,12 @@
     display: flex;
     align-items: center;
     gap: 0;
+    flex: 1;
+    justify-content: flex-end;
+  }
+
+  @media (max-width: 767px) {
+    .fn-nav-links { display: none; }
   }
 
   .fn-nav-user {
@@ -90,7 +96,6 @@
     color: #8b7355;
     transition: background 0.15s, color 0.15s;
     padding: 0;
-    margin-left: 0.125rem;
     flex-shrink: 0;
   }
 
@@ -151,12 +156,16 @@
           <a href="/guide" class="fn-nav-link">Guide</a>
           <div class="fn-nav-sep"></div>
         <% } %>
+        <a href="/photos" class="fn-nav-link">Photos</a>
+        <div class="fn-nav-sep"></div>
         <a href="/profile" class="fn-nav-link">Profile</a>
         <div class="fn-nav-sep"></div>
         <a href="/logout" class="fn-nav-link fn-nav-link-danger">Sign out</a>
         <div class="fn-nav-sep"></div>
       <% } %>
+    </div>
 
+    <div style="display:flex;align-items:center;gap:0;flex-shrink:0;">
       <button id="dark-toggle" class="fn-dark-toggle" title="Toggle dark mode">
         <svg class="hidden dark:block" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="4.5"/>
@@ -173,9 +182,79 @@
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
         </svg>
       </button>
+      <% if (user) { %>
+        <button id="fn-hamburger" class="fn-hamburger" onclick="window._openDrawer()" title="Menu" aria-label="Open menu">
+          <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
+            <rect x="2" y="5" width="16" height="1.5" rx="0.75"/>
+            <rect x="2" y="9.25" width="16" height="1.5" rx="0.75"/>
+            <rect x="2" y="13.5" width="16" height="1.5" rx="0.75"/>
+          </svg>
+        </button>
+      <% } %>
     </div>
   </div>
 </nav>
+
+<% if (user) { %>
+<div id="fn-drawer-overlay" class="fn-drawer-overlay" onclick="window._closeDrawer()"></div>
+<div id="fn-drawer" class="fn-drawer" role="dialog" aria-label="Navigation menu">
+  <div class="fn-drawer-header">
+    <div>
+      <div class="fn-drawer-user-name"><%= user.name %></div>
+      <div class="fn-drawer-user-role"><%= user.role %></div>
+    </div>
+    <button class="fn-drawer-close" onclick="window._closeDrawer()" aria-label="Close menu">
+      <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+        <path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/>
+      </svg>
+    </button>
+  </div>
+  <nav class="fn-drawer-nav">
+    <a href="/" class="fn-drawer-link">Feed</a>
+    <a href="/photos" class="fn-drawer-link">Photos</a>
+    <a href="/profile" class="fn-drawer-link">Profile</a>
+    <% if (user.role === 'admin' || user.role === 'moderator') { %>
+      <div class="fn-drawer-sep"></div>
+      <% if (user.role === 'admin') { %>
+        <a href="/admin" class="fn-drawer-link">Admin</a>
+      <% } %>
+      <a href="/mod" class="fn-drawer-link">Mod</a>
+      <a href="/guide" class="fn-drawer-link">Guide</a>
+    <% } %>
+  </nav>
+  <div class="fn-drawer-footer">
+    <a href="/logout" class="fn-drawer-link fn-drawer-link--danger">Sign out</a>
+  </div>
+</div>
+<script>
+(function () {
+  var drawer = document.getElementById('fn-drawer');
+  var overlay = document.getElementById('fn-drawer-overlay');
+
+  window._openDrawer = function () {
+    drawer.classList.add('fn-drawer--open');
+    overlay.classList.add('fn-drawer-overlay--open');
+    document.body.style.overflow = 'hidden';
+  };
+
+  window._closeDrawer = function () {
+    drawer.classList.remove('fn-drawer--open');
+    overlay.classList.remove('fn-drawer-overlay--open');
+    document.body.style.overflow = '';
+  };
+
+  // Highlight the drawer link matching the current page
+  var path = window.location.pathname;
+  drawer.querySelectorAll('.fn-drawer-link').forEach(function (a) {
+    var href = a.getAttribute('href');
+    if (href === '/' ? path === '/' : path.startsWith(href)) {
+      a.classList.add('fn-drawer-link--active');
+    }
+  });
+}());
+</script>
+<% } %>
+
 <div id="android-push-banner" style="display:none;background:#fdf6f0;border-bottom:1px solid #e5c9b0;">
   <div style="max-width:42rem;margin:0 auto;padding:8px 1rem;display:flex;align-items:center;gap:10px;">
     <span style="font-size:1rem;flex-shrink:0;">🔔</span>
