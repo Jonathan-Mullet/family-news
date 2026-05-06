@@ -126,6 +126,13 @@
   .dark .fn-dark-toggle:hover { background: rgba(245, 229, 208, 0.07); color: #f5e5d0; }
 </style>
 
+<style>
+  .dark #android-push-banner { background: #2a1a0e; border-bottom-color: #5c3d2e; }
+  .dark #android-push-banner p { color: #c4a882; }
+  .dark #android-push-enable { background: #6b4428; }
+  .dark #android-push-dismiss { color: #7a6040; }
+</style>
+
 <nav class="fn-nav">
   <div class="fn-nav-inner">
     <a href="/" class="fn-nav-logo">Family News</a>
@@ -167,7 +174,7 @@
   <div style="max-width:42rem;margin:0 auto;padding:8px 1rem;display:flex;align-items:center;gap:10px;">
     <span style="font-size:1rem;flex-shrink:0;">🔔</span>
     <p id="android-push-banner-msg" style="flex:1;font-size:0.8rem;color:#5c3d2e;margin:0;line-height:1.4;"></p>
-    <button id="android-push-enable" style="background:#8b5e3c;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer;white-space:nowrap;flex-shrink:0;">Enable</button>
-    <button id="android-push-dismiss" style="background:none;border:none;color:#a08060;font-size:1rem;cursor:pointer;padding:4px;flex-shrink:0;line-height:1;" title="Dismiss">✕</button>
+    <button id="android-push-enable" type="button" style="background:#8b5e3c;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer;white-space:nowrap;flex-shrink:0;">Enable</button>
+    <button id="android-push-dismiss" type="button" style="background:none;border:none;color:#a08060;font-size:1rem;cursor:pointer;padding:4px;flex-shrink:0;line-height:1;" title="Dismiss">✕</button>
   </div>
 </div>
