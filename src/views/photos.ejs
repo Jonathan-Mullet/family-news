@@ -1,0 +1,68 @@
+<%- include('partials/head', { title: 'Photos' }) %>
+<%- include('partials/nav') %>
+
+<div class="max-w-2xl mx-auto px-4 py-6">
+  <h1 class="fn-page-title mb-1">Photos</h1>
+
+  <%# Member filter chips %>
+  <div class="photo-chip-row mb-4">
+    <a href="/photos" class="photo-chip <%= !currentMember ? 'active' : '' %>">
+      <div class="photo-chip-initial" style="background:#8b5e3c;font-size:0.65rem;letter-spacing:0.02em;">All</div>
+      <span>All</span>
+    </a>
+    <% members.forEach(m => { %>
+    <a href="/photos?member=<%= m.id %>" class="photo-chip <%= currentMember === m.id ? 'active' : '' %>">
+      <% if (m.avatar_url) { %>
+      <img src="<%= m.avatar_url %>" alt="">
+      <% } else { %>
+      <div class="photo-chip-initial"><%= m.name.charAt(0).toUpperCase() %></div>
+      <% } %>
+      <span><%= m.name.split(' ')[0] %></span>
+    </a>
+    <% }) %>
+  </div>
+
+  <% if (!photos.length) { %>
+  <div class="text-center py-16 text-slate-400 dark:text-slate-500">
+    <div class="text-4xl mb-3">📷</div>
+    <% if (currentMember) { %>
+    <% const filterMember = members.find(m => m.id === currentMember); %>
+    <p>No photos from <%= filterMember ? filterMember.name.split(' ')[0] : 'this member' %> yet.</p>
+    <% } else { %>
+    <p>No photos yet.</p>
+    <% } %>
+  </div>
+  <% } else { %>
+
+  <%# Photo grid %>
+  <div class="photo-grid">
+    <% photos.forEach((photo, i) => { %>
+    <img src="<%= photo.photo_url %>"
+         alt=""
+         loading="lazy"
+         onclick="_openLightbox(_galleryPhotos, <%= i %>)">
+    <% }) %>
+  </div>
+
+  <%# Pagination %>
+  <% if (totalPages > 1) { %>
+  <% const memberParam = currentMember ? `&member=${currentMember}` : ''; %>
+  <div class="flex items-center justify-center gap-4 mt-6 text-sm text-slate-600 dark:text-slate-400">
+    <% if (page > 1) { %>
+    <a href="/photos?page=<%= page - 1 %><%= memberParam %>" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-brand-400 dark:hover:border-brand-500 transition-colors">Previous</a>
+    <% } %>
+    <span>Page <%= page %> of <%= totalPages %></span>
+    <% if (page < totalPages) { %>
+    <a href="/photos?page=<%= page + 1 %><%= memberParam %>" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-brand-400 dark:hover:border-brand-500 transition-colors">Next</a>
+    <% } %>
+  </div>
+  <% } %>
+
+  <% } %>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+  const _galleryPhotos = <%- JSON.stringify(photos.map(p => p.photo_url)).replace(/<\//g, '<\\/') %>;
+</script>
+</body></html>
