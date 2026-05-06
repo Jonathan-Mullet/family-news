@@ -1,0 +1,517 @@
+# Nav Redesign Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Add a hamburger drawer on mobile (< 768px) that exposes all navigation links, while leaving the existing horizontal nav bar visually unchanged on desktop (≥ 768px).
+
+**Architecture:** Two files change. `theme.css` gets new CSS classes for the drawer panel, overlay, drawer links, hamburger button, and their dark-mode variants. `nav.ejs` is restructured: the dark toggle moves to a dedicated right-side controls div (always visible), a hamburger button is added next to it (hidden on desktop), the existing link row is hidden on mobile via a media query added to the nav's inline `<style>` block, and a drawer panel + overlay are appended after the `<nav>` with an inline `<script>` for open/close and active-link highlighting.
+
+**Tech Stack:** EJS, vanilla CSS, vanilla JS. No Tailwind for new drawer elements — Tailwind CDN only processes actual DOM nodes at load time and cannot be relied on for new class names added here.
+
+---
+
+### Task 1: Drawer and hamburger CSS
+
+**Files:**
+- Modify: `src/public/css/theme.css` (append to end of file)
+
+No automated tests exist for CSS — verification is visual inspection in the browser in Task 2.
+
+- [ ] **Step 1: Append new CSS classes to `src/public/css/theme.css`**
+
+Append the following block to the very end of `src/public/css/theme.css` (after the last `.dark .photo-chip span` rule):
+
+```css
+
+/* ── Hamburger drawer navigation ────────────────────────────────── */
+.fn-hamburger {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 50%;
+  color: #8b7355;
+  transition: background 0.15s, color 0.15s;
+  padding: 0;
+  flex-shrink: 0;
+  margin-left: 0.125rem;
+}
+.fn-hamburger:hover { background: rgba(44, 24, 16, 0.06); color: #2c1810; }
+@media (min-width: 768px) { .fn-hamburger { display: none; } }
+.dark .fn-hamburger { color: #9a7e5a; }
+.dark .fn-hamburger:hover { background: rgba(245, 229, 208, 0.07); color: #f5e5d0; }
+
+.fn-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 99;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.fn-drawer-overlay--open { opacity: 1; pointer-events: auto; }
+
+.fn-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 70vw;
+  max-width: 280px;
+  background: #ffffff;
+  border-left: 1px solid rgba(139, 115, 85, 0.18);
+  z-index: 100;
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.fn-drawer--open { transform: translateX(0); }
+
+.fn-drawer-header {
+  display: flex;
+  align-items: flex-start;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid rgba(139, 115, 85, 0.18);
+  position: relative;
+}
+.fn-drawer-user-name {
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #2c1810;
+  line-height: 1.3;
+}
+.fn-drawer-user-role {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 0.1rem;
+}
+.fn-drawer-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 50%;
+  color: #8b7355;
+  transition: background 0.15s, color 0.15s;
+  padding: 0;
+}
+.fn-drawer-close:hover { background: rgba(44, 24, 16, 0.06); color: #2c1810; }
+
+.fn-drawer-nav { flex: 1; padding: 0.5rem 0; }
+.fn-drawer-footer { border-top: 1px solid rgba(139, 115, 85, 0.18); padding: 0.5rem 0; }
+
+.fn-drawer-link {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1.25rem;
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: 1rem;
+  color: #6b5442;
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  transition: color 0.15s, background 0.15s;
+}
+.fn-drawer-link:hover { color: #2c1810; background: rgba(44, 24, 16, 0.05); }
+.fn-drawer-link--active {
+  color: #2c1810;
+  border-left-color: #8b5e3c;
+  background: rgba(44, 24, 16, 0.04);
+  font-weight: 600;
+}
+.fn-drawer-link--danger { color: #b9503c; }
+.fn-drawer-link--danger:hover { color: #8b3020; background: rgba(185, 80, 60, 0.06); }
+
+.fn-drawer-sep {
+  height: 1px;
+  background: rgba(139, 115, 85, 0.18);
+  margin: 0.25rem 0;
+}
+
+.dark .fn-drawer { background: #221510; border-left-color: rgba(154, 126, 90, 0.2); }
+.dark .fn-drawer-header { border-bottom-color: rgba(154, 126, 90, 0.2); }
+.dark .fn-drawer-user-name { color: #f5e5d0; }
+.dark .fn-drawer-close { color: #9a7e5a; }
+.dark .fn-drawer-close:hover { background: rgba(245, 229, 208, 0.07); color: #f5e5d0; }
+.dark .fn-drawer-footer { border-top-color: rgba(154, 126, 90, 0.2); }
+.dark .fn-drawer-link { color: #9a7e5a; }
+.dark .fn-drawer-link:hover { color: #f5e5d0; background: rgba(245, 229, 208, 0.06); }
+.dark .fn-drawer-link--active { color: #f5e5d0; border-left-color: #c4895a; background: rgba(245, 229, 208, 0.05); }
+.dark .fn-drawer-link--danger { color: #e08878; }
+.dark .fn-drawer-link--danger:hover { color: #f5a090; background: rgba(224, 136, 120, 0.07); }
+.dark .fn-drawer-sep { background: rgba(154, 126, 90, 0.2); }
+```
+
+- [ ] **Step 2: Commit the CSS**
+
+```bash
+git add src/public/css/theme.css
+git commit -m "feat: add hamburger drawer CSS classes"
+```
+
+---
+
+### Task 2: Nav restructure — hamburger button, drawer HTML, JS
+
+**Files:**
+- Modify: `src/views/partials/nav.ejs` (full replacement)
+
+**Context on existing nav.ejs:**
+- The nav partial has an inline `<style>` block (all `.fn-nav-*` styles), a second `<style>` block (android push banner dark styles), the `<nav>` element, and the android push banner `<div>`.
+- Currently the dark toggle lives inside `.fn-nav-links` alongside nav links. On mobile, when the link row is hidden, the dark toggle would vanish too — so we must move it out.
+- The `id="dark-toggle"` attribute must be preserved exactly; `app.js` finds this button by ID.
+- The android push banner at the bottom of nav.ejs is unchanged.
+
+**Changes summary:**
+1. Add `@media (max-width: 767px) { .fn-nav-links { display: none; } }` to the inline `<style>` block — hides link row on mobile.
+2. Remove the dark toggle from inside `.fn-nav-links`.
+3. Add a `div.fn-nav-controls` wrapper containing dark toggle + hamburger button, always in the right side of the top bar.
+4. After the `</nav>` tag and before the android push banner, add: overlay div, drawer div (with user header, nav links, sign-out footer), and inline `<script>`.
+5. The drawer is only rendered when `user` is truthy (same guard as existing links).
+
+- [ ] **Step 1: Replace `src/views/partials/nav.ejs` with the full new content**
+
+Write this exact content to `src/views/partials/nav.ejs`:
+
+```ejs
+<style>
+  .fn-nav {
+    background: #ffffff;
+    border-bottom: 1px solid rgba(139, 115, 85, 0.18);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .fn-nav-inner {
+    max-width: 42rem;
+    margin: 0 auto;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .fn-nav-logo {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 1.3rem;
+    color: #2c1810;
+    text-decoration: none;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .fn-nav-logo:hover { color: #4a2818; }
+
+  .fn-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex: 1;
+    justify-content: flex-end;
+  }
+
+  @media (max-width: 767px) {
+    .fn-nav-links { display: none; }
+  }
+
+  .fn-nav-user {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-style: italic;
+    font-size: 0.9rem;
+    color: #8b7355;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .fn-nav-sep {
+    width: 1px;
+    height: 0.85rem;
+    background: rgba(139, 115, 85, 0.28);
+    flex-shrink: 0;
+  }
+
+  .fn-nav-link {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 0.9rem;
+    color: #6b5442;
+    text-decoration: none;
+    padding: 0.25rem 0.625rem;
+    border-radius: 2px;
+    transition: color 0.15s, background 0.15s;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+  }
+
+  .fn-nav-link:hover {
+    color: #2c1810;
+    background: rgba(44, 24, 16, 0.05);
+  }
+
+  .fn-nav-link-danger:hover {
+    color: #b9503c;
+    background: rgba(185, 80, 60, 0.06);
+  }
+
+  .fn-dark-toggle {
+    width: 2.75rem;
+    height: 2.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 50%;
+    color: #8b7355;
+    transition: background 0.15s, color 0.15s;
+    padding: 0;
+    flex-shrink: 0;
+  }
+
+  .fn-dark-toggle:hover {
+    background: rgba(44, 24, 16, 0.06);
+    color: #2c1810;
+  }
+
+  .fn-dark-toggle svg {
+    width: 0.95rem;
+    height: 0.95rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    display: block;
+  }
+
+  .dark .fn-nav {
+    background: #221510;
+    border-bottom-color: rgba(154, 126, 90, 0.18);
+  }
+
+  .dark .fn-nav-logo { color: #f5e5d0; }
+  .dark .fn-nav-logo:hover { color: #ffffff; }
+  .dark .fn-nav-user { color: #7a6040; }
+  .dark .fn-nav-sep { background: rgba(154, 126, 90, 0.22); }
+  .dark .fn-nav-link { color: #9a7e5a; }
+  .dark .fn-nav-link:hover { color: #f5e5d0; background: rgba(245, 229, 208, 0.06); }
+  .dark .fn-nav-link-danger:hover { color: #e08878; background: rgba(224, 136, 120, 0.07); }
+  .dark .fn-dark-toggle { color: #9a7e5a; }
+  .dark .fn-dark-toggle:hover { background: rgba(245, 229, 208, 0.07); color: #f5e5d0; }
+</style>
+
+<style>
+  .dark #android-push-banner { background: #2a1a0e; border-bottom-color: #5c3d2e; }
+  .dark #android-push-banner p { color: #c4a882; }
+  .dark #android-push-enable { background: #6b4428; }
+  .dark #android-push-dismiss { color: #7a6040; }
+</style>
+
+<nav class="fn-nav">
+  <div class="fn-nav-inner">
+    <a href="/" class="fn-nav-logo">Family News</a>
+
+    <div class="fn-nav-links">
+      <% if (user) { %>
+        <span class="fn-nav-user hidden sm:block"><%= user.name %></span>
+        <div class="fn-nav-sep hidden sm:block"></div>
+        <% if (user.role === 'admin') { %>
+          <a href="/admin" class="fn-nav-link">Admin</a>
+          <div class="fn-nav-sep"></div>
+        <% } %>
+        <% if (user.role === 'admin' || user.role === 'moderator') { %>
+          <a href="/mod" class="fn-nav-link">Mod</a>
+          <div class="fn-nav-sep"></div>
+          <a href="/guide" class="fn-nav-link">Guide</a>
+          <div class="fn-nav-sep"></div>
+        <% } %>
+        <a href="/photos" class="fn-nav-link">Photos</a>
+        <div class="fn-nav-sep"></div>
+        <a href="/profile" class="fn-nav-link">Profile</a>
+        <div class="fn-nav-sep"></div>
+        <a href="/logout" class="fn-nav-link fn-nav-link-danger">Sign out</a>
+        <div class="fn-nav-sep"></div>
+      <% } %>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:0;flex-shrink:0;">
+      <button id="dark-toggle" class="fn-dark-toggle" title="Toggle dark mode">
+        <svg class="hidden dark:block" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="4.5"/>
+          <line x1="12" y1="2" x2="12" y2="4"/>
+          <line x1="12" y1="20" x2="12" y2="22"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="2" y1="12" x2="4" y2="12"/>
+          <line x1="20" y1="12" x2="22" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="dark:hidden" viewBox="0 0 24 24">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+      <% if (user) { %>
+        <button id="fn-hamburger" class="fn-hamburger" onclick="window._openDrawer()" title="Menu" aria-label="Open menu">
+          <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
+            <rect x="2" y="5" width="16" height="1.5" rx="0.75"/>
+            <rect x="2" y="9.25" width="16" height="1.5" rx="0.75"/>
+            <rect x="2" y="13.5" width="16" height="1.5" rx="0.75"/>
+          </svg>
+        </button>
+      <% } %>
+    </div>
+  </div>
+</nav>
+
+<% if (user) { %>
+<div id="fn-drawer-overlay" class="fn-drawer-overlay" onclick="window._closeDrawer()"></div>
+<div id="fn-drawer" class="fn-drawer" role="dialog" aria-label="Navigation menu">
+  <div class="fn-drawer-header">
+    <div>
+      <div class="fn-drawer-user-name"><%= user.name %></div>
+      <div class="fn-drawer-user-role"><%= user.role %></div>
+    </div>
+    <button class="fn-drawer-close" onclick="window._closeDrawer()" aria-label="Close menu">
+      <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+        <path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/>
+      </svg>
+    </button>
+  </div>
+  <nav class="fn-drawer-nav">
+    <a href="/" class="fn-drawer-link">Feed</a>
+    <a href="/photos" class="fn-drawer-link">Photos</a>
+    <a href="/profile" class="fn-drawer-link">Profile</a>
+    <% if (user.role === 'admin' || user.role === 'moderator') { %>
+      <div class="fn-drawer-sep"></div>
+      <% if (user.role === 'admin') { %>
+        <a href="/admin" class="fn-drawer-link">Admin</a>
+      <% } %>
+      <a href="/mod" class="fn-drawer-link">Mod</a>
+      <a href="/guide" class="fn-drawer-link">Guide</a>
+    <% } %>
+  </nav>
+  <div class="fn-drawer-footer">
+    <a href="/logout" class="fn-drawer-link fn-drawer-link--danger">Sign out</a>
+  </div>
+</div>
+<script>
+(function () {
+  var drawer = document.getElementById('fn-drawer');
+  var overlay = document.getElementById('fn-drawer-overlay');
+
+  window._openDrawer = function () {
+    drawer.classList.add('fn-drawer--open');
+    overlay.classList.add('fn-drawer-overlay--open');
+    document.body.style.overflow = 'hidden';
+  };
+
+  window._closeDrawer = function () {
+    drawer.classList.remove('fn-drawer--open');
+    overlay.classList.remove('fn-drawer-overlay--open');
+    document.body.style.overflow = '';
+  };
+
+  // Highlight the drawer link matching the current page
+  var path = window.location.pathname;
+  drawer.querySelectorAll('.fn-drawer-link').forEach(function (a) {
+    var href = a.getAttribute('href');
+    if (href === '/' ? path === '/' : path.startsWith(href)) {
+      a.classList.add('fn-drawer-link--active');
+    }
+  });
+}());
+</script>
+<% } %>
+
+<div id="android-push-banner" style="display:none;background:#fdf6f0;border-bottom:1px solid #e5c9b0;">
+  <div style="max-width:42rem;margin:0 auto;padding:8px 1rem;display:flex;align-items:center;gap:10px;">
+    <span style="font-size:1rem;flex-shrink:0;">🔔</span>
+    <p id="android-push-banner-msg" style="flex:1;font-size:0.8rem;color:#5c3d2e;margin:0;line-height:1.4;"></p>
+    <button id="android-push-enable" type="button" style="background:#8b5e3c;color:white;border:none;border-radius:6px;padding:4px 10px;font-size:0.75rem;cursor:pointer;white-space:nowrap;flex-shrink:0;">Enable</button>
+    <button id="android-push-dismiss" type="button" style="background:none;border:none;color:#a08060;font-size:1rem;cursor:pointer;padding:4px;flex-shrink:0;line-height:1;" title="Dismiss">✕</button>
+  </div>
+</div>
+```
+
+- [ ] **Step 2: Start the dev server and verify manually**
+
+```bash
+node src/app.js
+```
+
+Open `http://localhost:3000` in a browser. Check all of the following:
+
+**Mobile simulation** (DevTools → device toolbar, set width < 768px, or use a real phone):
+- Logo and dark toggle visible in top bar; no link row visible
+- A hamburger icon (☰ three-line SVG) appears to the right of the dark toggle
+- Tapping hamburger slides the drawer in from the right with a dark overlay
+- Drawer shows user name and role at the top
+- Drawer links visible: Feed, Photos, Profile (always); Admin/Mod/Guide (only for admin/mod accounts)
+- The link for the current page has a brown left-border highlight
+- Tapping the overlay closes the drawer
+- Tapping the X button in the drawer closes the drawer
+- Body scroll is locked while drawer is open; restored on close
+- Sign out link is at the bottom in red/danger color
+- Drawer slides out smoothly (0.25s ease)
+
+**Desktop** (viewport ≥ 768px):
+- Top bar looks exactly as before: logo, link row, dark toggle
+- No hamburger icon visible
+- Dark toggle still works (theme toggles correctly)
+
+**Not-logged-in state:**
+- No hamburger, no drawer rendered at all (user is null)
+- Dark toggle still visible
+
+- [ ] **Step 3: Kill the dev server, commit**
+
+```bash
+git add src/views/partials/nav.ejs
+git commit -m "feat: hamburger drawer nav for mobile"
+```
+
+---
+
+### Task 3: Push and deploy
+
+- [ ] **Step 1: Push to GitHub**
+
+```bash
+git push
+```
+
+- [ ] **Step 2: Wait for GitHub Actions build (~3 minutes)**
+
+Check at: https://github.com/Jonathan-Mullett/family-news/actions
+
+- [ ] **Step 3: Deploy on the Pi**
+
+```bash
+sudo docker compose -f /home/jmull/docker/docker-compose.yml pull family-news && sudo docker compose -f /home/jmull/docker/docker-compose.yml up -d family-news
+```
+
+- [ ] **Step 4: Smoke-test on the live site**
+
+Open `https://news.jonathan-mullett.com` on a mobile device (or DevTools mobile simulation). Tap the hamburger — drawer should open. Tap overlay — should close. On desktop, nav looks unchanged.
