@@ -6,7 +6,8 @@ const { v4: uuidv4 } = require('uuid');
 const { pool } = require('../db');
 const { requireAdmin } = require('../middleware/auth');
 const crypto = require('crypto');
-const { sendPasswordReset } = require('../email');
+const { sendPasswordReset, sendPromotionNotification } = require('../email');
+const { sendPushToUser } = require('../push');
 
 // All routes in this file require admin role; non-admins are rejected before any handler runs.
 router.use(requireAdmin);
@@ -73,17 +74,27 @@ router.post('/users/:id/toggle-active', async (req, res) => {
   res.redirect('/admin');
 });
 
-// Toggle a user's role between member and admin; an admin cannot demote themselves.
-router.post('/users/:id/toggle-role', async (req, res) => {
+// Set a user's role to member, moderator, or admin; sends a promotion notification for upgrades.
+router.post('/users/:id/set-role', async (req, res) => {
   if (parseInt(req.params.id) === req.session.user.id) {
     req.flash('error', 'You cannot change your own role.');
     return res.redirect('/admin');
   }
+  const { role } = req.body;
+  if (!['member', 'moderator', 'admin'].includes(role)) {
+    req.flash('error', 'Invalid role.');
+    return res.redirect('/admin');
+  }
   try {
-    await pool.query(
-      "UPDATE users SET role = IF(role='admin','member','admin') WHERE id = ?",
-      [req.params.id]
-    );
+    const [[target]] = await pool.query('SELECT id, name, email, role FROM users WHERE id = ?', [req.params.id]);
+    if (!target) { req.flash('error', 'User not found.'); return res.redirect('/admin'); }
+    await pool.query('UPDATE users SET role = ? WHERE id = ?', [role, req.params.id]);
+    const roleRank = { member: 0, moderator: 1, admin: 2 };
+    if (roleRank[role] > roleRank[target.role]) {
+      const roleLabel = role === 'admin' ? 'Admin' : 'Moderator';
+      sendPushToUser(target.id, { title: `You've been made a ${roleLabel} on Family News 🎉`, body: 'Tap to see your new guide.', url: '/guide' });
+      sendPromotionNotification(target.email, target.name, role);
+    }
   } catch (err) { console.error(err); }
   res.redirect('/admin');
 });
