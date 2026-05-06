@@ -145,6 +145,12 @@
           <a href="/admin" class="fn-nav-link">Admin</a>
           <div class="fn-nav-sep"></div>
         <% } %>
+        <% if (user.role === 'admin' || user.role === 'moderator') { %>
+          <a href="/mod" class="fn-nav-link">Mod</a>
+          <div class="fn-nav-sep"></div>
+          <a href="/guide" class="fn-nav-link">Guide</a>
+          <div class="fn-nav-sep"></div>
+        <% } %>
         <a href="/profile" class="fn-nav-link">Profile</a>
         <div class="fn-nav-sep"></div>
         <a href="/logout" class="fn-nav-link fn-nav-link-danger">Sign out</a>
