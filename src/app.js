@@ -83,6 +83,7 @@ app.use('/', require('./routes/reactions'));
 app.use('/', require('./routes/comments'));
 app.use('/profile', require('./routes/profile'));
 app.use('/admin', require('./routes/admin'));
+app.use('/', require('./routes/mod'));
 app.use('/', require('./routes/members'));
 app.use('/push', require('./routes/push'));
 
