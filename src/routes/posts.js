@@ -192,24 +192,27 @@ router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
       );
     }
 
-    // Fire mention notifications (skip self-mentions)
+    // Fire-and-forget: mention notifications (skip self-mentions)
     if (mentionedUserIds.length) {
       const toNotify = mentionedUserIds.filter(id => id !== req.session.user.id);
+      const authorName = req.session.user.name;
+      const excerpt = content.trim().substring(0, 80);
+      const postUrl = `${process.env.BASE_URL}/post/${postId}`;
       if (toNotify.length) {
-        try {
-          const [mentionedUsers] = await pool.query(
-            'SELECT id, email, name FROM users WHERE id IN (?)',
-            [toNotify]
-          );
-          const excerpt = content.trim().substring(0, 80);
-          const postUrl = `${process.env.BASE_URL}/post/${postId}`;
-          for (const mu of mentionedUsers) {
-            sendPushToUser(mu.id, { title: `${req.session.user.name} mentioned you`, body: excerpt, url: `/post/${postId}` });
-            sendMentionNotification(mu.email, mu.name, req.session.user.name, excerpt, postUrl);
+        (async () => {
+          try {
+            const [mentionedUsers] = await pool.query(
+              'SELECT id, email, name FROM users WHERE id IN (?)',
+              [toNotify]
+            );
+            for (const mu of mentionedUsers) {
+              sendPushToUser(mu.id, { title: `${authorName} mentioned you`, body: excerpt, url: `/post/${postId}` });
+              sendMentionNotification(mu.email, mu.name, authorName, excerpt, postUrl);
+            }
+          } catch (mentionErr) {
+            console.error('Mention notification error:', mentionErr.message);
           }
-        } catch (mentionErr) {
-          console.error('Mention notification error:', mentionErr.message);
-        }
+        })();
       }
     }
 
@@ -255,24 +258,28 @@ router.post('/posts/:id/edit', requireAuth, async (req, res) => {
       [resolvedContent, title?.trim() || null, req.params.id]
     );
 
-    // Fire mention notifications (re-notify all mentions on edit)
+    // Fire-and-forget: mention notifications (re-notify all mentions on edit — v1 simple approach)
     if (mentionedUserIds.length) {
       const toNotify = mentionedUserIds.filter(id => id !== req.session.user.id);
+      const authorName = req.session.user.name;
+      const excerpt = content.trim().substring(0, 80);
+      const postUrl = `${process.env.BASE_URL}/post/${req.params.id}`;
+      const editedPostId = req.params.id;
       if (toNotify.length) {
-        try {
-          const [mentionedUsers] = await pool.query(
-            'SELECT id, email, name FROM users WHERE id IN (?)',
-            [toNotify]
-          );
-          const excerpt = content.trim().substring(0, 80);
-          const postUrl = `${process.env.BASE_URL}/post/${req.params.id}`;
-          for (const mu of mentionedUsers) {
-            sendPushToUser(mu.id, { title: `${req.session.user.name} mentioned you`, body: excerpt, url: `/post/${req.params.id}` });
-            sendMentionNotification(mu.email, mu.name, req.session.user.name, excerpt, postUrl);
+        (async () => {
+          try {
+            const [mentionedUsers] = await pool.query(
+              'SELECT id, email, name FROM users WHERE id IN (?)',
+              [toNotify]
+            );
+            for (const mu of mentionedUsers) {
+              sendPushToUser(mu.id, { title: `${authorName} mentioned you`, body: excerpt, url: `/post/${editedPostId}` });
+              sendMentionNotification(mu.email, mu.name, authorName, excerpt, postUrl);
+            }
+          } catch (mentionErr) {
+            console.error('Mention notification error:', mentionErr.message);
           }
-        } catch (mentionErr) {
-          console.error('Mention notification error:', mentionErr.message);
-        }
+        })();
       }
     }
 
