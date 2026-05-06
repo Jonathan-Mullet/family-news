@@ -335,3 +335,48 @@ input[type="datetime-local"].fn-input {
 .dark .fn-meta-key { color: #9a7e5a; }
 .fn-meta-val { color: #2c1810; font-weight: 600; }
 .dark .fn-meta-val { color: #f5e5d0; }
+
+/* ── @mention links ─────────────────────────────────────────────────────────── */
+.mention {
+  color: #7c3aed;
+  font-weight: 600;
+  text-decoration: none;
+}
+.mention:hover { text-decoration: underline; }
+.dark .mention { color: #a78bfa; }
+
+/* ── @mention autocomplete dropdown ─────────────────────────────────────────── */
+#mention-dropdown {
+  position: absolute;
+  z-index: 100;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  min-width: 180px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.dark #mention-dropdown {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.mention-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: 0.9rem;
+  color: #374151;
+}
+.mention-option:hover,
+.mention-option.active {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+.dark .mention-option { color: #cbd5e1; }
+.dark .mention-option:hover,
+.dark .mention-option.active {
+  background: #3b1f6e;
+  color: #c4b5fd;
+}
