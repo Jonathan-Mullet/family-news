@@ -372,6 +372,36 @@ function urlBase64ToUint8Array(base64String) {
   return new Uint8Array([...raw].map(c => c.charCodeAt(0)));
 }
 
+// ── Shared push subscribe helper ──────────────────────────────────────────────
+// Called by both the profile page enable button and the android push banner.
+// Requests permission, subscribes to push manager, and POSTs the subscription
+// to the server. Returns true on success, false if denied or errored.
+async function _subscribeToPush() {
+  try {
+    const sw = await navigator.serviceWorker.ready;
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return false;
+    const { publicKey } = await fetch('/push/vapid-public-key').then(r => r.json());
+    if (!publicKey) throw new Error('Missing VAPID key');
+    const sub = await sw.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+    const body = JSON.stringify({
+      endpoint: sub.endpoint,
+      p256dh: btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))),
+      auth: btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')))),
+    });
+    const resp = await fetch('/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    });
+    if (!resp.ok) throw new Error(`Subscribe failed: ${resp.status}`);
+    return { data: await resp.json() };
+  } catch { return false; }
+}
+
 // ── iOS Add to Home Screen banner ─────────────────────────────────────────────
 // iOS Add to Home Screen banner (feed page only)
 const _iosBanner = document.getElementById('ios-pwa-banner');
@@ -388,6 +418,60 @@ if (_iosBanner) {
     _iosBanner.classList.add('hidden');
   });
 }
+
+// ── Android push notification banner ──────────────────────────────────────────
+// Shows a slim top banner on every page for Android users who have not yet
+// subscribed to push notifications and have not dismissed the prompt.
+// Skips iOS (they have the Add-to-Home-Screen flow), browsers without Push API,
+// and users who previously dismissed via either this banner or the iOS banner.
+(async function _initAndroidPushBanner() {
+  const banner = document.getElementById('android-push-banner');
+  if (!banner) return;
+
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent);
+  if (isIOS) return;
+  if (typeof Notification === 'undefined' || !('PushManager' in window)) return;
+  if (localStorage.getItem('pwa-banner-dismissed')) return;
+
+  const msgEl = document.getElementById('android-push-banner-msg');
+  const enableBtn = document.getElementById('android-push-enable');
+  const dismissBtn = document.getElementById('android-push-dismiss');
+
+  dismissBtn.addEventListener('click', () => {
+    localStorage.setItem('pwa-banner-dismissed', '1');
+    banner.style.display = 'none';
+  });
+
+  if (Notification.permission === 'denied') {
+    msgEl.textContent = 'To re-enable: tap the lock icon in the address bar and allow notifications.';
+    enableBtn.style.display = 'none';
+    banner.style.display = 'block';
+    return;
+  }
+
+  try {
+    const sw = await navigator.serviceWorker.ready;
+    const sub = await sw.pushManager.getSubscription();
+    if (sub) return; // already subscribed
+  } catch { return; }
+
+  msgEl.textContent = 'Get notified when family posts.';
+  banner.style.display = 'block';
+
+  enableBtn.addEventListener('click', async () => {
+    enableBtn.disabled = true;
+    enableBtn.textContent = '…';
+    const result = await _subscribeToPush();
+    if (result) {
+      banner.style.display = 'none';
+    } else {
+      // User denied — switch to instructions state
+      msgEl.textContent = 'To re-enable: tap the lock icon in the address bar and allow notifications.';
+      enableBtn.style.display = 'none';
+      enableBtn.disabled = false;
+    }
+  });
+})();
 
 // ── Push notification UI (profile page only) ──────────────────────────────────
 // This section only runs on the profile page where #push-section exists;
@@ -443,27 +527,13 @@ if (_pushSection) {
   }
 
   async function _enablePush() {
-    try {
-      const sw = await navigator.serviceWorker.ready;
-      const perm = await Notification.requestPermission();
-      if (perm !== 'granted') { _showPushState('push-state-denied'); return; }
-      const { publicKey } = await fetch('/push/vapid-public-key').then(r => r.json());
-      if (!publicKey) throw new Error('Push notifications are not configured on this server (missing VAPID key).');
-      const sub = await sw.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
-      const body = JSON.stringify({
-        endpoint: sub.endpoint,
-        p256dh: btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))),
-        auth: btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth'))))
-      });
-      const _subResp = await fetch('/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
-      if (!_subResp.ok) throw new Error(`Subscribe failed: ${_subResp.status}`);
-      const data = await _subResp.json();
-      if (data.emailsOptedOut) {
-        document.getElementById('push-email-notice')?.classList.remove('hidden');
-      }
-      _showPushState('push-state-enabled');
-      _populatePushCheckboxes();
-    } catch (err) { console.error('Push enable error:', err); }
+    const result = await _subscribeToPush();
+    if (!result) { _showPushState('push-state-denied'); return; }
+    if (result.data?.emailsOptedOut) {
+      document.getElementById('push-email-notice')?.classList.remove('hidden');
+    }
+    _showPushState('push-state-enabled');
+    _populatePushCheckboxes();
   }
 
   async function _disablePush() {
