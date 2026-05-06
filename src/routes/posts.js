@@ -18,11 +18,11 @@ router.get('/api/feed-state', requireAuth, async (req, res) => {
   try {
     const userId = req.session.user.id;
     const [[latest]] = await pool.query(
-      'SELECT id FROM posts WHERE publish_at IS NULL OR publish_at <= NOW() OR user_id = ? ORDER BY created_at DESC LIMIT 1',
+      'SELECT id FROM posts WHERE (publish_at IS NULL OR publish_at <= NOW() OR user_id = ?) AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1',
       [userId]
     );
     const [[{ total }]] = await pool.query(
-      'SELECT COUNT(*) AS total FROM posts WHERE publish_at IS NULL OR publish_at <= NOW() OR user_id = ?',
+      'SELECT COUNT(*) AS total FROM posts WHERE (publish_at IS NULL OR publish_at <= NOW() OR user_id = ?) AND deleted_at IS NULL',
       [userId]
     );
     res.json({ latestId: latest?.id || 0, total });
@@ -41,7 +41,7 @@ router.get('/', requireAuth, async (req, res) => {
       FROM posts p
       JOIN users u ON p.user_id = u.id
       LEFT JOIN link_previews lp ON lp.post_id = p.id
-      WHERE p.publish_at IS NULL OR p.publish_at <= NOW() OR p.user_id = ?
+      WHERE (p.publish_at IS NULL OR p.publish_at <= NOW() OR p.user_id = ?) AND p.deleted_at IS NULL
       ORDER BY p.created_at DESC
     `, [userId]);
 
@@ -86,7 +86,7 @@ router.get('/post/:id', requireAuth, async (req, res) => {
        FROM posts p
        JOIN users u ON p.user_id = u.id
        LEFT JOIN link_previews lp ON lp.post_id = p.id
-       WHERE p.id = ?`,
+       WHERE p.id = ? AND p.deleted_at IS NULL`,
       [req.params.id]
     );
     if (!posts.length) return res.render('error', { message: 'Post not found.' });
@@ -132,7 +132,7 @@ router.get('/post/:id', requireAuth, async (req, res) => {
     const [comments] = await pool.query(`
       SELECT c.*, u.name AS author_name, u.avatar_url AS author_avatar FROM comments c
       JOIN users u ON c.user_id = u.id
-      WHERE c.post_id = ? ORDER BY c.created_at ASC
+      WHERE c.post_id = ? AND c.deleted_at IS NULL ORDER BY c.created_at ASC
     `, [post.id]);
     const topLevel = comments.filter(c => !c.parent_id);
     topLevel.forEach(c => { c.replies = comments.filter(r => r.parent_id === c.id); });
@@ -225,7 +225,7 @@ router.post('/posts/:id/edit', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT user_id FROM posts WHERE id = ?', [req.params.id]);
     if (!rows.length) return res.redirect('/');
-    if (rows[0].user_id !== req.session.user.id && req.session.user.role !== 'admin') return res.status(403).end();
+    if (rows[0].user_id !== req.session.user.id && req.session.user.role !== 'admin' && req.session.user.role !== 'moderator') return res.status(403).end();
     await pool.query(
       'UPDATE posts SET content = ?, title = ?, edited_at = NOW() WHERE id = ?',
       [content.trim(), title?.trim() || null, req.params.id]
@@ -237,7 +237,7 @@ router.post('/posts/:id/edit', requireAuth, async (req, res) => {
 
 // Toggle pinned status on a post (admin only); pinned posts sort to the top of the regular feed.
 router.post('/posts/:id/pin', requireAuth, async (req, res) => {
-  if (req.session.user.role !== 'admin') return res.status(403).end();
+  if (req.session.user.role !== 'admin' && req.session.user.role !== 'moderator') return res.status(403).end();
   try {
     await pool.query('UPDATE posts SET pinned = NOT pinned WHERE id = ?', [req.params.id]);
   } catch (err) { console.error(err); }
@@ -250,10 +250,12 @@ router.post('/posts/:id/toggle-big-news', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT user_id FROM posts WHERE id = ?', [req.params.id]);
     if (!rows.length) return res.redirect('/');
-    if (rows[0].user_id !== req.session.user.id && req.session.user.role !== 'admin') return res.status(403).end();
+    if (rows[0].user_id !== req.session.user.id && req.session.user.role !== 'admin' && req.session.user.role !== 'moderator') return res.status(403).end();
     await pool.query('UPDATE posts SET big_news = NOT big_news WHERE id = ?', [req.params.id]);
     const [[post]] = await pool.query('SELECT id, title, content, big_news FROM posts WHERE id = ?', [req.params.id]);
     if (post && post.big_news) {
+      const [allUsers] = await pool.query('SELECT id, email FROM users WHERE active = 1');
+      sendBigNewsNotification(allUsers, req.session.user, post);
       sendPushToAllUsers(
         { title: `📣 Big News from ${req.session.user.name}`, body: (post.title || post.content).substring(0, 100), url: `/post/${post.id}` },
         { excludeUserId: req.session.user.id, checkColumn: 'push_notify_big_news' }
@@ -264,15 +266,14 @@ router.post('/posts/:id/toggle-big-news', requireAuth, async (req, res) => {
   res.redirect(ref.includes('/post/') ? ref : '/');
 });
 
-// Delete a post (and its associated photo files) permanently; only the author or an admin may delete.
+// Soft-delete a post; only the author, a moderator, or an admin may delete.
+// Photo files are preserved until the purge cron hard-deletes after 14 days.
 router.post('/posts/:id/delete', requireAuth, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT user_id FROM posts WHERE id = ?', [req.params.id]);
+    const [rows] = await pool.query('SELECT user_id FROM posts WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
     if (!rows.length) return res.redirect('/');
-    if (rows[0].user_id !== req.session.user.id && req.session.user.role !== 'admin') return res.status(403).end();
-    const [photos] = await pool.query('SELECT photo_url FROM post_photos WHERE post_id = ?', [req.params.id]);
-    photos.forEach(ph => deleteUploadedFile(ph.photo_url));
-    await pool.query('DELETE FROM posts WHERE id = ?', [req.params.id]);
+    if (rows[0].user_id !== req.session.user.id && req.session.user.role !== 'admin' && req.session.user.role !== 'moderator') return res.status(403).end();
+    await pool.query('UPDATE posts SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
     res.redirect('/');
   } catch (err) { console.error(err); res.redirect('/'); }
 });
