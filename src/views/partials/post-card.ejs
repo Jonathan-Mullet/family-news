@@ -172,9 +172,9 @@
   <%# Comments section %>
   <%
     const _postComments = (commentsByPost && commentsByPost[post.id]) || [];
-    const _commentCount = _postComments.length;
+    const _commentCount = post.comment_count || 0;
   %>
-  <% if (_commentCount === 0) { %>
+  <% if (_postComments.length === 0) { %>
   <%# State A: no comments — slim pill input %>
   <div class="px-4 py-2.5 border-t border-slate-100 dark:border-slate-700">
     <form method="POST" action="/posts/<%= post.id %>/comments">
