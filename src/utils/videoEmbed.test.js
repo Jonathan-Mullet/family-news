@@ -73,6 +73,13 @@ test('detects vimeo.com/ID', () => {
   );
 });
 
+test('detects Vimeo URL embedded mid-sentence', () => {
+  assert.equal(
+    extractVideoEmbed('Watch this https://vimeo.com/123456789 so cool!'),
+    'https://player.vimeo.com/video/123456789'
+  );
+});
+
 test('does not match vimeo channel/group paths', () => {
   assert.equal(extractVideoEmbed('https://vimeo.com/channels/staffpicks'), null);
 });

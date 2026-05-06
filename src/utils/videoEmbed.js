@@ -26,7 +26,7 @@ function extractVideoEmbed(content) {
   if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
 
   // Vimeo: numeric IDs only — excludes /channels/, /groups/, /album/, etc.
-  const vi = content.match(/(?:https?:\/\/)?(?:www\.)?vimeo\.com\/(\d+)(?![/a-zA-Z])(?:[?#]|$)/);
+  const vi = content.match(/(?:https?:\/\/)?(?:www\.)?vimeo\.com\/(\d+)(?=[?#\s]|$)/);
   if (vi) return `https://player.vimeo.com/video/${vi[1]}`;
 
   return null;
