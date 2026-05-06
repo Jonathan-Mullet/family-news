@@ -289,6 +289,132 @@ document.addEventListener('click', e => {
   if (toggleBtn) _showPickerSheet(toggleBtn.dataset.postId);
 });
 
+// ── @mention autocomplete ─────────────────────────────────────────────────────
+(function initMentionAutocomplete() {
+  if (!window.FAMILY_MEMBERS || !window.FAMILY_MEMBERS.length) return;
+
+  const members = window.FAMILY_MEMBERS;
+
+  // Precompute how many members share each first name (for insert-name decision)
+  const firstNameCount = {};
+  members.forEach(m => {
+    const f = m.name.split(' ')[0].toLowerCase();
+    firstNameCount[f] = (firstNameCount[f] || 0) + 1;
+  });
+
+  // Returns the display name to insert: first name if unique, else full name
+  function insertName(member) {
+    const f = member.name.split(' ')[0].toLowerCase();
+    return firstNameCount[f] === 1 ? member.name.split(' ')[0] : member.name;
+  }
+
+  // Create a single shared dropdown element
+  const dropdown = document.createElement('div');
+  dropdown.id = 'mention-dropdown';
+  dropdown.style.display = 'none';
+  document.body.appendChild(dropdown);
+
+  let currentInput = null, atPos = -1, currentOptions = [], selectedIdx = -1;
+
+  function close() {
+    dropdown.style.display = 'none';
+    dropdown.innerHTML = '';
+    currentInput = null; atPos = -1; currentOptions = []; selectedIdx = -1;
+  }
+
+  function highlight(idx) {
+    dropdown.querySelectorAll('.mention-option').forEach((el, i) =>
+      el.classList.toggle('active', i === idx)
+    );
+  }
+
+  function doInsert(member) {
+    if (!currentInput || atPos < 0) return;
+    const name = insertName(member);
+    const v = currentInput.value;
+    const cursor = currentInput.selectionStart;
+    currentInput.value = v.slice(0, atPos) + '@' + name + ' ' + v.slice(cursor);
+    const pos = atPos + name.length + 2;
+    currentInput.setSelectionRange(pos, pos);
+    close();
+    currentInput.focus();
+  }
+
+  function open(input) {
+    const v = input.value;
+    const cursor = input.selectionStart;
+    const before = v.slice(0, cursor);
+    const lastAt = before.lastIndexOf('@');
+    if (lastAt < 0) { close(); return; }
+    const token = before.slice(lastAt + 1);
+    // Bail if token has 2+ spaces (already past a two-word name) or is very long
+    if ((token.match(/ /g) || []).length > 1 || token.length > 30) { close(); return; }
+
+    const q = token.toLowerCase();
+    currentOptions = members.filter(m =>
+      m.name.toLowerCase().startsWith(q) ||
+      m.name.split(' ').some(w => w.toLowerCase().startsWith(q))
+    ).slice(0, 6);
+
+    if (!currentOptions.length) { close(); return; }
+
+    atPos = lastAt;
+    currentInput = input;
+    selectedIdx = -1;
+
+    dropdown.innerHTML = '';
+    currentOptions.forEach((m, i) => {
+      const opt = document.createElement('div');
+      opt.className = 'mention-option';
+      opt.textContent = m.name;
+      opt.addEventListener('mousedown', e => { e.preventDefault(); doInsert(m); });
+      dropdown.appendChild(opt);
+    });
+
+    const r = input.getBoundingClientRect();
+    Object.assign(dropdown.style, {
+      top: (r.bottom + window.scrollY + 2) + 'px',
+      left: r.left + 'px',
+      width: Math.min(220, r.width) + 'px',
+      display: 'block',
+    });
+  }
+
+  function onInput(e) { selectedIdx = -1; open(e.target); }
+
+  function onKeydown(e) {
+    if (dropdown.style.display === 'none') return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedIdx = Math.min(selectedIdx + 1, currentOptions.length - 1);
+      highlight(selectedIdx);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedIdx = Math.max(selectedIdx - 1, 0);
+      highlight(selectedIdx);
+    } else if (e.key === 'Enter' && selectedIdx >= 0) {
+      e.preventDefault();
+      doInsert(currentOptions[selectedIdx]);
+    } else if (e.key === 'Escape') {
+      close();
+    }
+  }
+
+  document.addEventListener('mousedown', e => {
+    if (!dropdown.contains(e.target)) close();
+  });
+
+  function attach(el) {
+    el.addEventListener('input', onInput);
+    el.addEventListener('keydown', onKeydown);
+  }
+
+  document.querySelectorAll('.mention-input').forEach(attach);
+
+  // Expose for dynamically-revealed inputs (reply forms)
+  window._attachMentionInput = attach;
+})();
+
 // ── Photo carousel + lightbox ─────────────────────────────────────────────────
 // Lightbox: body-level overlay (same pattern as reaction sheet / emoji picker).
 // Carousel: initialized per .photo-carousel element; active photo shows at
