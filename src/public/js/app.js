@@ -349,8 +349,11 @@ _lbNext.addEventListener('click', () => { if (_lbIdx < _lbUrls.length - 1) { _lb
 _lightbox.addEventListener('click', e => { if (e.target === _lightbox) _closeLightbox(); });
 
 let _lbTouchX = 0;
-_lightbox.addEventListener('touchstart', e => { _lbTouchX = e.touches[0].clientX; }, { passive: true });
+let _lbTouchStarted = false;
+_lightbox.addEventListener('touchstart', e => { _lbTouchX = e.touches[0].clientX; _lbTouchStarted = true; }, { passive: true });
 _lightbox.addEventListener('touchend', e => {
+  if (!_lbTouchStarted) return;
+  _lbTouchStarted = false;
   const dx = e.changedTouches[0].clientX - _lbTouchX;
   if (dx < -50 && _lbIdx < _lbUrls.length - 1) { _lbIdx++; _renderLightbox(); }
   else if (dx > 50 && _lbIdx > 0) { _lbIdx--; _renderLightbox(); }
@@ -405,14 +408,18 @@ function _initPhotoCarousels() {
     container.appendChild(LA);
     container.appendChild(RA);
 
+    let hovered = false;
     container.addEventListener('mouseenter', () => {
-      if (!('ontouchstart' in window)) { LA.style.display = 'flex'; RA.style.display = 'flex'; }
+      if (!('ontouchstart' in window)) { hovered = true; render(); }
     });
-    container.addEventListener('mouseleave', () => { LA.style.display = 'none'; RA.style.display = 'none'; });
+    container.addEventListener('mouseleave', () => { hovered = false; LA.style.display = 'none'; RA.style.display = 'none'; });
 
     let touchX = 0;
-    track.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; }, { passive: true });
+    let touchStarted = false;
+    track.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; touchStarted = true; }, { passive: true });
     track.addEventListener('touchend', e => {
+      if (!touchStarted) return;
+      touchStarted = false;
       const dx = e.changedTouches[0].clientX - touchX;
       if (dx < -40 && current < urls.length - 1) goto(current + 1);
       else if (dx > 40 && current > 0) goto(current - 1);
@@ -448,6 +455,11 @@ function _initPhotoCarousels() {
         d.style.width = i === current ? '16px' : '6px';
         d.style.background = i === current ? '#8b5e3c' : '#cbd5e1';
       });
+
+      if (hovered) {
+        LA.style.display = current > 0 ? 'flex' : 'none';
+        RA.style.display = current < urls.length - 1 ? 'flex' : 'none';
+      }
     }
 
     render();
