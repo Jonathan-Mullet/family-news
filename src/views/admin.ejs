@@ -100,9 +100,6 @@
           <p class="text-sm font-medium text-slate-800 dark:text-slate-100"><%= u.name %></p>
           <p class="text-xs text-slate-400 dark:text-slate-500 truncate"><%= u.email %></p>
         </div>
-        <span class="text-xs px-2 py-0.5 rounded-full <%= u.role === 'admin' ? 'bg-brand-50 dark:bg-brand-600/20 text-brand-700 dark:text-brand-300' : u.role === 'moderator' ? 'bg-purple-50 dark:bg-purple-600/20 text-purple-700 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' %>">
-          <%= u.role %>
-        </span>
         <% if (u.id !== user.id) { %>
         <div class="flex gap-1.5 flex-shrink-0">
           <form method="POST" action="/admin/users/<%= u.id %>/set-role" class="flex items-center gap-1">
