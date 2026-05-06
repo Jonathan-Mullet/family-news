@@ -42,9 +42,9 @@ function groupCommentsByPost(rows) {
  * @param {Array<{id: number}>} posts        - Post objects (must have .id; mutated in-place: .photos array added to each)
  * @param {number}              viewerUserId - Session user ID (for userReacted flags)
  * @returns {Promise<{
- *   reactionsByPost:     Object,
- *   reactionNames:       Object,
- *   latestCommentByPost: Object
+ *   reactionsByPost: Object,
+ *   reactionNames:   Object,
+ *   commentsByPost:  Object
  * }>}
  */
 async function enrichPosts(posts, viewerUserId) {
@@ -53,10 +53,10 @@ async function enrichPosts(posts, viewerUserId) {
 
   const reactionsByPost = {};
   const reactionNames = {};
-  const latestCommentByPost = {};
+  const commentsByPost = {};
 
   // Nothing to load if there are no posts
-  if (!posts.length) return { reactionsByPost, reactionNames, latestCommentByPost };
+  if (!posts.length) return { reactionsByPost, reactionNames, commentsByPost };
 
   const ids = posts.map(p => p.id);
 
@@ -98,16 +98,20 @@ async function enrichPosts(posts, viewerUserId) {
     reactionNames[r.post_id][r.emoji].push(r.name);
   });
 
-  // ── Latest comment ─────────────────────────────────────────────────────────
-  // Inline preview on feed cards shows only the most recent comment per post
-  const [latestCommentRows] = await pool.query(`
-    SELECT c.post_id, c.content, u.name AS author_name, u.avatar_url AS author_avatar, u.id AS author_id
-    FROM comments c JOIN users u ON c.user_id = u.id
-    WHERE c.id IN (SELECT MAX(id) FROM comments WHERE post_id IN (?) AND deleted_at IS NULL GROUP BY post_id)
+  // ── All comments (pre-rendered for feed card inline expand) ───────────────
+  // ORDER BY IFNULL(parent_id, id) groups each thread together and ensures
+  // the parent comment always precedes its replies in the result set.
+  const [commentRows] = await pool.query(`
+    SELECT c.id, c.post_id, c.parent_id, c.content, c.created_at,
+           u.id AS user_id, u.name AS author_name, u.avatar_url AS author_avatar
+    FROM comments c
+    JOIN users u ON c.user_id = u.id
+    WHERE c.post_id IN (?) AND c.deleted_at IS NULL
+    ORDER BY c.post_id, IFNULL(c.parent_id, c.id), c.created_at ASC
   `, [ids]);
-  latestCommentRows.forEach(c => { latestCommentByPost[c.post_id] = c; });
+  Object.assign(commentsByPost, groupCommentsByPost(commentRows));
 
-  return { reactionsByPost, reactionNames, latestCommentByPost };
+  return { reactionsByPost, reactionNames, commentsByPost };
 }
 
 module.exports = { enrichPosts, groupCommentsByPost };

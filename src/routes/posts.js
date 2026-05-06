@@ -55,7 +55,7 @@ router.get('/', requireAuth, async (req, res) => {
       .filter(p => !p.big_news)
       .sort((a, b) => (b.pinned - a.pinned) || (new Date(b.created_at) - new Date(a.created_at)));
 
-    const { reactionsByPost, reactionNames, latestCommentByPost } = await enrichPosts(allPosts, userId);
+    const { reactionsByPost, reactionNames, commentsByPost } = await enrichPosts(allPosts, userId);
 
     // Feed also shows how many members have read each post (not needed on member pages)
     if (allPosts.length) {
@@ -70,7 +70,7 @@ router.get('/', requireAuth, async (req, res) => {
     }
 
     const latestPostId = allPosts[0]?.id || 0;
-    res.render('feed', { bigNewsPosts, regularPosts, archivedBigNews, reactionsByPost, reactionNames, latestCommentByPost, latestPostId });
+    res.render('feed', { bigNewsPosts, regularPosts, archivedBigNews, reactionsByPost, reactionNames, commentsByPost, latestPostId });
   } catch (err) {
     console.error(err);
     res.render('error', { message: 'Could not load posts.' });

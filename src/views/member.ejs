@@ -30,7 +30,7 @@
 
   <%# Posts %>
   <% posts.forEach(post => { const isScheduled = post.publish_at && new Date(post.publish_at) > new Date(); %>
-  <%- include('partials/post-card', { post, isScheduled, reactionsByPost, reactionNames, latestCommentByPost }) %>
+  <%- include('partials/post-card', { post, isScheduled, reactionsByPost, reactionNames, commentsByPost }) %>
   <% }) %>
 </div>
 

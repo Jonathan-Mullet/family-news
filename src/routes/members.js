@@ -28,9 +28,9 @@ router.get('/member/:id', requireAuth, async (req, res) => {
       ORDER BY p.created_at DESC
     `, [memberId, req.session.user.id]);
 
-    const { reactionsByPost, reactionNames, latestCommentByPost } = await enrichPosts(posts, req.session.user.id);
+    const { reactionsByPost, reactionNames, commentsByPost } = await enrichPosts(posts, req.session.user.id);
 
-    res.render('member', { profileUser, posts, reactionsByPost, reactionNames, latestCommentByPost });
+    res.render('member', { profileUser, posts, reactionsByPost, reactionNames, commentsByPost });
   } catch (err) {
     console.error(err);
     res.render('error', { message: 'Could not load member page.' });
