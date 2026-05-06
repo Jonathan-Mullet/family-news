@@ -183,4 +183,26 @@ async function sendBigNewsNotification(toUsers, poster, post) {
   }
 }
 
-module.exports = { sendPasswordReset, sendNewPostNotification, sendCommentNotification, sendBigNewsNotification };
+/**
+ * Notifies a user that they have been promoted to a new role on Family News.
+ * Only sent for promotions (member→moderator, member→admin, moderator→admin),
+ * not for demotions.
+ *
+ * @param {string} email - Recipient email address.
+ * @param {string} name - Recipient display name.
+ * @param {'moderator'|'admin'} role - The new role they were promoted to.
+ * @returns {Promise<void>}
+ */
+async function sendPromotionNotification(email, name, role) {
+  const roleLabel = role === 'admin' ? 'Admin' : 'Moderator';
+  const url = `${process.env.BASE_URL}/guide`;
+  await sendMail(email, `You've been made a ${roleLabel} on Family News 🎉`, `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
+      <h2 style="color:#1e293b">Congratulations, ${escapeHtml(name)}!</h2>
+      <p style="color:#475569">You've been made a <strong style="color:#7c3aed">${roleLabel}</strong> on Family News.</p>
+      <a href="${url}" style="display:inline-block;background:#7c3aed;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:500;margin-top:8px">See your role guide →</a>
+    </div>
+  `);
+}
+
+module.exports = { sendPasswordReset, sendNewPostNotification, sendCommentNotification, sendBigNewsNotification, sendPromotionNotification };
