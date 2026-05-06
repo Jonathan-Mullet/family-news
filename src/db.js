@@ -166,6 +166,9 @@ async function initDb() {
     `ALTER TABLE users ADD COLUMN push_notify_posts TINYINT(1) DEFAULT 1`,
     `ALTER TABLE users ADD COLUMN push_notify_comments TINYINT(1) DEFAULT 1`,
     `ALTER TABLE users ADD COLUMN push_notify_big_news TINYINT(1) DEFAULT 1`,
+    `ALTER TABLE users MODIFY COLUMN role ENUM('admin','moderator','member') DEFAULT 'member'`,
+    `ALTER TABLE posts ADD COLUMN deleted_at DATETIME DEFAULT NULL`,
+    `ALTER TABLE comments ADD COLUMN deleted_at DATETIME DEFAULT NULL`,
   ];
   for (const q of migrations) {
     try { await pool.query(q); } catch { /* column already exists */ }
