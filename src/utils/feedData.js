@@ -3,7 +3,7 @@
  *
  * Enriches an array of post objects (already loaded from DB) with the
  * additional data needed to render feed cards: reactions, photos, reaction
- * name lists, and the most recent comment for each post.
+ * name lists, and all threaded comments for each post.
  *
  * Posts are mutated in-place: a .photos array is added to each post.
  * The three lookup maps are returned for use in template rendering.
@@ -53,10 +53,9 @@ async function enrichPosts(posts, viewerUserId) {
 
   const reactionsByPost = {};
   const reactionNames = {};
-  const commentsByPost = {};
 
   // Nothing to load if there are no posts
-  if (!posts.length) return { reactionsByPost, reactionNames, commentsByPost };
+  if (!posts.length) return { reactionsByPost, reactionNames, commentsByPost: {} };
 
   const ids = posts.map(p => p.id);
 
@@ -109,7 +108,7 @@ async function enrichPosts(posts, viewerUserId) {
     WHERE c.post_id IN (?) AND c.deleted_at IS NULL
     ORDER BY c.post_id, IFNULL(c.parent_id, c.id), c.created_at ASC
   `, [ids]);
-  Object.assign(commentsByPost, groupCommentsByPost(commentRows));
+  const commentsByPost = groupCommentsByPost(commentRows);
 
   return { reactionsByPost, reactionNames, commentsByPost };
 }
