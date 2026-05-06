@@ -35,5 +35,10 @@
     }
   </script>
   <link rel="stylesheet" href="/css/theme.css">
+  <% if (user && familyMembers && familyMembers.length) { %>
+  <script>
+    window.FAMILY_MEMBERS = <%- JSON.stringify(familyMembers.map(m => ({ id: m.id, name: m.name }))).replace(/<\//g, '<\\/') %>;
+  </script>
+  <% } %>
 </head>
 <body class="bg-[#faf6f0] dark:bg-[#18110a] min-h-screen text-slate-800 dark:text-slate-100 transition-colors duration-200">
