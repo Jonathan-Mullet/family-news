@@ -39,10 +39,10 @@ router.post('/invites', async (req, res) => {
   const isOpen = req.body.type === 'open';
   try {
     const token = uuidv4().replace(/-/g, '');
-    await pool.query(
-      `INSERT INTO invites (token, created_by, expires_at, max_uses) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ${isOpen ? '2 DAY' : '7 DAY'}), ?)`,
-      [token, req.session.user.id, isOpen ? 50 : 1]
-    );
+    const sql = isOpen
+      ? 'INSERT INTO invites (token, created_by, expires_at, max_uses) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 2 DAY), ?)'
+      : 'INSERT INTO invites (token, created_by, expires_at, max_uses) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY), ?)';
+    await pool.query(sql, [token, req.session.user.id, isOpen ? 50 : 1]);
     req.flash('success', `${process.env.BASE_URL}/register?invite=${token}`);
     req.flash('invite_type', isOpen ? 'open' : 'single');
     res.redirect('/admin');

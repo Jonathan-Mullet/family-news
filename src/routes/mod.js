@@ -30,7 +30,8 @@ router.get('/mod', requireMod, async (req, res) => {
       const [deletedComments] = await pool.query(`
         SELECT c.*, u.name AS author_name
         FROM comments c JOIN users u ON c.user_id = u.id
-        WHERE c.deleted_at IS NOT NULL AND c.post_id IN (?)
+        WHERE c.deleted_at IS NOT NULL AND c.deleted_at > DATE_SUB(NOW(), INTERVAL 14 DAY)
+          AND c.post_id IN (?)
         ORDER BY c.deleted_at DESC
       `, [ids]);
       const byPost = {};
@@ -66,10 +67,10 @@ router.post('/mod/invites', requireMod, async (req, res) => {
   const isOpen = req.body.type === 'open';
   try {
     const token = uuidv4().replace(/-/g, '');
-    await pool.query(
-      `INSERT INTO invites (token, created_by, expires_at, max_uses) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ${isOpen ? '2 DAY' : '7 DAY'}), ?)`,
-      [token, req.session.user.id, isOpen ? 50 : 1]
-    );
+    const sql = isOpen
+      ? 'INSERT INTO invites (token, created_by, expires_at, max_uses) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 2 DAY), ?)'
+      : 'INSERT INTO invites (token, created_by, expires_at, max_uses) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 7 DAY), ?)';
+    await pool.query(sql, [token, req.session.user.id, isOpen ? 50 : 1]);
     req.flash('success', `${process.env.BASE_URL}/register?invite=${token}`);
     req.flash('invite_type', isOpen ? 'open' : 'single');
   } catch (err) {
