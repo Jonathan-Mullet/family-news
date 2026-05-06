@@ -7,6 +7,7 @@ const bcrypt = require('bcrypt');
 const path = require('path');
 const { pool, initDb } = require('./db');
 const { startCron } = require('./cron');
+const { renderContent } = require('./utils/mentions');
 
 // ── Express setup ────────────────────────────────────────────────────────────
 const app = express();
@@ -15,6 +16,7 @@ const app = express();
 app.set('trust proxy', 1);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+app.locals.renderContent = renderContent;
 
 // ── Static files ─────────────────────────────────────────────────────────────
 app.use(express.urlencoded({ extended: true }));
@@ -47,9 +49,21 @@ app.use(session({
 app.use(flash());
 
 // ── Request locals ────────────────────────────────────────────────────────────
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.flash = req.flash();
+  if (req.session.user) {
+    try {
+      const [members] = await pool.query(
+        'SELECT id, name FROM users WHERE active = 1 ORDER BY name'
+      );
+      res.locals.familyMembers = members;
+    } catch {
+      res.locals.familyMembers = [];
+    }
+  } else {
+    res.locals.familyMembers = [];
+  }
   next();
 });
 
