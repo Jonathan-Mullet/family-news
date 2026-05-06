@@ -91,7 +91,7 @@ router.post('/users/:id/set-role', async (req, res) => {
     await pool.query('UPDATE users SET role = ? WHERE id = ?', [role, req.params.id]);
     const roleRank = { member: 0, moderator: 1, admin: 2 };
     if (roleRank[role] > roleRank[target.role]) {
-      const roleLabel = role === 'admin' ? 'Admin' : 'Moderator';
+      const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
       sendPushToUser(target.id, { title: `You've been made a ${roleLabel} on Family News 🎉`, body: 'Tap to see your new guide.', url: '/guide' });
       sendPromotionNotification(target.email, target.name, role);
     }
