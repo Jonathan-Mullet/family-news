@@ -39,4 +39,21 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, requireAdmin };
+/**
+ * Ensures the request comes from a logged-in admin or moderator user.
+ * Checks both that a session user exists AND that their role is 'admin' or
+ * 'moderator', so it can be used standalone without chaining `requireAuth` first.
+ * Responds with 403 if the check fails.
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
+ * @returns {void}
+ */
+function requireMod(req, res, next) {
+  if (!req.session.user || (req.session.user.role !== 'admin' && req.session.user.role !== 'moderator'))
+    return res.status(403).render('error', { message: 'Access denied.' });
+  next();
+}
+
+module.exports = { requireAuth, requireAdmin, requireMod };
