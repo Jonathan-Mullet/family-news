@@ -204,4 +204,26 @@ async function sendPromotionNotification(email, name, role) {
   `);
 }
 
-module.exports = { sendPasswordReset, sendNewPostNotification, sendCommentNotification, sendBigNewsNotification, sendPromotionNotification };
+/**
+ * Notifies a user that they were @mentioned in a post or comment.
+ *
+ * @param {string} toEmail   - Mentioned user's email address.
+ * @param {string} toName    - Mentioned user's display name.
+ * @param {string} fromName  - Name of the user who wrote the mention.
+ * @param {string} excerpt   - First ~80 chars of the post/comment content (raw text).
+ * @param {string} postUrl   - Full URL of the post (BASE_URL + /post/:id).
+ * @returns {Promise<void>}
+ */
+async function sendMentionNotification(toEmail, toName, fromName, excerpt, postUrl) {
+  await sendMail(toEmail, `${fromName} mentioned you on Family News`, `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
+      <p style="color:#475569">Hi ${escapeHtml(toName)}, <strong style="color:#1e293b">${escapeHtml(fromName)}</strong> mentioned you on Family News:</p>
+      <p style="color:#374151;background:#f5f3ff;padding:12px;border-radius:8px;border-left:3px solid #7c3aed;margin:8px 0">
+        ${escapeHtml(excerpt)}${excerpt.length >= 80 ? '…' : ''}
+      </p>
+      <a href="${postUrl}" style="display:inline-block;background:#7c3aed;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:500;margin-top:8px">See the post →</a>
+    </div>
+  `);
+}
+
+module.exports = { sendPasswordReset, sendNewPostNotification, sendCommentNotification, sendBigNewsNotification, sendPromotionNotification, sendMentionNotification };
