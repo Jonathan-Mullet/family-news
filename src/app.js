@@ -102,6 +102,7 @@ app.use('/admin', require('./routes/admin'));
 app.use('/', require('./routes/mod'));
 app.use('/', require('./routes/members'));
 app.use('/push', require('./routes/push'));
+app.use('/', require('./routes/photos'));
 
 // ── Server startup ────────────────────────────────────────────────────────────
 async function start() {
