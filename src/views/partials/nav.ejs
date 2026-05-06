@@ -104,6 +104,13 @@
     color: #2c1810;
   }
 
+  .fn-nav-controls {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-shrink: 0;
+  }
+
   .fn-dark-toggle svg {
     width: 0.95rem;
     height: 0.95rem;
@@ -165,7 +172,7 @@
       <% } %>
     </div>
 
-    <div style="display:flex;align-items:center;gap:0;flex-shrink:0;">
+    <div class="fn-nav-controls">
       <button id="dark-toggle" class="fn-dark-toggle" title="Toggle dark mode">
         <svg class="hidden dark:block" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="4.5"/>
@@ -183,7 +190,7 @@
         </svg>
       </button>
       <% if (user) { %>
-        <button id="fn-hamburger" class="fn-hamburger" onclick="window._openDrawer()" title="Menu" aria-label="Open menu">
+        <button id="fn-hamburger" class="fn-hamburger" type="button" onclick="window._openDrawer()" title="Menu" aria-label="Open menu">
           <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
             <rect x="2" y="5" width="16" height="1.5" rx="0.75"/>
             <rect x="2" y="9.25" width="16" height="1.5" rx="0.75"/>
@@ -197,13 +204,13 @@
 
 <% if (user) { %>
 <div id="fn-drawer-overlay" class="fn-drawer-overlay" onclick="window._closeDrawer()"></div>
-<div id="fn-drawer" class="fn-drawer" role="dialog" aria-label="Navigation menu">
+<div id="fn-drawer" class="fn-drawer" role="dialog" aria-modal="true" aria-label="Navigation menu">
   <div class="fn-drawer-header">
     <div>
       <div class="fn-drawer-user-name"><%= user.name %></div>
       <div class="fn-drawer-user-role"><%= user.role %></div>
     </div>
-    <button class="fn-drawer-close" onclick="window._closeDrawer()" aria-label="Close menu">
+    <button class="fn-drawer-close" type="button" onclick="window._closeDrawer()" aria-label="Close menu">
       <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
         <path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"/>
       </svg>
@@ -250,6 +257,10 @@
     if (href === '/' ? path === '/' : path.startsWith(href)) {
       a.classList.add('fn-drawer-link--active');
     }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') window._closeDrawer();
   });
 }());
 </script>
