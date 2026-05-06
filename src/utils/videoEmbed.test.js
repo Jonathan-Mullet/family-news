@@ -84,6 +84,10 @@ test('does not match vimeo channel/group paths', () => {
   assert.equal(extractVideoEmbed('https://vimeo.com/channels/staffpicks'), null);
 });
 
+test('does not match vimeo user profile sub-pages', () => {
+  assert.equal(extractVideoEmbed('https://vimeo.com/12345678/videos'), null);
+});
+
 // ── Priority ──────────────────────────────────────────────────────────────────
 
 test('YouTube takes priority when both YouTube and Vimeo present', () => {
