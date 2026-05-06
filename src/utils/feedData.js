@@ -12,6 +12,31 @@
 const { pool } = require('../db');
 
 /**
+ * Groups a flat array of comment rows (from DB) into a postId → nested comment tree map.
+ * Top-level comments (parent_id = null) get a replies array; replies nest under their parent.
+ * Exported separately for unit testing without a DB connection.
+ *
+ * Rows must be ordered so each parent comment appears before its replies —
+ * the SQL query in enrichPosts guarantees this via ORDER BY IFNULL(parent_id, id), created_at.
+ *
+ * @param {Array} rows - Flat comment rows from DB
+ * @returns {Object}  Map of post_id → [{ ...comment, replies: [] }]
+ */
+function groupCommentsByPost(rows) {
+  const result = {};
+  rows.forEach(row => {
+    if (!result[row.post_id]) result[row.post_id] = [];
+    if (!row.parent_id) {
+      result[row.post_id].push({ ...row, replies: [] });
+    } else {
+      const parent = result[row.post_id].find(c => c.id === row.parent_id);
+      if (parent) parent.replies.push(row);
+    }
+  });
+  return result;
+}
+
+/**
  * Loads reactions, photos, reaction names, and latest comments for a set of posts.
  *
  * @param {Array<{id: number}>} posts        - Post objects (must have .id; mutated in-place: .photos array added to each)
@@ -85,4 +110,4 @@ async function enrichPosts(posts, viewerUserId) {
   return { reactionsByPost, reactionNames, latestCommentByPost };
 }
 
-module.exports = { enrichPosts };
+module.exports = { enrichPosts, groupCommentsByPost };
