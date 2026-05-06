@@ -600,7 +600,7 @@ input[type="datetime-local"].fn-input {
 
 .fn-comment-pill--active {
   border-color: #8b5e3c !important;
-  font-style: normal;
+  font-style: normal !important;
 }
 .dark .fn-comment-pill--active { border-color: #a97c50 !important; }
 
