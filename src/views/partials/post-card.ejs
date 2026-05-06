@@ -202,24 +202,24 @@
       <% _postComments.forEach(comment => { %>
       <div class="flex gap-2 items-start">
         <% if (comment.author_avatar) { %>
-        <img src="<%= comment.author_avatar %>" class="w-6 h-6 rounded-full object-cover flex-shrink-0 mt-0.5" alt="">
+        <img src="<%= comment.author_avatar %>" style="width:26px;height:26px" class="rounded-full object-cover flex-shrink-0 mt-0.5" alt="">
         <% } else { %>
-        <div class="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 font-semibold text-xs flex-shrink-0 mt-0.5"><%= comment.author_name.charAt(0).toUpperCase() %></div>
+        <div style="width:26px;height:26px" class="rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 font-semibold text-xs flex-shrink-0 mt-0.5"><%= comment.author_name.charAt(0).toUpperCase() %></div>
         <% } %>
         <div class="flex-1 min-w-0">
           <span class="text-xs font-semibold text-slate-700 dark:text-slate-200"><%= comment.author_name %></span>
           <span class="text-xs text-slate-500 dark:text-slate-400 ml-1 break-words"><%- renderContent(comment.content) %></span>
           <div class="flex items-center gap-2 mt-0.5">
             <time data-ts="<%= new Date(comment.created_at).toISOString() %>" data-fmt="compact" class="text-xs text-slate-400 dark:text-slate-500"></time>
-            <a href="/posts/<%= post.id %>" class="text-xs text-brand-600 dark:text-brand-400 hover:underline">Reply</a>
+            <a href="/post/<%= post.id %>" class="text-xs text-brand-600 dark:text-brand-400 hover:underline">Reply</a>
           </div>
           <% if (comment.replies && comment.replies.length) { %>
           <% comment.replies.forEach(reply => { %>
-          <div class="flex gap-2 items-start mt-1.5 pl-2">
+          <div class="flex gap-2 items-start mt-1.5 pl-8">
             <% if (reply.author_avatar) { %>
-            <img src="<%= reply.author_avatar %>" class="w-5 h-5 rounded-full object-cover flex-shrink-0 mt-0.5" alt="">
+            <img src="<%= reply.author_avatar %>" style="width:22px;height:22px" class="rounded-full object-cover flex-shrink-0 mt-0.5" alt="">
             <% } else { %>
-            <div class="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 font-semibold text-[9px] flex-shrink-0 mt-0.5"><%= reply.author_name.charAt(0).toUpperCase() %></div>
+            <div style="width:22px;height:22px" class="rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 font-semibold text-[9px] flex-shrink-0 mt-0.5"><%= reply.author_name.charAt(0).toUpperCase() %></div>
             <% } %>
             <div class="flex-1 min-w-0">
               <span class="text-xs font-semibold text-slate-700 dark:text-slate-200"><%= reply.author_name %></span>
