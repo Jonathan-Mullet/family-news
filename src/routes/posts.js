@@ -3,11 +3,12 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
-const { sendNewPostNotification, sendBigNewsNotification } = require('../email');
-const { sendPushToAllUsers } = require('../push');
+const { sendNewPostNotification, sendBigNewsNotification, sendMentionNotification } = require('../email');
+const { sendPushToAllUsers, sendPushToUser } = require('../push');
 const { handleMultiUpload, deleteUploadedFile } = require('./upload');
 const { fetchOgPreview } = require('../utils/ogFetch');
 const { enrichPosts } = require('../utils/feedData');
+const { resolveMentions } = require('../utils/mentions');
 
 const MAX_CONTENT = 2000;
 // Posts older than BIG_NEWS_DAYS are shown in the archived big-news section rather than the active banner.
@@ -160,9 +161,10 @@ router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
   }
 
   try {
+    const { content: resolvedContent, mentionedUserIds } = await resolveMentions(content.trim(), pool);
     const [result] = await pool.query(
       'INSERT INTO posts (user_id, title, content, publish_at, big_news) VALUES (?, ?, ?, ?, ?)',
-      [req.session.user.id, title?.trim() || null, content.trim(), publishAt, isBigNews]
+      [req.session.user.id, title?.trim() || null, resolvedContent, publishAt, isBigNews]
     );
     const postId = result.insertId;
 
@@ -188,6 +190,27 @@ router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
         { title: `${req.session.user.name} posted`, body: content.trim().substring(0, 100), url: '/' },
         { excludeUserId: req.session.user.id, checkColumn: 'push_notify_posts' }
       );
+    }
+
+    // Fire mention notifications (skip self-mentions)
+    if (mentionedUserIds.length) {
+      const toNotify = mentionedUserIds.filter(id => id !== req.session.user.id);
+      if (toNotify.length) {
+        try {
+          const [mentionedUsers] = await pool.query(
+            'SELECT id, email, name FROM users WHERE id IN (?)',
+            [toNotify]
+          );
+          const excerpt = content.trim().substring(0, 80);
+          const postUrl = `${process.env.BASE_URL}/post/${postId}`;
+          for (const mu of mentionedUsers) {
+            sendPushToUser(mu.id, { title: `${req.session.user.name} mentioned you`, body: excerpt, url: `/post/${postId}` });
+            sendMentionNotification(mu.email, mu.name, req.session.user.name, excerpt, postUrl);
+          }
+        } catch (mentionErr) {
+          console.error('Mention notification error:', mentionErr.message);
+        }
+      }
     }
 
     // Fire-and-forget: fetch Open Graph metadata for any URL in the post body and persist it for the link-preview card.
@@ -226,10 +249,33 @@ router.post('/posts/:id/edit', requireAuth, async (req, res) => {
     const [rows] = await pool.query('SELECT user_id FROM posts WHERE id = ?', [req.params.id]);
     if (!rows.length) return res.redirect('/');
     if (rows[0].user_id !== req.session.user.id && req.session.user.role !== 'admin' && req.session.user.role !== 'moderator') return res.status(403).end();
+    const { content: resolvedContent, mentionedUserIds } = await resolveMentions(content.trim(), pool);
     await pool.query(
       'UPDATE posts SET content = ?, title = ?, edited_at = NOW() WHERE id = ?',
-      [content.trim(), title?.trim() || null, req.params.id]
+      [resolvedContent, title?.trim() || null, req.params.id]
     );
+
+    // Fire mention notifications (re-notify all mentions on edit)
+    if (mentionedUserIds.length) {
+      const toNotify = mentionedUserIds.filter(id => id !== req.session.user.id);
+      if (toNotify.length) {
+        try {
+          const [mentionedUsers] = await pool.query(
+            'SELECT id, email, name FROM users WHERE id IN (?)',
+            [toNotify]
+          );
+          const excerpt = content.trim().substring(0, 80);
+          const postUrl = `${process.env.BASE_URL}/post/${req.params.id}`;
+          for (const mu of mentionedUsers) {
+            sendPushToUser(mu.id, { title: `${req.session.user.name} mentioned you`, body: excerpt, url: `/post/${req.params.id}` });
+            sendMentionNotification(mu.email, mu.name, req.session.user.name, excerpt, postUrl);
+          }
+        } catch (mentionErr) {
+          console.error('Mention notification error:', mentionErr.message);
+        }
+      }
+    }
+
     const ref = req.headers.referer || '/';
     res.redirect(ref.includes('/post/') ? ref : '/');
   } catch (err) { console.error(err); res.redirect('/'); }
