@@ -169,30 +169,93 @@
     <% } %>
   </div>
 
-  <%# Latest comment preview %>
-  <% const _lc = latestCommentByPost && latestCommentByPost[post.id]; %>
-  <% if (_lc) { %>
-  <div class="px-4 py-2.5 border-t border-slate-100 dark:border-slate-700 flex gap-2 items-start">
-    <% if (_lc.author_avatar) { %>
-    <img src="<%= _lc.author_avatar %>" class="w-6 h-6 rounded-full object-cover flex-shrink-0 mt-0.5" alt="">
-    <% } else { %>
-    <div class="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 font-semibold text-xs flex-shrink-0 mt-0.5">
-      <%= _lc.author_name.charAt(0).toUpperCase() %>
-    </div>
-    <% } %>
-    <div class="min-w-0 flex-1">
-      <a href="/member/<%= _lc.author_id %>" class="text-xs font-semibold text-slate-700 dark:text-slate-200 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"><%= _lc.author_name %></a>
-      <p class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 break-words"><%- renderContent(_lc.content) %></p>
+  <%# Comments section %>
+  <%
+    const _postComments = (commentsByPost && commentsByPost[post.id]) || [];
+    const _commentCount = _postComments.length;
+  %>
+  <% if (_commentCount === 0) { %>
+  <%# State A: no comments — slim pill input %>
+  <div class="px-4 py-2.5 border-t border-slate-100 dark:border-slate-700">
+    <form method="POST" action="/posts/<%= post.id %>/comments">
+      <div class="flex gap-2 items-center">
+        <input type="text" name="content" required
+          id="fn-comment-pill-<%= post.id %>"
+          placeholder="Be the first to comment…"
+          class="fn-comment-pill flex-1 min-w-0 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 italic rounded-full px-4 py-2 text-xs focus:outline-none transition-colors min-h-[36px]">
+        <button type="submit" id="fn-comment-pill-send-<%= post.id %>"
+          class="fn-comment-send--hidden bg-brand-600 text-white text-xs font-medium px-3 rounded-full hover:bg-brand-700 transition-colors min-h-[36px] shrink-0">Send</button>
+      </div>
+    </form>
+  </div>
+  <% } else { %>
+  <%# State B: has comments — toggle + pre-rendered block %>
+  <div class="px-4 py-2 border-t border-slate-100 dark:border-slate-700">
+    <button type="button" id="fn-comment-toggle-<%= post.id %>"
+      class="text-xs font-semibold text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors">
+      💬 <%= _commentCount %> <%= _commentCount === 1 ? 'comment' : 'comments' %> · Add yours ▾
+    </button>
+  </div>
+  <div id="fn-comment-section-<%= post.id %>" class="fn-comment-section border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/20">
+    <div class="px-4 py-3 space-y-3">
+      <% _postComments.forEach(comment => { %>
+      <div class="flex gap-2 items-start">
+        <% if (comment.author_avatar) { %>
+        <img src="<%= comment.author_avatar %>" class="w-6 h-6 rounded-full object-cover flex-shrink-0 mt-0.5" alt="">
+        <% } else { %>
+        <div class="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 font-semibold text-xs flex-shrink-0 mt-0.5"><%= comment.author_name.charAt(0).toUpperCase() %></div>
+        <% } %>
+        <div class="flex-1 min-w-0">
+          <span class="text-xs font-semibold text-slate-700 dark:text-slate-200"><%= comment.author_name %></span>
+          <span class="text-xs text-slate-500 dark:text-slate-400 ml-1 break-words"><%- renderContent(comment.content) %></span>
+          <% if (comment.replies && comment.replies.length) { %>
+          <% comment.replies.forEach(reply => { %>
+          <div class="flex gap-2 items-start mt-1.5 pl-2">
+            <% if (reply.author_avatar) { %>
+            <img src="<%= reply.author_avatar %>" class="w-5 h-5 rounded-full object-cover flex-shrink-0 mt-0.5" alt="">
+            <% } else { %>
+            <div class="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-300 font-semibold text-[9px] flex-shrink-0 mt-0.5"><%= reply.author_name.charAt(0).toUpperCase() %></div>
+            <% } %>
+            <div class="flex-1 min-w-0">
+              <span class="text-xs font-semibold text-slate-700 dark:text-slate-200"><%= reply.author_name %></span>
+              <span class="text-xs text-slate-500 dark:text-slate-400 ml-1 break-words"><%- renderContent(reply.content) %></span>
+            </div>
+          </div>
+          <% }) %>
+          <% } %>
+        </div>
+      </div>
+      <% }) %>
+      <form method="POST" action="/posts/<%= post.id %>/comments" class="flex gap-2 items-center pt-2 border-t border-slate-100 dark:border-slate-600">
+        <input type="text" name="content" placeholder="Add a comment…" required
+          class="mention-input flex-1 min-w-0 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[32px]">
+        <button type="submit" class="bg-brand-600 text-white text-xs font-medium px-3 rounded-lg hover:bg-brand-700 transition-colors min-h-[32px] shrink-0">Send</button>
+      </form>
     </div>
   </div>
   <% } %>
+  <script>
+  (function() {
+    var toggle   = document.getElementById('fn-comment-toggle-<%= post.id %>');
+    var section  = document.getElementById('fn-comment-section-<%= post.id %>');
+    var pill     = document.getElementById('fn-comment-pill-<%= post.id %>');
+    var pillSend = document.getElementById('fn-comment-pill-send-<%= post.id %>');
+    var count    = <%= _commentCount %>;
+    var label    = count === 1 ? 'comment' : 'comments';
 
-  <%# Inline comment form %>
-  <div class="px-4 py-2.5 border-t border-slate-100 dark:border-slate-700">
-    <form method="POST" action="/posts/<%= post.id %>/comments" class="flex gap-2">
-      <input type="text" name="content" placeholder="Add a comment..." required
-        class="mention-input flex-1 min-w-0 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[36px]">
-      <button type="submit" class="bg-brand-600 text-white text-xs font-medium px-3 rounded-lg hover:bg-brand-700 transition-colors min-h-[36px] shrink-0">Send</button>
-    </form>
-  </div>
+    if (toggle && section) {
+      toggle.addEventListener('click', function() {
+        var isOpen = section.classList.toggle('fn-comment-section--open');
+        toggle.textContent = '💬 ' + count + ' ' + label + ' · Add yours ' + (isOpen ? '▴' : '▾');
+      });
+    }
+
+    if (pill && pillSend) {
+      pill.addEventListener('focus', function() {
+        pill.classList.add('fn-comment-pill--active');
+        pillSend.classList.remove('fn-comment-send--hidden');
+      });
+    }
+  })();
+  </script>
 </article>
