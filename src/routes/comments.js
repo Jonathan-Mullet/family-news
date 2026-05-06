@@ -3,8 +3,9 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
-const { sendCommentNotification } = require('../email');
+const { sendCommentNotification, sendMentionNotification } = require('../email');
 const { sendPushToUser } = require('../push');
+const { resolveMentions } = require('../utils/mentions');
 
 const MAX_COMMENT = 2000;
 
@@ -17,9 +18,10 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
     return res.redirect(`/post/${req.params.id}`);
   }
   try {
+    const { content: resolvedContent, mentionedUserIds } = await resolveMentions(content.trim(), pool);
     await pool.query(
       'INSERT INTO comments (post_id, parent_id, user_id, content) VALUES (?, ?, ?, ?)',
-      [req.params.id, parent_id || null, req.session.user.id, content.trim()]
+      [req.params.id, parent_id || null, req.session.user.id, resolvedContent]
     );
 
     // Send notification to post author (with notify_comments preference)
@@ -42,6 +44,31 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
       }
     } catch (notifyErr) {
       console.error('Comment notification error:', notifyErr.message);
+    }
+
+    // Fire-and-forget: mention notifications (skip self-mentions)
+    if (mentionedUserIds.length) {
+      const toNotify = mentionedUserIds.filter(id => id !== req.session.user.id);
+      const authorName = req.session.user.name;
+      const excerpt = content.trim().substring(0, 80);
+      const postUrl = `${process.env.BASE_URL}/post/${req.params.id}`;
+      const postId = req.params.id;
+      if (toNotify.length) {
+        (async () => {
+          try {
+            const [mentionedUsers] = await pool.query(
+              'SELECT id, email, name FROM users WHERE id IN (?)',
+              [toNotify]
+            );
+            for (const mu of mentionedUsers) {
+              sendPushToUser(mu.id, { title: `${authorName} mentioned you`, body: excerpt, url: `/post/${postId}` });
+              sendMentionNotification(mu.email, mu.name, authorName, excerpt, postUrl);
+            }
+          } catch (mentionErr) {
+            console.error('Mention notification error:', mentionErr.message);
+          }
+        })();
+      }
     }
   } catch (err) { console.error(err); }
   // Redirect back to wherever the user came from — the main feed or a member profile page — so they
