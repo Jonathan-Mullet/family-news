@@ -436,13 +436,18 @@ if (_iosBanner) {
   const msgEl = document.getElementById('android-push-banner-msg');
   const enableBtn = document.getElementById('android-push-enable');
   const dismissBtn = document.getElementById('android-push-dismiss');
+  if (!msgEl || !enableBtn || !dismissBtn) return;
+
+  let _deniedState = false;
 
   dismissBtn.addEventListener('click', () => {
-    localStorage.setItem('pwa-banner-dismissed', '1');
+    localStorage.setItem(_deniedState ? 'push-denied-dismissed' : 'pwa-banner-dismissed', '1');
     banner.style.display = 'none';
   });
 
   if (Notification.permission === 'denied') {
+    if (localStorage.getItem('push-denied-dismissed')) return;
+    _deniedState = true;
     msgEl.textContent = 'To re-enable: tap the lock icon in the address bar and allow notifications.';
     enableBtn.style.display = 'none';
     banner.style.display = 'block';
@@ -463,6 +468,8 @@ if (_iosBanner) {
     enableBtn.textContent = '…';
     const result = await _subscribeToPush();
     if (result) {
+      enableBtn.disabled = false;
+      enableBtn.textContent = 'Enable';
       banner.style.display = 'none';
     } else {
       // User denied — switch to instructions state
