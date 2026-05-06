@@ -398,3 +398,65 @@ input[type="datetime-local"].fn-input {
   height: 100%;
   border: 0;
 }
+
+/* ── Photo library ───────────────────────────────────────────────────────────── */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+}
+@media (min-width: 640px) {
+  .photo-grid { grid-template-columns: repeat(4, 1fr); }
+}
+.photo-grid img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  cursor: pointer;
+  display: block;
+}
+.photo-chip-row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 12px 0 8px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.photo-chip-row::-webkit-scrollbar { display: none; }
+.photo-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+.photo-chip img, .photo-chip .photo-chip-initial {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid transparent;
+}
+.photo-chip-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #94a3b8;
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+}
+.photo-chip.active img, .photo-chip.active .photo-chip-initial {
+  border-color: #8b5e3c;
+}
+.photo-chip span {
+  font-size: 0.7rem;
+  color: #64748b;
+  max-width: 52px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dark .photo-chip span { color: #9a7e5a; }
