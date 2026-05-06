@@ -56,14 +56,14 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
   res.redirect(`/post/${req.params.id}`);
 });
 
-// Delete a comment; only the comment author or an admin may delete.
+// Soft-delete a comment; only the comment author, a moderator, or an admin may delete.
 router.post('/comments/:id/delete', requireAuth, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT user_id, post_id FROM comments WHERE id = ?', [req.params.id]);
+    const [rows] = await pool.query('SELECT user_id, post_id FROM comments WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
     if (!rows.length) return res.redirect('/');
     const { user_id, post_id } = rows[0];
-    if (user_id !== req.session.user.id && req.session.user.role !== 'admin') return res.status(403).end();
-    await pool.query('DELETE FROM comments WHERE id = ?', [req.params.id]);
+    if (user_id !== req.session.user.id && req.session.user.role !== 'admin' && req.session.user.role !== 'moderator') return res.status(403).end();
+    await pool.query('UPDATE comments SET deleted_at = NOW() WHERE id = ?', [req.params.id]);
     res.redirect(`/post/${post_id}`);
   } catch (err) { console.error(err); res.redirect('/'); }
 });

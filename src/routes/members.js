@@ -24,7 +24,7 @@ router.get('/member/:id', requireAuth, async (req, res) => {
       FROM posts p
       JOIN users u ON p.user_id = u.id
       LEFT JOIN link_previews lp ON lp.post_id = p.id
-      WHERE p.user_id = ? AND (p.publish_at IS NULL OR p.publish_at <= NOW() OR p.user_id = ?)
+      WHERE p.user_id = ? AND (p.publish_at IS NULL OR p.publish_at <= NOW() OR p.user_id = ?) AND p.deleted_at IS NULL
       ORDER BY p.created_at DESC
     `, [memberId, req.session.user.id]);
 

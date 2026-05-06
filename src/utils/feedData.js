@@ -78,7 +78,7 @@ async function enrichPosts(posts, viewerUserId) {
   const [latestCommentRows] = await pool.query(`
     SELECT c.post_id, c.content, u.name AS author_name, u.avatar_url AS author_avatar, u.id AS author_id
     FROM comments c JOIN users u ON c.user_id = u.id
-    WHERE c.id IN (SELECT MAX(id) FROM comments WHERE post_id IN (?) GROUP BY post_id)
+    WHERE c.id IN (SELECT MAX(id) FROM comments WHERE post_id IN (?) AND deleted_at IS NULL GROUP BY post_id)
   `, [ids]);
   latestCommentRows.forEach(c => { latestCommentByPost[c.post_id] = c; });
 
