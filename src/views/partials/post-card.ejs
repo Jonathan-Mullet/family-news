@@ -24,7 +24,7 @@
         <div>
           <a href="/member/<%= post.user_id %>" class="text-sm font-semibold text-slate-800 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"><%= post.author_name %></a>
           <p class="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
-            <% if (isScheduled && (user.id === post.user_id || user.role === 'admin')) { %>
+            <% if (isScheduled && (user.id === post.user_id || user.role === 'admin' || user.role === 'moderator')) { %>
             <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded font-medium">🕐 Scheduled</span>
             <% } else { %>
             <time data-ts="<%= new Date(post.created_at).toISOString() %>"></time>
@@ -33,9 +33,9 @@
           </p>
         </div>
       </div>
-      <% if (user.id === post.user_id || user.role === 'admin') { %>
+      <% if (user.id === post.user_id || user.role === 'admin' || user.role === 'moderator') { %>
       <div class="flex items-center gap-1">
-        <% if (user.role === 'admin') { %>
+        <% if (user.role === 'admin' || user.role === 'moderator') { %>
         <form method="POST" action="/posts/<%= post.id %>/pin">
           <button type="submit" class="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" title="<%= post.pinned ? 'Unpin post' : 'Pin post' %>">
             <span class="text-sm"><%= post.pinned ? '📌' : '📍' %></span>
