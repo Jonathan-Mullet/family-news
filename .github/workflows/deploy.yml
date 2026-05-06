@@ -35,3 +35,13 @@ jobs:
           tags: ghcr.io/jonathan-mullet/family-news:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    runs-on: [self-hosted, pi5]
+    steps:
+      - name: Pull and restart family-news
+        run: |
+          cd /home/jmull/docker
+          docker compose pull family-news
+          docker compose up -d --force-recreate family-news
