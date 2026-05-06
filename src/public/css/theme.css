@@ -528,7 +528,7 @@ input[type="datetime-local"].fn-input {
 }
 .fn-drawer-user-role {
   font-size: 0.75rem;
-  color: #94a3b8;
+  color: #8b7355;
   margin-top: 0.1rem;
 }
 .fn-drawer-close {
@@ -583,6 +583,7 @@ input[type="datetime-local"].fn-input {
 .dark .fn-drawer { background: #221510; border-left-color: rgba(154, 126, 90, 0.2); }
 .dark .fn-drawer-header { border-bottom-color: rgba(154, 126, 90, 0.2); }
 .dark .fn-drawer-user-name { color: #f5e5d0; }
+.dark .fn-drawer-user-role { color: #7a6040; }
 .dark .fn-drawer-close { color: #9a7e5a; }
 .dark .fn-drawer-close:hover { background: rgba(245, 229, 208, 0.07); color: #f5e5d0; }
 .dark .fn-drawer-footer { border-top-color: rgba(154, 126, 90, 0.2); }
