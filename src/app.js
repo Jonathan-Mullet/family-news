@@ -82,14 +82,15 @@ app.use(async (req, res, next) => {
   if (BIRTHDAY_SKIP.some(p => req.path.startsWith(p))) return next();
   if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path.startsWith('/css/') || req.path.startsWith('/js/')) return next();
 
-  // Migration safety: syncs birthday and avatar_url into sessions that were
+  // Migration safety: syncs birthday, avatar_url, and whats_new_seen_at into sessions that were
   // created before those DB columns were added, so old sessions don't get
   // stuck in redirect loops or show stale missing-avatar states.
   if (!('birthday' in req.session.user)) {
     try {
-      const [[u]] = await pool.query('SELECT birthday, avatar_url FROM users WHERE id = ?', [req.session.user.id]);
+      const [[u]] = await pool.query('SELECT birthday, avatar_url, whats_new_seen_at FROM users WHERE id = ?', [req.session.user.id]);
       req.session.user.birthday = u?.birthday || null;
       if (!('avatar_url' in req.session.user)) req.session.user.avatar_url = u?.avatar_url || null;
+      if (!('whats_new_seen_at' in req.session.user)) req.session.user.whats_new_seen_at = u?.whats_new_seen_at || null;
     } catch { return next(); }
   }
 
