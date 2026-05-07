@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
       SELECT f.*, u.name AS user_name, u.email AS user_email
       FROM feedback f
       JOIN users u ON f.user_id = u.id
-      ORDER BY f.status ASC, f.created_at DESC
+      ORDER BY (f.status = 'open') DESC, f.created_at DESC
     `);
     res.render('admin', { users, invites, events, feedback, baseUrl: process.env.BASE_URL });
   } catch (err) {

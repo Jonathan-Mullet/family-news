@@ -16,6 +16,7 @@ router.post('/bug', async (req, res) => {
   const severity = ['low', 'medium', 'high'].includes(req.body.severity) ? req.body.severity : 'low';
   if (!title || !description) return res.redirect('/feedback?error=1');
   if (title.length > 150) return res.redirect('/feedback?error=1');
+  if (description.length > 5000) return res.redirect('/feedback?error=1');
   try {
     await pool.query(
       'INSERT INTO feedback (user_id, type, title, description, severity) VALUES (?, "bug", ?, ?, ?)',
@@ -39,6 +40,7 @@ router.post('/feature', async (req, res) => {
   const description = req.body.description?.trim();
   if (!title || !description) return res.redirect('/feedback?error=1');
   if (title.length > 150) return res.redirect('/feedback?error=1');
+  if (description.length > 5000) return res.redirect('/feedback?error=1');
   try {
     await pool.query(
       'INSERT INTO feedback (user_id, type, title, description) VALUES (?, "feature", ?, ?)',
