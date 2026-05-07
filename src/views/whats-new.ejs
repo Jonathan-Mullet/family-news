@@ -1,0 +1,22 @@
+<%- include('partials/head', { title: "What's New" }) %>
+<%- include('partials/nav') %>
+
+<div class="max-w-2xl mx-auto px-4 py-6 space-y-4">
+  <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">What's New</h1>
+
+  <% if (entries.length === 0) { %>
+  <p class="text-sm text-slate-400 dark:text-slate-500">Nothing here yet — check back after the next update.</p>
+  <% } else { %>
+  <% entries.forEach(function(entry) { %>
+  <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+    <p class="text-xs text-slate-400 dark:text-slate-500 mb-1">
+      <%= new Date(entry.published_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) %>
+    </p>
+    <h2 class="font-semibold text-slate-800 dark:text-slate-100 mb-2"><%= entry.title %></h2>
+    <p class="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-line"><%= entry.body %></p>
+  </div>
+  <% }) %>
+  <% } %>
+</div>
+
+</body></html>
