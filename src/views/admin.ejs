@@ -293,10 +293,95 @@
     </div>
   </div><%# end tab-content %>
 
-  <%# ── Users tab (placeholder) ─────────────────────────────────────────── %>
+  <%# ── Users tab ───────────────────────────────────────────────────────── %>
   <div id="tab-users" class="tab-panel hidden space-y-5">
-    <p class="text-slate-400 text-sm">Users tab coming soon.</p>
-  </div>
+
+    <%# User management (identical to old flat layout) %>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="font-semibold text-slate-700 dark:text-slate-200">Members (<%= users.length %>)</h2>
+      </div>
+      <div class="divide-y divide-slate-100 dark:divide-slate-700">
+        <% users.forEach(u => { %>
+        <div class="flex items-center gap-3 px-5 py-3 <%= !u.active ? 'opacity-50' : '' %>">
+          <div class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-600/20 flex items-center justify-center text-brand-600 dark:text-brand-400 font-semibold text-sm flex-shrink-0">
+            <%= u.name.charAt(0).toUpperCase() %>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-slate-800 dark:text-slate-100"><%= u.name %></p>
+            <p class="text-xs text-slate-400 dark:text-slate-500 truncate"><%= u.email %></p>
+          </div>
+          <% if (u.id !== user.id) { %>
+          <div class="flex gap-1.5 flex-shrink-0">
+            <form method="POST" action="/admin/users/<%= u.id %>/set-role" class="flex items-center gap-1">
+              <select name="role" class="text-xs border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[32px]">
+                <option value="member" <%= u.role === 'member' ? 'selected' : '' %>>member</option>
+                <option value="moderator" <%= u.role === 'moderator' ? 'selected' : '' %>>moderator</option>
+                <option value="admin" <%= u.role === 'admin' ? 'selected' : '' %>>admin</option>
+              </select>
+              <button type="submit" class="text-xs text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 px-2 py-1 border border-slate-200 dark:border-slate-600 rounded-lg transition-colors min-h-[32px]">Set</button>
+            </form>
+            <form method="POST" action="/admin/users/<%= u.id %>/toggle-active" onsubmit="return confirm('<%= u.active ? 'Deactivate this account?' : 'Reactivate this account?' %>')">
+              <button type="submit" class="text-xs <%= u.active ? 'text-slate-400 dark:text-slate-500 hover:text-red-500' : 'text-green-600 hover:text-green-700' %> px-2 py-1 border border-slate-200 dark:border-slate-600 rounded-lg transition-colors">
+                <%= u.active ? 'Disable' : 'Enable' %>
+              </button>
+            </form>
+            <button type="button" class="user-edit-toggle text-xs text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 px-2 py-1 border border-slate-200 dark:border-slate-600 rounded-lg transition-colors" data-target="user-edit-<%= u.id %>" title="Edit user">⚙</button>
+          </div>
+          <% } else { %>
+          <span class="text-xs text-slate-300 dark:text-slate-600 hidden sm:block">you</span>
+          <% } %>
+        </div>
+        <% if (u.id !== user.id) { %>
+        <div id="user-edit-<%= u.id %>" class="hidden px-5 py-3 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 space-y-3">
+          <form method="POST" action="/admin/users/<%= u.id %>/update-email" class="flex items-center gap-2 flex-wrap">
+            <input type="email" name="email" value="<%= u.email %>" required
+              class="flex-1 min-w-0 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[34px]">
+            <button type="submit" class="text-xs bg-brand-600 hover:bg-brand-700 text-white px-3 py-1.5 rounded-lg transition-colors min-h-[34px] shrink-0">Update email</button>
+          </form>
+          <form method="POST" action="/admin/users/<%= u.id %>/send-reset">
+            <button type="submit" class="text-xs text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 px-3 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg transition-colors min-h-[34px]">Send password reset email</button>
+          </form>
+        </div>
+        <% } %>
+        <% }) %>
+      </div>
+    </div>
+
+    <%# Push subscribers %>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <h2 class="font-semibold text-slate-700 dark:text-slate-200">Push Subscribers</h2>
+        <span class="text-xs text-slate-400 dark:text-slate-500"><%= pushSubs.length %> subscription<%= pushSubs.length !== 1 ? 's' : '' %></span>
+      </div>
+      <% if (!pushSubs.length) { %>
+      <p class="text-sm text-slate-400 dark:text-slate-500 text-center py-6">No push subscriptions.</p>
+      <% } else { %>
+      <div class="divide-y divide-slate-100 dark:divide-slate-700">
+        <% pushSubs.forEach(sub => { %>
+        <div class="flex items-center gap-3 px-5 py-3">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-slate-800 dark:text-slate-100"><%= sub.user_name %></p>
+            <p class="text-xs text-slate-400 dark:text-slate-500">
+              Subscribed <%= new Date(sub.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) %>
+              · <span class="font-mono"><%= sub.endpoint.slice(-12) %></span>
+            </p>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <button type="button"
+              class="push-test-btn text-xs text-brand-600 dark:text-brand-400 hover:text-brand-700 px-2 py-1.5 border border-brand-200 dark:border-brand-700 rounded-lg transition-colors min-h-[32px]"
+              data-sub-id="<%= sub.id %>">Test</button>
+            <span class="push-test-result-<%= sub.id %> text-xs hidden"></span>
+            <form method="POST" action="/admin/push/<%= sub.id %>/remove" onsubmit="return confirm('Remove this push subscription?')">
+              <button type="submit" class="text-xs text-red-400 hover:text-red-600 px-2 py-1.5 border border-red-200 dark:border-red-800 rounded-lg transition-colors min-h-[32px]">Remove</button>
+            </form>
+          </div>
+        </div>
+        <% }) %>
+      </div>
+      <% } %>
+    </div>
+  </div><%# end tab-users %>
 
   <%# ── Invites tab (placeholder) ───────────────────────────────────────── %>
   <div id="tab-invites" class="tab-panel hidden space-y-5">
@@ -379,6 +464,40 @@
   document.querySelectorAll('.reschedule-toggle').forEach(function(btn) {
     btn.addEventListener('click', function() {
       document.getElementById(btn.dataset.target).classList.toggle('hidden');
+    });
+  });
+
+  // ── User edit toggle ───────────────────────────────────────────────────────
+  document.querySelectorAll('.user-edit-toggle').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.getElementById(btn.dataset.target).classList.toggle('hidden');
+    });
+  });
+
+  // ── Push test button ───────────────────────────────────────────────────────
+  document.querySelectorAll('.push-test-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var subId = btn.dataset.subId;
+      var resultEl = document.querySelector('.push-test-result-' + subId);
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      fetch('/admin/push/' + subId + '/test', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          btn.disabled = false;
+          btn.textContent = 'Test';
+          if (resultEl) {
+            resultEl.classList.remove('hidden');
+            resultEl.textContent = data.ok ? '✓ sent' : '✗ ' + data.error;
+            resultEl.className = resultEl.className.replace(/text-\w+-\d+/g, '') +
+              (data.ok ? ' text-green-600 dark:text-green-400' : ' text-red-500');
+            setTimeout(function() { resultEl.classList.add('hidden'); }, 4000);
+          }
+        })
+        .catch(function() {
+          btn.disabled = false;
+          btn.textContent = 'Test';
+        });
     });
   });
 }());
