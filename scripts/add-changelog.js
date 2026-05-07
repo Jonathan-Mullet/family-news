@@ -19,20 +19,34 @@ if (!title || !body) {
 }
 
 (async () => {
-  const pool = await mysql.createPool({
-    host: '127.0.0.1',
-    user: process.env.MYSQL_USER,
-    password: process.env.MYSQL_PASSWORD,
-    database: 'family_news',
-  });
+  const user = process.env.DB_USER || process.env.MYSQL_USER;
+  const password = process.env.DB_PASSWORD || process.env.MYSQL_PASSWORD;
+  if (!user || !password) {
+    console.error('Error: DB_USER and DB_PASSWORD must be set in /home/jmull/docker/.env');
+    process.exit(1);
+  }
 
-  await pool.query('INSERT INTO changelog (title, body) VALUES (?, ?)', [title, body]);
+  let pool;
+  try {
+    pool = mysql.createPool({
+      host: '127.0.0.1',
+      user,
+      password,
+      database: process.env.DB_NAME || 'family_news',
+    });
 
-  const [[row]] = await pool.query('SELECT MAX(published_at) AS latestAt FROM changelog');
-  const latestAt = row.latestAt ? new Date(row.latestAt).toISOString() : null;
-  const sidecarPath = path.join(__dirname, '../src/data/changelog-meta.json');
-  fs.writeFileSync(sidecarPath, JSON.stringify({ latestAt }, null, 2) + '\n');
+    await pool.query('INSERT INTO changelog (title, body) VALUES (?, ?)', [title, body]);
 
-  console.log('✓ Entry published');
-  await pool.end();
+    const [[row]] = await pool.query('SELECT MAX(published_at) AS latestAt FROM changelog');
+    const latestAt = row.latestAt ? new Date(row.latestAt).toISOString() : null;
+    const sidecarPath = path.join(__dirname, '../src/data/changelog-meta.json');
+    fs.writeFileSync(sidecarPath, JSON.stringify({ latestAt }, null, 2) + '\n');
+
+    console.log('✓ Entry published');
+  } catch (err) {
+    console.error('Error:', err.message);
+    process.exit(1);
+  } finally {
+    if (pool) await pool.end();
+  }
 })();
