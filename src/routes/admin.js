@@ -182,9 +182,10 @@ router.post('/feedback/:id/resolve', async (req, res) => {
       [req.params.id]
     );
     if (!item) { req.flash('error', 'Feedback item not found.'); return res.redirect('/admin'); }
+    if (item.status === 'resolved') { req.flash('error', 'Already resolved.'); return res.redirect('/admin'); }
     await pool.query(
-      'UPDATE feedback SET status = "resolved", admin_note = ?, resolved_at = NOW() WHERE id = ?',
-      [note, req.params.id]
+      'UPDATE feedback SET status = ?, admin_note = ?, resolved_at = NOW() WHERE id = ?',
+      ['resolved', note, req.params.id]
     );
     (async () => {
       await sendFeedbackResolved(item.user_email, item.user_name, item, note);
