@@ -154,7 +154,7 @@ async function initDb() {
       id INT AUTO_INCREMENT PRIMARY KEY,
       title VARCHAR(200) NOT NULL,
       body TEXT NOT NULL,
-      published_at DATETIME NOT NULL DEFAULT NOW()
+      published_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )`,
   ];
   for (const q of tables) await pool.query(q);
