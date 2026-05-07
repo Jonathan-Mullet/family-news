@@ -57,7 +57,8 @@ router.get('/', requireAuth, async (req, res) => {
 
     const { reactionsByPost, reactionNames, commentsByPost } = await enrichPosts(allPosts, userId);
 
-    // Feed also shows how many members have read each post (not needed on member pages)
+    let readersByPost = {};
+    let memberCount = 0;
     if (allPosts.length) {
       const ids = allPosts.map(p => p.id);
       const [readRows] = await pool.query(
@@ -67,10 +68,25 @@ router.get('/', requireAuth, async (req, res) => {
       const readMap = {};
       readRows.forEach(r => { readMap[r.post_id] = r.read_count; });
       allPosts.forEach(p => { p.read_count = readMap[p.id] || 0; });
+
+      if (userId && (req.session.user.role === 'admin' || req.session.user.role === 'moderator')) {
+        const [readerRows] = await pool.query(
+          `SELECT pr.post_id, u.name AS reader_name
+           FROM post_reads pr JOIN users u ON pr.user_id = u.id
+           WHERE pr.post_id IN (?)`,
+          [ids]
+        );
+        readerRows.forEach(r => {
+          if (!readersByPost[r.post_id]) readersByPost[r.post_id] = [];
+          readersByPost[r.post_id].push(r.reader_name);
+        });
+        const [[mc]] = await pool.query('SELECT COUNT(*) AS cnt FROM users WHERE active = 1');
+        memberCount = mc.cnt;
+      }
     }
 
     const latestPostId = allPosts[0]?.id || 0;
-    res.render('feed', { bigNewsPosts, regularPosts, archivedBigNews, reactionsByPost, reactionNames, commentsByPost, latestPostId });
+    res.render('feed', { bigNewsPosts, regularPosts, archivedBigNews, reactionsByPost, reactionNames, commentsByPost, latestPostId, readersByPost, memberCount });
   } catch (err) {
     console.error(err);
     res.render('error', { message: 'Could not load posts.' });
