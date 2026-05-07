@@ -8,6 +8,8 @@ const { requireAdmin } = require('../middleware/auth');
 const crypto = require('crypto');
 const { sendPasswordReset, sendPromotionNotification, sendFeedbackResolved } = require('../email');
 const { sendPushToUser, sendTestPushById } = require('../push');
+const fs = require('fs');
+const path = require('path');
 
 // All routes in this file require admin role; non-admins are rejected before any handler runs.
 router.use(requireAdmin);
@@ -124,10 +126,15 @@ router.get('/', async (req, res) => {
       });
     }
 
+    const [changelog] = await pool.query(
+      'SELECT id, title, published_at FROM changelog ORDER BY published_at DESC'
+    );
+
     res.render('admin', {
       users, invites, events, feedback, baseUrl: process.env.BASE_URL,
       stats7d, stats30d, topByReads, topByReactions, topByComments, topMembers,
       scheduledPosts, pushSubs, memberCount, recentPostsForReads, readersByPost,
+      changelog,
     });
   } catch (err) {
     console.error(err);
@@ -363,6 +370,17 @@ router.post('/push/:id/remove', async (req, res) => {
 router.post('/push/:id/test', async (req, res) => {
   const result = await sendTestPushById(parseInt(req.params.id));
   res.json(result);
+});
+
+// Delete a changelog entry and update the sidecar file so the nav dot reflects the new latest.
+router.post('/changelog/:id/delete', async (req, res) => {
+  await pool.query('DELETE FROM changelog WHERE id = ?', [req.params.id]);
+  const [[row]] = await pool.query('SELECT MAX(published_at) AS latestAt FROM changelog');
+  const newLatest = row.latestAt ? new Date(row.latestAt).toISOString() : null;
+  req.app.locals.latestChangelogAt = newLatest;
+  const sidecarPath = path.join(__dirname, '../data/changelog-meta.json');
+  fs.writeFileSync(sidecarPath, JSON.stringify({ latestAt: newLatest }, null, 2) + '\n');
+  res.redirect('/admin');
 });
 
 module.exports = router;

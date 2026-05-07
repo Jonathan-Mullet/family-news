@@ -207,6 +207,30 @@
       <p class="text-sm text-slate-400 dark:text-slate-500 text-center py-4">No events yet.</p>
       <% } %>
     </div>
+
+    <%# Site Changelog %>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+      <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-4">Site Changelog</h2>
+      <% if (changelog.length) { %>
+      <div class="divide-y divide-slate-100 dark:divide-slate-700">
+        <% changelog.forEach(function(entry) { %>
+        <div class="flex items-center justify-between py-2.5 gap-3">
+          <div class="min-w-0">
+            <p class="text-xs text-slate-400 dark:text-slate-500">
+              <%= new Date(entry.published_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) %>
+            </p>
+            <p class="text-sm font-medium text-slate-800 dark:text-slate-100 truncate"><%= entry.title %></p>
+          </div>
+          <form method="POST" action="/admin/changelog/<%= entry.id %>/delete" onsubmit="return confirm('Delete this changelog entry?')">
+            <button type="submit" class="text-xs text-slate-300 dark:text-slate-600 hover:text-red-400 transition-colors px-2 py-1 border border-slate-200 dark:border-slate-600 rounded-lg flex-shrink-0">Delete</button>
+          </form>
+        </div>
+        <% }) %>
+      </div>
+      <% } else { %>
+      <p class="text-sm text-slate-400 dark:text-slate-500 text-center py-4">No entries yet — Claude will add one after each dev session.</p>
+      <% } %>
+    </div>
   </div><%# end tab-overview %>
 
   <%# ── Content tab ─────────────────────────────────────────────────────── %>
