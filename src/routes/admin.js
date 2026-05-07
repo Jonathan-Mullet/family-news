@@ -23,16 +23,109 @@ router.get('/', async (req, res) => {
       FROM invites i
       JOIN users u1 ON i.created_by = u1.id
       LEFT JOIN users u2 ON i.used_by = u2.id
-      ORDER BY i.created_at DESC LIMIT 30
+      ORDER BY i.created_at DESC LIMIT 50
     `);
     const [events] = await pool.query('SELECT * FROM events ORDER BY month, day, name');
     const [feedback] = await pool.query(`
       SELECT f.*, u.name AS user_name, u.email AS user_email
-      FROM feedback f
-      JOIN users u ON f.user_id = u.id
+      FROM feedback f JOIN users u ON f.user_id = u.id
       ORDER BY (f.status = 'open') DESC, f.created_at DESC
     `);
-    res.render('admin', { users, invites, events, feedback, baseUrl: process.env.BASE_URL });
+
+    // ── Analytics ────────────────────────────────────────────────────────────
+    const [[stats7d]] = await pool.query(`
+      SELECT
+        (SELECT COUNT(*) FROM posts WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) AND deleted_at IS NULL) AS posts,
+        (SELECT COUNT(*) FROM comments WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) AND deleted_at IS NULL) AS comments,
+        (SELECT COUNT(*) FROM reactions WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) AS reactions,
+        (SELECT COUNT(*) FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) AND active = 1) AS new_members
+    `);
+    const [[stats30d]] = await pool.query(`
+      SELECT
+        (SELECT COUNT(*) FROM posts WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND deleted_at IS NULL) AS posts,
+        (SELECT COUNT(*) FROM comments WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND deleted_at IS NULL) AS comments,
+        (SELECT COUNT(*) FROM reactions WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)) AS reactions,
+        (SELECT COUNT(*) FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND active = 1) AS new_members
+    `);
+    const [topByReads] = await pool.query(`
+      SELECT p.id, COALESCE(NULLIF(p.title,''), SUBSTRING(p.content, 1, 60)) AS label,
+        u.name AS author_name, COUNT(pr.user_id) AS cnt
+      FROM posts p JOIN users u ON p.user_id = u.id
+      LEFT JOIN post_reads pr ON pr.post_id = p.id
+      WHERE p.deleted_at IS NULL
+      GROUP BY p.id ORDER BY cnt DESC LIMIT 5
+    `);
+    const [topByReactions] = await pool.query(`
+      SELECT p.id, COALESCE(NULLIF(p.title,''), SUBSTRING(p.content, 1, 60)) AS label,
+        u.name AS author_name, COUNT(r.id) AS cnt
+      FROM posts p JOIN users u ON p.user_id = u.id
+      LEFT JOIN reactions r ON r.post_id = p.id
+      WHERE p.deleted_at IS NULL
+      GROUP BY p.id ORDER BY cnt DESC LIMIT 5
+    `);
+    const [topByComments] = await pool.query(`
+      SELECT p.id, COALESCE(NULLIF(p.title,''), SUBSTRING(p.content, 1, 60)) AS label,
+        u.name AS author_name, COUNT(c.id) AS cnt
+      FROM posts p JOIN users u ON p.user_id = u.id
+      LEFT JOIN comments c ON c.post_id = p.id AND c.deleted_at IS NULL
+      WHERE p.deleted_at IS NULL
+      GROUP BY p.id ORDER BY cnt DESC LIMIT 5
+    `);
+    const [topMembers] = await pool.query(`
+      SELECT u.id, u.name,
+        (SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id AND p.deleted_at IS NULL) AS post_count,
+        (SELECT COUNT(*) FROM comments c WHERE c.user_id = u.id AND c.deleted_at IS NULL) AS comment_count
+      FROM users u WHERE u.active = 1
+      ORDER BY (post_count + comment_count) DESC LIMIT 5
+    `);
+
+    // ── Scheduled posts ───────────────────────────────────────────────────────
+    const [scheduledPosts] = await pool.query(`
+      SELECT p.id, p.title, p.content, p.publish_at, u.name AS author_name
+      FROM posts p JOIN users u ON p.user_id = u.id
+      WHERE p.publish_at > NOW() AND p.deleted_at IS NULL
+      ORDER BY p.publish_at ASC
+    `);
+
+    // ── Push subscriptions ────────────────────────────────────────────────────
+    const [pushSubs] = await pool.query(`
+      SELECT ps.id, ps.user_id, ps.endpoint, ps.created_at, u.name AS user_name
+      FROM push_subscriptions ps JOIN users u ON ps.user_id = u.id
+      ORDER BY u.name, ps.created_at
+    `);
+
+    // ── Per-post read receipts (last 30 published posts) ─────────────────────
+    const [[{ memberCount }]] = await pool.query(
+      'SELECT COUNT(*) AS memberCount FROM users WHERE active = 1'
+    );
+    const [recentPostsForReads] = await pool.query(`
+      SELECT p.id, COALESCE(NULLIF(p.title,''), SUBSTRING(p.content, 1, 60)) AS label,
+        p.created_at, u.name AS author_name, COUNT(pr.user_id) AS read_count
+      FROM posts p JOIN users u ON p.user_id = u.id
+      LEFT JOIN post_reads pr ON pr.post_id = p.id
+      WHERE p.deleted_at IS NULL AND (p.publish_at IS NULL OR p.publish_at <= NOW())
+      GROUP BY p.id ORDER BY p.created_at DESC LIMIT 30
+    `);
+    let readersByPost = {};
+    if (recentPostsForReads.length) {
+      const recentIds = recentPostsForReads.map(p => p.id);
+      const [readerRows] = await pool.query(
+        `SELECT pr.post_id, u.name AS reader_name
+         FROM post_reads pr JOIN users u ON pr.user_id = u.id
+         WHERE pr.post_id IN (?)`,
+        [recentIds]
+      );
+      readerRows.forEach(r => {
+        if (!readersByPost[r.post_id]) readersByPost[r.post_id] = [];
+        readersByPost[r.post_id].push(r.reader_name);
+      });
+    }
+
+    res.render('admin', {
+      users, invites, events, feedback, baseUrl: process.env.BASE_URL,
+      stats7d, stats30d, topByReads, topByReactions, topByComments, topMembers,
+      scheduledPosts, pushSubs, memberCount, recentPostsForReads, readersByPost,
+    });
   } catch (err) {
     console.error(err);
     res.render('error', { message: 'Could not load admin panel.' });
