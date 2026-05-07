@@ -72,11 +72,14 @@ router.get('/', async (req, res) => {
       GROUP BY p.id ORDER BY cnt DESC LIMIT 5
     `);
     const [topMembers] = await pool.query(`
-      SELECT u.id, u.name,
-        (SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id AND p.deleted_at IS NULL) AS post_count,
-        (SELECT COUNT(*) FROM comments c WHERE c.user_id = u.id AND c.deleted_at IS NULL) AS comment_count
-      FROM users u WHERE u.active = 1
-      ORDER BY (post_count + comment_count) DESC LIMIT 5
+      SELECT sub.id, sub.name, sub.post_count, sub.comment_count
+      FROM (
+        SELECT u.id, u.name,
+          (SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id AND p.deleted_at IS NULL) AS post_count,
+          (SELECT COUNT(*) FROM comments c WHERE c.user_id = u.id AND c.deleted_at IS NULL) AS comment_count
+        FROM users u WHERE u.active = 1
+      ) AS sub
+      ORDER BY (sub.post_count + sub.comment_count) DESC LIMIT 5
     `);
 
     // ── Scheduled posts ───────────────────────────────────────────────────────
