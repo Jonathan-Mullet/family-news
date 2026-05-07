@@ -150,6 +150,12 @@ async function initDb() {
       resolved_at DATETIME DEFAULT NULL,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS changelog (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(200) NOT NULL,
+      body TEXT NOT NULL,
+      published_at DATETIME NOT NULL DEFAULT NOW()
+    )`,
   ];
   for (const q of tables) await pool.query(q);
 
@@ -185,6 +191,7 @@ async function initDb() {
     `ALTER TABLE comments ADD COLUMN deleted_at TIMESTAMP NULL`,
     `ALTER TABLE posts MODIFY COLUMN deleted_at TIMESTAMP NULL`,
     `ALTER TABLE comments MODIFY COLUMN deleted_at TIMESTAMP NULL`,
+    `ALTER TABLE users ADD COLUMN whats_new_seen_at DATETIME NULL`,
   ];
   for (const q of migrations) {
     try { await pool.query(q); } catch { /* column already exists */ }
