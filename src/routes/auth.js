@@ -35,6 +35,7 @@ router.post('/login', async (req, res) => {
       push_notify_big_news: u.push_notify_big_news ?? 1,
       birthday: u.birthday || null,
       avatar_url: u.avatar_url || null,
+      whats_new_seen_at: u.whats_new_seen_at || null,
     };
     if (remember) req.session.cookie.maxAge = 1000 * 60 * 60 * 24 * 90;
     res.redirect('/');

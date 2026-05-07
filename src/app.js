@@ -5,6 +5,7 @@ const MySQLStore = require('express-mysql-session')(session);
 const flash = require('connect-flash');
 const bcrypt = require('bcrypt');
 const path = require('path');
+const fs = require('fs');
 const { pool, initDb } = require('./db');
 const { startCron } = require('./cron');
 const { renderContent } = require('./utils/mentions');
@@ -63,8 +64,12 @@ app.use(async (req, res, next) => {
     } catch {
       res.locals.familyMembers = [];
     }
+    const latestAt = app.locals.latestChangelogAt;
+    const seenAt = req.session.user.whats_new_seen_at;
+    res.locals.showChangelogDot = !!(latestAt && (!seenAt || new Date(latestAt) > new Date(seenAt)));
   } else {
     res.locals.familyMembers = [];
+    res.locals.showChangelogDot = false;
   }
   next();
 });
@@ -122,6 +127,13 @@ async function start() {
   }
 
   await initDb();
+
+  try {
+    const raw = fs.readFileSync(path.join(__dirname, 'data/changelog-meta.json'), 'utf8');
+    app.locals.latestChangelogAt = JSON.parse(raw).latestAt || null;
+  } catch {
+    app.locals.latestChangelogAt = null;
+  }
 
   // Seed the first admin account when the DB is empty and ADMIN_* env vars are
   // set — lets a fresh deployment bootstrap without manual SQL inserts.
