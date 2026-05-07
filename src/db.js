@@ -148,7 +148,7 @@ async function initDb() {
       admin_note  TEXT DEFAULT NULL,
       created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       resolved_at DATETIME DEFAULT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id)
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`,
   ];
   for (const q of tables) await pool.query(q);
