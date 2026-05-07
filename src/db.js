@@ -137,6 +137,19 @@ async function initDb() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`,
+    `CREATE TABLE IF NOT EXISTS feedback (
+      id          INT AUTO_INCREMENT PRIMARY KEY,
+      user_id     INT NOT NULL,
+      type        ENUM('bug', 'feature') NOT NULL,
+      title       VARCHAR(150) NOT NULL,
+      description TEXT NOT NULL,
+      severity    ENUM('low', 'medium', 'high') DEFAULT NULL,
+      status      ENUM('open', 'resolved') NOT NULL DEFAULT 'open',
+      admin_note  TEXT DEFAULT NULL,
+      created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      resolved_at DATETIME DEFAULT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )`,
   ];
   for (const q of tables) await pool.query(q);
 
