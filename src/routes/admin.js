@@ -374,12 +374,18 @@ router.post('/push/:id/test', async (req, res) => {
 
 // Delete a changelog entry and update the sidecar file so the nav dot reflects the new latest.
 router.post('/changelog/:id/delete', async (req, res) => {
-  await pool.query('DELETE FROM changelog WHERE id = ?', [req.params.id]);
-  const [[row]] = await pool.query('SELECT MAX(published_at) AS latestAt FROM changelog');
-  const newLatest = row.latestAt ? new Date(row.latestAt).toISOString() : null;
-  req.app.locals.latestChangelogAt = newLatest;
-  const sidecarPath = path.join(__dirname, '../data/changelog-meta.json');
-  fs.writeFileSync(sidecarPath, JSON.stringify({ latestAt: newLatest }, null, 2) + '\n');
+  try {
+    await pool.query('DELETE FROM changelog WHERE id = ?', [req.params.id]);
+    const [[row]] = await pool.query('SELECT MAX(published_at) AS latestAt FROM changelog');
+    const newLatest = row.latestAt ? new Date(row.latestAt).toISOString() : null;
+    req.app.locals.latestChangelogAt = newLatest;
+    const sidecarPath = path.join(__dirname, '../data/changelog-meta.json');
+    await fs.promises.writeFile(sidecarPath, JSON.stringify({ latestAt: newLatest }, null, 2) + '\n');
+    req.flash('success', 'Changelog entry deleted.');
+  } catch (err) {
+    console.error(err);
+    req.flash('error', 'Could not delete changelog entry.');
+  }
   res.redirect('/admin');
 });
 
