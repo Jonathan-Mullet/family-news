@@ -167,7 +167,7 @@
         <div class="fn-nav-sep"></div>
         <a href="/feedback" class="fn-nav-link">Feedback</a>
         <div class="fn-nav-sep"></div>
-        <a href="/whats-new" class="fn-nav-link">What's New<% if (showChangelogDot) { %><span class="inline-block w-1.5 h-1.5 rounded-full bg-brand-600 ml-1 mb-0.5 align-middle"></span><% } %></a>
+        <a href="/whats-new" class="fn-nav-link">What's New<% if (showChangelogDot) { %><span class="inline-block w-1.5 h-1.5 rounded-full bg-brand-600 ml-1 mb-0.5 align-middle" aria-hidden="true"></span><% } %></a>
         <div class="fn-nav-sep"></div>
         <a href="/profile" class="fn-nav-link">Profile</a>
         <div class="fn-nav-sep"></div>
@@ -225,7 +225,7 @@
     <a href="/photos" class="fn-drawer-link">Photos</a>
     <a href="/profile" class="fn-drawer-link">Profile</a>
     <a href="/feedback" class="fn-drawer-link">Feedback</a>
-    <a href="/whats-new" class="fn-drawer-link">What's New<% if (showChangelogDot) { %> <span class="inline-block w-1.5 h-1.5 rounded-full bg-brand-600 ml-0.5 mb-0.5 align-middle"></span><% } %></a>
+    <a href="/whats-new" class="fn-drawer-link">What's New<% if (showChangelogDot) { %><span class="inline-block w-1.5 h-1.5 rounded-full bg-brand-600 ml-0.5 mb-0.5 align-middle" aria-hidden="true"></span><% } %></a>
     <% if (user.role === 'admin' || user.role === 'moderator') { %>
       <div class="fn-drawer-sep"></div>
       <% if (user.role === 'admin') { %>
