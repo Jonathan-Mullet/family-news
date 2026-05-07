@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const { pool } = require('../db');
 const { requireAdmin } = require('../middleware/auth');
 const crypto = require('crypto');
-const { sendPasswordReset, sendPromotionNotification } = require('../email');
+const { sendPasswordReset, sendPromotionNotification, sendFeedbackResolved } = require('../email');
 const { sendPushToUser } = require('../push');
 
 // All routes in this file require admin role; non-admins are rejected before any handler runs.
@@ -26,7 +26,13 @@ router.get('/', async (req, res) => {
       ORDER BY i.created_at DESC LIMIT 30
     `);
     const [events] = await pool.query('SELECT * FROM events ORDER BY month, day, name');
-    res.render('admin', { users, invites, events, baseUrl: process.env.BASE_URL });
+    const [feedback] = await pool.query(`
+      SELECT f.*, u.name AS user_name, u.email AS user_email
+      FROM feedback f
+      JOIN users u ON f.user_id = u.id
+      ORDER BY f.status ASC, f.created_at DESC
+    `);
+    res.render('admin', { users, invites, events, feedback, baseUrl: process.env.BASE_URL });
   } catch (err) {
     console.error(err);
     res.render('error', { message: 'Could not load admin panel.' });
@@ -162,6 +168,31 @@ router.post('/users/:id/update-email', async (req, res) => {
   } catch (err) {
     console.error(err);
     req.flash('error', 'Could not update email.');
+  }
+  res.redirect('/admin');
+});
+
+// Mark a feedback item resolved and send a courtesy email to the submitter.
+router.post('/feedback/:id/resolve', async (req, res) => {
+  const note = req.body.admin_note?.trim() || 'Thanks for the report — this has been addressed!';
+  try {
+    const [[item]] = await pool.query(
+      `SELECT f.*, u.email AS user_email, u.name AS user_name
+       FROM feedback f JOIN users u ON f.user_id = u.id WHERE f.id = ?`,
+      [req.params.id]
+    );
+    if (!item) { req.flash('error', 'Feedback item not found.'); return res.redirect('/admin'); }
+    await pool.query(
+      'UPDATE feedback SET status = "resolved", admin_note = ?, resolved_at = NOW() WHERE id = ?',
+      [note, req.params.id]
+    );
+    (async () => {
+      await sendFeedbackResolved(item.user_email, item.user_name, item, note);
+    })().catch(console.error);
+    req.flash('success', `Resolved and notified ${item.user_name}.`);
+  } catch (err) {
+    console.error(err);
+    req.flash('error', 'Could not resolve feedback.');
   }
   res.redirect('/admin');
 });
