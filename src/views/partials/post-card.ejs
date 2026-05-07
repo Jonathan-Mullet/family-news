@@ -121,7 +121,7 @@
   </div>
 
   <%# Read receipt badge — admin/mod only %>
-  <% if (user && (user.role === 'admin' || user.role === 'moderator')) { %>
+  <% if (user && (user.role === 'admin' || user.role === 'moderator') && memberCount) { %>
   <%
     const _cardReaders = (readersByPost && readersByPost[post.id]) || [];
     const _cardMemberCount = memberCount || 0;
