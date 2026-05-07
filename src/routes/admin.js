@@ -7,7 +7,7 @@ const { pool } = require('../db');
 const { requireAdmin } = require('../middleware/auth');
 const crypto = require('crypto');
 const { sendPasswordReset, sendPromotionNotification, sendFeedbackResolved } = require('../email');
-const { sendPushToUser } = require('../push');
+const { sendPushToUser, sendTestPushById } = require('../push');
 
 // All routes in this file require admin role; non-admins are rejected before any handler runs.
 router.use(requireAdmin);
@@ -292,6 +292,77 @@ router.post('/feedback/:id/resolve', async (req, res) => {
     req.flash('error', 'Could not resolve feedback.');
   }
   res.redirect('/admin');
+});
+
+// Cancel a scheduled post (null publish_at and soft-delete it).
+router.post('/posts/:id/cancel-scheduled', async (req, res) => {
+  try {
+    const [[post]] = await pool.query(
+      'SELECT id, publish_at FROM posts WHERE id = ? AND deleted_at IS NULL',
+      [req.params.id]
+    );
+    if (!post || !post.publish_at || new Date(post.publish_at) <= new Date()) {
+      req.flash('error', 'Scheduled post not found.');
+      return res.redirect('/admin');
+    }
+    await pool.query(
+      'UPDATE posts SET publish_at = NULL, deleted_at = NOW() WHERE id = ?',
+      [req.params.id]
+    );
+    req.flash('success', 'Scheduled post cancelled.');
+  } catch (err) {
+    console.error(err);
+    req.flash('error', 'Could not cancel post.');
+  }
+  res.redirect('/admin');
+});
+
+// Update the scheduled time of a future post; new time must be in the future.
+router.post('/posts/:id/reschedule', async (req, res) => {
+  const { publish_at } = req.body;
+  if (!publish_at) {
+    req.flash('error', 'No date provided.');
+    return res.redirect('/admin');
+  }
+  const parsed = new Date(publish_at);
+  if (isNaN(parsed.getTime()) || parsed <= new Date()) {
+    req.flash('error', 'New time must be in the future.');
+    return res.redirect('/admin');
+  }
+  try {
+    const [[post]] = await pool.query(
+      'SELECT id FROM posts WHERE id = ? AND deleted_at IS NULL AND publish_at > NOW()',
+      [req.params.id]
+    );
+    if (!post) {
+      req.flash('error', 'Scheduled post not found.');
+      return res.redirect('/admin');
+    }
+    await pool.query('UPDATE posts SET publish_at = ? WHERE id = ?', [parsed, req.params.id]);
+    req.flash('success', 'Post rescheduled.');
+  } catch (err) {
+    console.error(err);
+    req.flash('error', 'Could not reschedule post.');
+  }
+  res.redirect('/admin');
+});
+
+// Delete a push subscription row permanently.
+router.post('/push/:id/remove', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM push_subscriptions WHERE id = ?', [req.params.id]);
+    req.flash('success', 'Subscription removed.');
+  } catch (err) {
+    console.error(err);
+    req.flash('error', 'Could not remove subscription.');
+  }
+  res.redirect('/admin');
+});
+
+// Send a test push to a specific subscription; returns JSON (no page reload).
+router.post('/push/:id/test', async (req, res) => {
+  const result = await sendTestPushById(parseInt(req.params.id));
+  res.json(result);
 });
 
 module.exports = router;
