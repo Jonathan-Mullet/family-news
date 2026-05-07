@@ -125,4 +125,28 @@ async function sendPushToAllUsers(payload, { excludeUserId = 0, checkColumn }) {
   }
 }
 
-module.exports = { sendPushToUser, sendPushToAllUsers };
+/**
+ * Sends a test notification to a single subscription by DB id.
+ * Returns { ok: true } on success or { ok: false, error: string } on failure.
+ * If the subscription is expired (410/404), it is removed from the DB.
+ */
+async function sendTestPushById(subId) {
+  if (!process.env.VAPID_PUBLIC_KEY) return { ok: false, error: 'Push not configured.' };
+  try {
+    const [[sub]] = await pool.query('SELECT * FROM push_subscriptions WHERE id = ?', [subId]);
+    if (!sub) return { ok: false, error: 'Subscription not found.' };
+    await webpush.sendNotification(
+      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+      JSON.stringify({ title: 'Family News', body: 'Test notification — push is working!', url: '/admin' })
+    );
+    return { ok: true };
+  } catch (err) {
+    if (err.statusCode === 410 || err.statusCode === 404) {
+      await pool.query('DELETE FROM push_subscriptions WHERE id = ?', [subId]);
+      return { ok: false, error: 'Subscription expired — removed from DB.' };
+    }
+    return { ok: false, error: err.message };
+  }
+}
+
+module.exports = { sendPushToUser, sendPushToAllUsers, sendTestPushById };
