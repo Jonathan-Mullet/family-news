@@ -15,6 +15,7 @@ router.post('/bug', async (req, res) => {
   const description = req.body.description?.trim();
   const severity = ['low', 'medium', 'high'].includes(req.body.severity) ? req.body.severity : 'low';
   if (!title || !description) return res.redirect('/feedback?error=1');
+  if (title.length > 150) return res.redirect('/feedback?error=1');
   try {
     await pool.query(
       'INSERT INTO feedback (user_id, type, title, description, severity) VALUES (?, "bug", ?, ?, ?)',
@@ -28,6 +29,7 @@ router.post('/bug', async (req, res) => {
     }
   } catch (err) {
     console.error(err);
+    return res.redirect('/feedback?error=1');
   }
   res.redirect('/feedback?submitted=bug');
 });
@@ -36,6 +38,7 @@ router.post('/feature', async (req, res) => {
   const title = req.body.title?.trim();
   const description = req.body.description?.trim();
   if (!title || !description) return res.redirect('/feedback?error=1');
+  if (title.length > 150) return res.redirect('/feedback?error=1');
   try {
     await pool.query(
       'INSERT INTO feedback (user_id, type, title, description) VALUES (?, "feature", ?, ?)',
@@ -49,6 +52,7 @@ router.post('/feature', async (req, res) => {
     }
   } catch (err) {
     console.error(err);
+    return res.redirect('/feedback?error=1');
   }
   res.redirect('/feedback?submitted=feature');
 });
