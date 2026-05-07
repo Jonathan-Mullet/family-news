@@ -46,6 +46,13 @@ This document captures the agreed-upon feature backlog. Each tier-1/tier-2 featu
 - Admin-maintained page listing site updates and new features
 - Accessible from the nav for all members
 
+### Feedback page
+- Single `/feedback` page accessible from the nav for all members
+- Two sections: "Report a Bug" (title + severity + description) and "Request a Feature" (title + description)
+- Submissions stored in DB + email notification to admin
+- Admin panel Feedback tab: review open/resolved items, mark resolved with optional personal message
+- Courtesy email sent to submitter when item is resolved
+
 ---
 
 ## Tier 3 — Nice but lower urgency
