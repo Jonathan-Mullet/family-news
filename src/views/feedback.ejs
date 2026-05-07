@@ -26,8 +26,8 @@
 
     <form method="POST" action="/feedback/bug" class="space-y-4">
       <div>
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Bug title</label>
-        <input type="text" name="title" required maxlength="150" placeholder="Short summary of the problem"
+        <label for="bug-title" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Bug title</label>
+        <input id="bug-title" type="text" name="title" required maxlength="150" placeholder="Short summary of the problem"
           class="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600">
       </div>
       <div>
@@ -45,8 +45,8 @@
         </div>
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
-        <textarea name="description" required rows="4" placeholder="What happened? What did you expect to happen?"
+        <label for="bug-description" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
+        <textarea id="bug-description" name="description" required rows="4" placeholder="What happened? What did you expect to happen?"
           class="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"></textarea>
       </div>
       <button type="submit"
@@ -69,13 +69,13 @@
 
     <form method="POST" action="/feedback/feature" class="space-y-4">
       <div>
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">What would you like?</label>
-        <input type="text" name="title" required maxlength="150" placeholder="Short title for your request"
+        <label for="feature-title" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">What would you like?</label>
+        <input id="feature-title" type="text" name="title" required maxlength="150" placeholder="Short title for your request"
           class="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600">
       </div>
       <div>
-        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
-        <textarea name="description" required rows="4" placeholder="Describe the change or addition you'd like to see."
+        <label for="feature-description" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
+        <textarea id="feature-description" name="description" required rows="4" placeholder="Describe the change or addition you'd like to see."
           class="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 resize-none"></textarea>
       </div>
       <button type="submit"
