@@ -226,4 +226,50 @@ async function sendMentionNotification(toEmail, toName, fromName, excerpt, postU
   `);
 }
 
-module.exports = { sendPasswordReset, sendNewPostNotification, sendCommentNotification, sendBigNewsNotification, sendPromotionNotification, sendMentionNotification };
+/**
+ * Notifies the admin that a new feedback submission arrived.
+ *
+ * @param {string} adminEmail
+ * @param {string} submitterName
+ * @param {{type: string, title: string, description: string, severity: string|null}} item
+ */
+async function sendFeedbackNotification(adminEmail, submitterName, item) {
+  const typeLabel = item.type === 'bug' ? '🐛 Bug Report' : '💡 Feature Request';
+  const severityLine = item.severity
+    ? `<p style="color:#475569"><strong>Severity:</strong> ${escapeHtml(item.severity)}</p>`
+    : '';
+  await sendMail(adminEmail, `[Family News] New feedback: ${escapeHtml(item.title)}`, `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
+      <h2 style="color:#1e293b">${typeLabel}</h2>
+      <p style="color:#475569"><strong>From:</strong> ${escapeHtml(submitterName)}</p>
+      <p style="color:#475569"><strong>Title:</strong> ${escapeHtml(item.title)}</p>
+      ${severityLine}
+      <p style="color:#374151;background:#f8fafc;padding:12px;border-radius:8px;border-left:3px solid #4f46e5">
+        ${escapeHtml(item.description)}
+      </p>
+    </div>
+  `);
+}
+
+/**
+ * Notifies the feedback submitter that their item has been addressed.
+ *
+ * @param {string} userEmail
+ * @param {string} userName
+ * @param {{title: string}} item
+ * @param {string} adminNote - The message the admin wrote when resolving.
+ */
+async function sendFeedbackResolved(userEmail, userName, item, adminNote) {
+  await sendMail(userEmail, `Re: your feedback — ${escapeHtml(item.title)}`, `
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:20px">
+      <h2 style="color:#1e293b">Feedback Update</h2>
+      <p style="color:#475569">Hi ${escapeHtml(userName)}, just wanted to let you know your feedback has been addressed:</p>
+      <p style="color:#374151;background:#f0fdf4;padding:12px;border-radius:8px;border-left:3px solid #16a34a;margin:8px 0">
+        ${escapeHtml(adminNote)}
+      </p>
+      <p style="color:#94a3b8;font-size:12px;margin-top:16px">Your original feedback: "${escapeHtml(item.title)}"</p>
+    </div>
+  `);
+}
+
+module.exports = { sendPasswordReset, sendNewPostNotification, sendCommentNotification, sendBigNewsNotification, sendPromotionNotification, sendMentionNotification, sendFeedbackNotification, sendFeedbackResolved };
