@@ -209,10 +209,89 @@
     </div>
   </div><%# end tab-overview %>
 
-  <%# ── Content tab (placeholder — filled in next task) ─────────────────── %>
+  <%# ── Content tab ─────────────────────────────────────────────────────── %>
   <div id="tab-content" class="tab-panel hidden space-y-5">
-    <p class="text-slate-400 text-sm">Content tab coming soon.</p>
-  </div>
+
+    <%# Scheduled Posts %>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="font-semibold text-slate-700 dark:text-slate-200">Scheduled Posts (<%= scheduledPosts.length %>)</h2>
+      </div>
+      <% if (!scheduledPosts.length) { %>
+      <p class="text-sm text-slate-400 dark:text-slate-500 text-center py-6">No scheduled posts.</p>
+      <% } else { %>
+      <div class="divide-y divide-slate-100 dark:divide-slate-700">
+        <% scheduledPosts.forEach(p => { %>
+        <div class="px-5 py-4">
+          <div class="flex items-start gap-3">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">
+                <%= p.title || p.content.substring(0, 60) + (p.content.length > 60 ? '…' : '') %>
+              </p>
+              <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                by <%= p.author_name %> · Scheduled for
+                <strong class="text-amber-600 dark:text-amber-400">
+                  <%= new Date(p.publish_at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) %>
+                </strong>
+              </p>
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+              <button type="button"
+                class="reschedule-toggle text-xs text-brand-600 dark:text-brand-400 hover:text-brand-700 px-2 py-1.5 border border-brand-200 dark:border-brand-700 rounded-lg transition-colors min-h-[32px]"
+                data-target="reschedule-<%= p.id %>">Reschedule</button>
+              <form method="POST" action="/admin/posts/<%= p.id %>/cancel-scheduled" onsubmit="return confirm('Cancel and delete this scheduled post?')">
+                <button type="submit" class="text-xs text-red-400 hover:text-red-600 px-2 py-1.5 border border-red-200 dark:border-red-800 rounded-lg transition-colors min-h-[32px]">Cancel post</button>
+              </form>
+            </div>
+          </div>
+          <div id="reschedule-<%= p.id %>" class="hidden mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+            <form method="POST" action="/admin/posts/<%= p.id %>/reschedule" class="flex items-center gap-2 flex-wrap">
+              <input type="datetime-local" name="publish_at"
+                value="<%= new Date(p.publish_at).toISOString().slice(0,16) %>"
+                class="border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[34px]">
+              <button type="submit" class="text-xs bg-brand-600 hover:bg-brand-700 text-white px-3 py-1.5 rounded-lg transition-colors min-h-[34px]">Save new time</button>
+            </form>
+          </div>
+        </div>
+        <% }) %>
+      </div>
+      <% } %>
+    </div>
+
+    <%# Per-Post Read Receipts %>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <h2 class="font-semibold text-slate-700 dark:text-slate-200">Read Receipts <span class="text-slate-400 font-normal text-sm">(last 30 posts)</span></h2>
+      </div>
+      <% if (!recentPostsForReads.length) { %>
+      <p class="text-sm text-slate-400 dark:text-slate-500 text-center py-6">No posts yet.</p>
+      <% } else { %>
+      <div class="divide-y divide-slate-100 dark:divide-slate-700">
+        <% recentPostsForReads.forEach(p => { %>
+        <% const readers = readersByPost[p.id] || []; %>
+        <details class="group">
+          <summary class="flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/30 list-none">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-slate-800 dark:text-slate-100 truncate"><%= p.label %></p>
+              <p class="text-xs text-slate-400 dark:text-slate-500"><%= p.author_name %> · <%= new Date(p.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric' }) %></p>
+            </div>
+            <span class="text-xs font-semibold <%= readers.length === memberCount ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400' %> flex-shrink-0">
+              <%= readers.length %> / <%= memberCount %> read
+            </span>
+          </summary>
+          <div class="px-5 pb-3 pt-1">
+            <% if (!readers.length) { %>
+            <p class="text-xs text-slate-400">No reads yet.</p>
+            <% } else { %>
+            <p class="text-xs text-slate-600 dark:text-slate-300"><%= readers.join(', ') %></p>
+            <% } %>
+          </div>
+        </details>
+        <% }) %>
+      </div>
+      <% } %>
+    </div>
+  </div><%# end tab-content %>
 
   <%# ── Users tab (placeholder) ─────────────────────────────────────────── %>
   <div id="tab-users" class="tab-panel hidden space-y-5">
@@ -295,6 +374,13 @@
       makeQR(document.getElementById('qr-new'), showQrNew.dataset.url);
     });
   }
+
+  // ── Reschedule inline toggle ───────────────────────────────────────────────
+  document.querySelectorAll('.reschedule-toggle').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.getElementById(btn.dataset.target).classList.toggle('hidden');
+    });
+  });
 }());
 </script>
 </body></html>
