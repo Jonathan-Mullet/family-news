@@ -126,7 +126,7 @@
     <%# Email row %>
     <%
       const _ep = user.email.indexOf('@');
-      const _maskedEmail = user.email.slice(0, Math.min(2, _ep)) + '•••' + user.email.slice(_ep);
+      const _maskedEmail = _ep < 1 ? '•••@unknown' : user.email.slice(0, Math.min(2, _ep)) + '•••' + user.email.slice(_ep);
     %>
     <div class="fn-settings-row-wrap" id="wrap-email">
       <div class="fn-settings-row">
@@ -256,6 +256,7 @@
     data-notify-posts="<%= user.push_notify_posts != null ? user.push_notify_posts : 1 %>"
     data-notify-comments="<%= user.push_notify_comments != null ? user.push_notify_comments : 1 %>"
     data-notify-big-news="<%= user.push_notify_big_news != null ? user.push_notify_big_news : 1 %>">
+    <h2 style="display:none;" aria-hidden="true"></h2>
     <div id="push-state-default" class="hidden">
       <button id="push-enable-btn" type="button">Enable</button>
     </div>
@@ -366,9 +367,9 @@
   var iosNotice = document.getElementById('push-ios-notice');
 
   function syncPushToggle() {
-    var isEnabled = stateEnabled && stateEnabled.style.display !== '' && stateEnabled.style.display !== 'none';
-    var isDenied = stateDenied && stateDenied.style.display !== '' && stateDenied.style.display !== 'none';
-    var isIos = iosNotice && iosNotice.style.display !== '' && iosNotice.style.display !== 'none';
+    var isEnabled = stateEnabled && !stateEnabled.classList.contains('hidden');
+    var isDenied = stateDenied && !stateDenied.classList.contains('hidden');
+    var isIos = iosNotice && !iosNotice.classList.contains('hidden');
 
     pushToggle.disabled = isDenied || isIos;
     pushToggle.checked = isEnabled;
