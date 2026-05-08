@@ -22,8 +22,51 @@ function describeNotification(n) {
 }
 %>
 
+<style>
+  .notif-dismiss {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    line-height: 1;
+    transition: background 0.15s, color 0.15s;
+    z-index: 1;
+  }
+  .notif-dismiss:hover { background: rgba(239,68,68,0.1); color: #ef4444; }
+  .dark .notif-dismiss { color: #64748b; }
+  .dark .notif-dismiss:hover { background: rgba(239,68,68,0.15); color: #f87171; }
+
+  .notif-row {
+    position: relative;
+    overflow: hidden;
+    transition: max-height 0.25s ease, opacity 0.2s ease, margin 0.25s ease;
+    max-height: 200px;
+  }
+  .notif-row.notif-removing {
+    opacity: 0;
+    max-height: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+</style>
+
 <div class="max-w-2xl mx-auto px-4 py-6 space-y-3">
-  <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Notifications</h1>
+  <div class="flex items-center justify-between">
+    <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Notifications</h1>
+    <% if (notifications.length > 0) { %>
+    <button id="notif-clear-all" type="button" class="text-xs text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors">Clear all</button>
+    <% } %>
+  </div>
 
   <% if (showChangelogDot) { %>
   <a href="/whats-new" class="flex items-center gap-3 bg-brand-50 dark:bg-slate-800 rounded-2xl shadow-sm border border-brand-200 dark:border-slate-700 border-l-4 border-l-brand-600 p-4 hover:bg-brand-100 dark:hover:bg-slate-700 transition-colors no-underline">
@@ -35,30 +78,35 @@ function describeNotification(n) {
   </a>
   <% } %>
 
-  <% if (notifications.length === 0 && !showChangelogDot) { %>
-  <p class="text-sm text-slate-400 dark:text-slate-500 py-4">Nothing yet — you'll see comments, mentions, and reactions here.</p>
-  <% } %>
+  <p id="notif-empty"
+     style="<%= (notifications.length > 0 || showChangelogDot) ? 'display:none' : '' %>"
+     class="text-sm text-slate-400 dark:text-slate-500 py-4">Nothing yet — you'll see comments, mentions, and reactions here.</p>
 
-  <% notifications.forEach(function(n) { %>
-  <a href="/post/<%= n.post_id %>" class="flex items-start gap-3 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 transition-colors no-underline <%= !n.read_at ? 'bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50' : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700' %>">
-    <% if (n.actor_avatar) { %>
-    <img src="<%= n.actor_avatar %>" class="w-9 h-9 rounded-full object-cover flex-shrink-0" alt="">
-    <% } else { %>
-    <div class="w-9 h-9 rounded-full bg-brand-200 dark:bg-slate-600 flex items-center justify-center flex-shrink-0 text-sm font-semibold text-brand-700 dark:text-slate-200">
-      <%= n.actor_name.charAt(0).toUpperCase() %>
+  <div id="notif-list">
+    <% notifications.forEach(function(n, i) { %>
+    <div class="notif-row<%= i > 0 ? ' mt-3' : '' %>" data-id="<%= n.id %>">
+      <a href="/post/<%= n.post_id %>" class="flex items-start gap-3 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 pr-8 transition-colors no-underline <%= !n.read_at ? 'bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50' : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700' %>">
+        <% if (n.actor_avatar) { %>
+        <img src="<%= n.actor_avatar %>" class="w-9 h-9 rounded-full object-cover flex-shrink-0" alt="">
+        <% } else { %>
+        <div class="w-9 h-9 rounded-full bg-brand-200 dark:bg-slate-600 flex items-center justify-center flex-shrink-0 text-sm font-semibold text-brand-700 dark:text-slate-200">
+          <%= n.actor_name.charAt(0).toUpperCase() %>
+        </div>
+        <% } %>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm text-slate-800 dark:text-slate-100">
+            <span class="font-semibold"><%= n.actor_name %></span> <%= describeNotification(n) %>
+          </p>
+          <% if (n.post_title) { %>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate"><%= n.post_title %></p>
+          <% } %>
+          <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5"><%= timeAgo(n.created_at) %></p>
+        </div>
+      </a>
+      <button type="button" class="notif-dismiss" data-id="<%= n.id %>" aria-label="Dismiss notification" title="Dismiss">✕</button>
     </div>
-    <% } %>
-    <div class="flex-1 min-w-0">
-      <p class="text-sm text-slate-800 dark:text-slate-100">
-        <span class="font-semibold"><%= n.actor_name %></span> <%= describeNotification(n) %>
-      </p>
-      <% if (n.post_title) { %>
-      <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate"><%= n.post_title %></p>
-      <% } %>
-      <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5"><%= timeAgo(n.created_at) %></p>
-    </div>
-  </a>
-  <% }) %>
+    <% }) %>
+  </div>
 </div>
 
 <script src="/js/app.js"></script>
