@@ -7,16 +7,19 @@ const { sendFeedbackNotification } = require('../email');
 router.use(requireAuth);
 
 router.get('/', (req, res) => {
-  res.render('feedback', { submitted: req.query.submitted || null, error: req.query.error || null });
+  const submitted = req.query.submitted || null;
+  const error = req.query.error || null;
+  const autoOpen = submitted || req.query.from || null;
+  res.render('feedback', { submitted, error, autoOpen });
 });
 
 router.post('/bug', async (req, res) => {
   const title = req.body.title?.trim();
   const description = req.body.description?.trim();
   const severity = ['low', 'medium', 'high'].includes(req.body.severity) ? req.body.severity : 'low';
-  if (!title || !description) return res.redirect('/feedback?error=1');
-  if (title.length > 150) return res.redirect('/feedback?error=1');
-  if (description.length > 5000) return res.redirect('/feedback?error=1');
+  if (!title || !description) return res.redirect('/feedback?error=1&from=bug');
+  if (title.length > 150) return res.redirect('/feedback?error=1&from=bug');
+  if (description.length > 5000) return res.redirect('/feedback?error=1&from=bug');
   try {
     await pool.query(
       'INSERT INTO feedback (user_id, type, title, description, severity) VALUES (?, "bug", ?, ?, ?)',
@@ -30,7 +33,7 @@ router.post('/bug', async (req, res) => {
     }
   } catch (err) {
     console.error(err);
-    return res.redirect('/feedback?error=1');
+    return res.redirect('/feedback?error=1&from=bug');
   }
   res.redirect('/feedback?submitted=bug');
 });
@@ -38,9 +41,9 @@ router.post('/bug', async (req, res) => {
 router.post('/feature', async (req, res) => {
   const title = req.body.title?.trim();
   const description = req.body.description?.trim();
-  if (!title || !description) return res.redirect('/feedback?error=1');
-  if (title.length > 150) return res.redirect('/feedback?error=1');
-  if (description.length > 5000) return res.redirect('/feedback?error=1');
+  if (!title || !description) return res.redirect('/feedback?error=1&from=feature');
+  if (title.length > 150) return res.redirect('/feedback?error=1&from=feature');
+  if (description.length > 5000) return res.redirect('/feedback?error=1&from=feature');
   try {
     await pool.query(
       'INSERT INTO feedback (user_id, type, title, description) VALUES (?, "feature", ?, ?)',
@@ -54,7 +57,7 @@ router.post('/feature', async (req, res) => {
     }
   } catch (err) {
     console.error(err);
-    return res.redirect('/feedback?error=1');
+    return res.redirect('/feedback?error=1&from=feature');
   }
   res.redirect('/feedback?submitted=feature');
 });
