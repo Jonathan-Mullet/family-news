@@ -207,6 +207,7 @@ async function initDb() {
     `ALTER TABLE comments MODIFY COLUMN deleted_at TIMESTAMP NULL`,
     `ALTER TABLE users ADD COLUMN whats_new_seen_at DATETIME NULL`,
     `ALTER TABLE notifications ADD INDEX idx_user_read (user_id, read_at)`,
+    `ALTER TABLE posts ADD FULLTEXT INDEX ft_posts (title, content)`,
   ];
   for (const q of migrations) {
     try { await pool.query(q); } catch { /* column already exists */ }
