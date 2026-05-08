@@ -777,7 +777,6 @@ input[type="datetime-local"].fn-input {
   margin-left: 0.125rem;
 }
 .fn-hamburger:hover { background: rgba(44, 24, 16, 0.06); color: #2c1810; }
-@media (min-width: 768px) { .fn-hamburger { display: none; } }
 .dark .fn-hamburger { color: #9a7e5a; }
 .dark .fn-hamburger:hover { background: rgba(245, 229, 208, 0.07); color: #f5e5d0; }
 
