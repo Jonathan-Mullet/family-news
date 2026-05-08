@@ -65,16 +65,16 @@ app.use(async (req, res, next) => {
       res.locals.familyMembers = [];
     }
     const latestAt = app.locals.latestChangelogAt;
-    const seenAt = req.session.user.whats_new_seen_at;
-    res.locals.showChangelogDot = !!(latestAt && (!seenAt || new Date(latestAt) > new Date(seenAt)));
     try {
-      const [[{ unread }]] = await pool.query(
-        'SELECT COUNT(*) AS unread FROM notifications WHERE user_id = ? AND read_at IS NULL',
+      const [[{ unread, whats_new_seen_at }]] = await pool.query(
+        'SELECT COUNT(n.id) AS unread, u.whats_new_seen_at FROM users u LEFT JOIN notifications n ON n.user_id = u.id AND n.read_at IS NULL WHERE u.id = ? GROUP BY u.id',
         [req.session.user.id]
       );
+      res.locals.showChangelogDot = !!(latestAt && (!whats_new_seen_at || new Date(latestAt) > new Date(whats_new_seen_at)));
       res.locals.showNotificationDot = res.locals.showChangelogDot || unread > 0;
     } catch {
-      res.locals.showNotificationDot = res.locals.showChangelogDot;
+      res.locals.showChangelogDot = false;
+      res.locals.showNotificationDot = false;
     }
   } else {
     res.locals.familyMembers = [];
