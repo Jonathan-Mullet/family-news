@@ -156,6 +156,20 @@ async function initDb() {
       body TEXT NOT NULL,
       published_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )`,
+    `CREATE TABLE IF NOT EXISTS notifications (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      actor_id INT NOT NULL,
+      type ENUM('comment', 'reply', 'mention', 'reaction') NOT NULL,
+      post_id INT NOT NULL,
+      comment_id INT DEFAULT NULL,
+      meta VARCHAR(20) DEFAULT NULL,
+      read_at DATETIME DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (actor_id) REFERENCES users(id),
+      FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE
+    )`,
   ];
   for (const q of tables) await pool.query(q);
 
@@ -192,6 +206,7 @@ async function initDb() {
     `ALTER TABLE posts MODIFY COLUMN deleted_at TIMESTAMP NULL`,
     `ALTER TABLE comments MODIFY COLUMN deleted_at TIMESTAMP NULL`,
     `ALTER TABLE users ADD COLUMN whats_new_seen_at DATETIME NULL`,
+    `ALTER TABLE notifications ADD INDEX idx_user_read (user_id, read_at)`,
   ];
   for (const q of migrations) {
     try { await pool.query(q); } catch { /* column already exists */ }
