@@ -1,0 +1,91 @@
+<%- include('partials/head', { title: 'Search' }) %>
+<%- include('partials/nav') %>
+
+<%
+function formatDate(date) {
+  const d = new Date(date);
+  const now = new Date();
+  const sameYear = d.getFullYear() === now.getFullYear();
+  return d.toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric',
+    year: sameYear ? undefined : 'numeric'
+  });
+}
+%>
+
+<style>
+  mark {
+    background: #fbbf24;
+    color: inherit;
+    border-radius: 2px;
+    padding: 0 2px;
+  }
+  .dark mark {
+    background: #92400e;
+    color: #fef3c7;
+  }
+</style>
+
+<div class="max-w-2xl mx-auto px-4 py-6">
+  <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">Search</h1>
+
+  <form method="GET" action="/search" class="flex gap-2 mb-6">
+    <input
+      type="search"
+      name="q"
+      value="<%= query %>"
+      placeholder="Search posts by keyword…"
+      autofocus
+      class="flex-1 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 px-4 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-brand-400"
+    >
+    <button
+      type="submit"
+      class="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-medium text-sm transition-colors"
+    >Search</button>
+  </form>
+
+  <% if (error) { %>
+    <p class="text-sm text-red-500 dark:text-red-400"><%= error %></p>
+
+  <% } else if (results === null) { %>
+    <%# No query submitted — empty state, nothing to show %>
+
+  <% } else if (results.length === 0) { %>
+    <p class="text-sm text-slate-500 dark:text-slate-400">
+      No posts found for "<%= query %>". Try a different word.
+    </p>
+
+  <% } else { %>
+    <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">
+      <%= results.length %> result<%= results.length === 1 ? '' : 's' %> for "<%= query %>"
+    </p>
+
+    <div class="space-y-3">
+      <% results.forEach(function(r) { %>
+      <a href="/post/<%= r.id %>" class="flex items-start gap-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors no-underline block">
+        <% if (r.author_avatar) { %>
+        <img src="<%= r.author_avatar %>" class="w-9 h-9 rounded-full object-cover flex-shrink-0 mt-0.5" alt="">
+        <% } else { %>
+        <div class="w-9 h-9 rounded-full bg-brand-100 dark:bg-brand-600/20 flex items-center justify-center text-brand-600 dark:text-brand-400 font-semibold text-sm flex-shrink-0 mt-0.5">
+          <%= r.author_name.charAt(0).toUpperCase() %>
+        </div>
+        <% } %>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-baseline justify-between gap-2 mb-1">
+            <span class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate"><%= r.author_name %></span>
+            <span class="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0"><%= formatDate(r.created_at) %></span>
+          </div>
+          <% if (r.title) { %>
+          <p class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1"><%= r.title %></p>
+          <% } %>
+          <p class="text-sm text-slate-500 dark:text-slate-400 leading-snug"><%- r.snippet %></p>
+        </div>
+      </a>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>
