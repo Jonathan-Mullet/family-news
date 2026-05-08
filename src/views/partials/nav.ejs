@@ -181,32 +181,19 @@
 
     <div class="fn-nav-links">
       <% if (user) { %>
-        <span class="fn-nav-user hidden sm:block"><%= user.name %></span>
-        <div class="fn-nav-sep hidden sm:block"></div>
-        <% if (user.role === 'admin') { %>
-          <a href="/admin" class="fn-nav-link">Admin</a>
-          <div class="fn-nav-sep"></div>
-        <% } %>
-        <% if (user.role === 'admin' || user.role === 'moderator') { %>
-          <a href="/mod" class="fn-nav-link">Mod</a>
-          <div class="fn-nav-sep"></div>
-          <a href="/guide" class="fn-nav-link">Guide</a>
-          <div class="fn-nav-sep"></div>
-        <% } %>
-        <a href="/search" class="fn-nav-link">Search</a>
-        <div class="fn-nav-sep"></div>
-        <a href="/photos" class="fn-nav-link">Photos</a>
-        <div class="fn-nav-sep"></div>
-        <a href="/feedback" class="fn-nav-link">Feedback</a>
-        <div class="fn-nav-sep"></div>
-        <a href="/notifications" class="fn-nav-link">Notifications<% if (showNotificationDot) { %><span class="notif-dot" aria-hidden="true"></span><% } %></a>
-        <div class="fn-nav-sep"></div>
-        <a href="/whats-new" class="fn-nav-link">What's New</a>
-        <div class="fn-nav-sep"></div>
-        <a href="/profile" class="fn-nav-link">Profile</a>
-        <div class="fn-nav-sep"></div>
-        <a href="/logout" class="fn-nav-link fn-nav-link-danger">Sign out</a>
-        <div class="fn-nav-sep"></div>
+        <a href="/search" class="fn-nav-icon-btn" aria-label="Search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        </a>
+        <a href="/notifications" class="fn-nav-icon-btn" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <% if (showNotificationDot) { %><span class="fn-hamburger-dot" aria-hidden="true"></span><% } %>
+        </a>
       <% } %>
     </div>
 

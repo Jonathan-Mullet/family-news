@@ -732,6 +732,33 @@ input[type="datetime-local"].fn-input {
 }
 .dark .photo-chip span { color: #9a7e5a; }
 
+/* ── Nav icon buttons (search + notifications) ──────────────────── */
+.fn-nav-icon-btn {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 50%;
+  color: #8b7355;
+  transition: background 0.15s, color 0.15s;
+  padding: 0;
+  flex-shrink: 0;
+  text-decoration: none;
+  position: relative;
+}
+
+.fn-nav-icon-btn:hover {
+  background: rgba(44, 24, 16, 0.06);
+  color: #2c1810;
+}
+
+.dark .fn-nav-icon-btn { color: #9a7e5a; }
+.dark .fn-nav-icon-btn:hover { background: rgba(245, 229, 208, 0.07); color: #f5e5d0; }
+
 /* ── Hamburger drawer navigation ────────────────────────────────── */
 .fn-hamburger {
   width: 2.75rem;
