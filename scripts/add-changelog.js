@@ -33,6 +33,7 @@ if (!title || !body) {
       user,
       password,
       database: process.env.DB_NAME || 'family_news',
+      timezone: '+00:00',
     });
 
     await pool.query('INSERT INTO changelog (title, body) VALUES (?, ?)', [title, body]);
