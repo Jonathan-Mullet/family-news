@@ -109,6 +109,14 @@ router.get('/post/:id', requireAuth, async (req, res) => {
     if (!posts.length) return res.render('error', { message: 'Post not found.' });
     const post = posts[0];
 
+    // Mark notifications as read when the user views the post (fire-and-forget)
+    if (req.session.user) {
+      pool.query(
+        'UPDATE notifications SET read_at = NOW() WHERE user_id = ? AND post_id = ? AND read_at IS NULL',
+        [req.session.user.id, post.id]
+      ).catch(e => console.error('Notification read mark error:', e.message));
+    }
+
     const [postPhotoRows] = await pool.query(
       'SELECT photo_url FROM post_photos WHERE post_id = ? ORDER BY sort_order',
       [post.id]
