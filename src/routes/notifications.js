@@ -1,4 +1,4 @@
-// Lists the current user's in-app notifications and marks them all as read.
+// Lists, marks-read, and allows deletion of the current user's in-app notifications.
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
@@ -24,8 +24,6 @@ router.get('/', requireAuth, async (req, res) => {
       [userId]
     );
 
-    // If the changelog dot was showing, clear it here too so the dot
-    // disappears on the next navigation without requiring a /whats-new visit.
     if (res.locals.showChangelogDot) {
       pool.query('UPDATE users SET whats_new_seen_at = NOW() WHERE id = ?', [userId])
         .catch(e => console.error('whats_new_seen_at update error:', e.message));
@@ -36,6 +34,34 @@ router.get('/', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.render('error', { message: 'Could not load notifications.' });
+  }
+});
+
+// Delete one notification — user_id check prevents deleting others' notifications
+router.delete('/:id', requireAuth, async (req, res) => {
+  try {
+    await pool.query(
+      'DELETE FROM notifications WHERE id = ? AND user_id = ?',
+      [req.params.id, req.session.user.id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.json({ ok: false });
+  }
+});
+
+// Delete all notifications for the current user
+router.delete('/', requireAuth, async (req, res) => {
+  try {
+    await pool.query(
+      'DELETE FROM notifications WHERE user_id = ?',
+      [req.session.user.id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.json({ ok: false });
   }
 });
 
