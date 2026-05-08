@@ -1,0 +1,65 @@
+<%- include('partials/head', { title: 'Notifications' }) %>
+<%- include('partials/nav') %>
+
+<%
+function timeAgo(date) {
+  const diff = Date.now() - new Date(date).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return days + 'd ago';
+  return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+function describeNotification(n) {
+  if (n.type === 'comment') return 'commented on your post';
+  if (n.type === 'reply') return 'replied to your comment';
+  if (n.type === 'mention') return 'mentioned you';
+  if (n.type === 'reaction') return 'reacted ' + n.meta + ' to your post';
+  return '';
+}
+%>
+
+<div class="max-w-2xl mx-auto px-4 py-6 space-y-3">
+  <h1 class="text-xl font-bold text-slate-800 dark:text-slate-100">Notifications</h1>
+
+  <% if (showChangelogDot) { %>
+  <a href="/whats-new" class="flex items-center gap-3 bg-brand-50 dark:bg-slate-800 rounded-2xl shadow-sm border border-brand-200 dark:border-slate-700 border-l-4 border-l-brand-600 p-4 hover:bg-brand-100 dark:hover:bg-slate-700 transition-colors no-underline">
+    <div class="w-9 h-9 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center flex-shrink-0 text-lg">📣</div>
+    <div class="flex-1 min-w-0">
+      <p class="text-sm font-medium text-slate-800 dark:text-slate-100">Family News has been updated</p>
+      <p class="text-xs text-brand-600 dark:text-brand-400 mt-0.5">See what's new →</p>
+    </div>
+  </a>
+  <% } %>
+
+  <% if (notifications.length === 0 && !showChangelogDot) { %>
+  <p class="text-sm text-slate-400 dark:text-slate-500 py-4">Nothing yet — you'll see comments, mentions, and reactions here.</p>
+  <% } %>
+
+  <% notifications.forEach(function(n) { %>
+  <a href="/post/<%= n.post_id %>" class="flex items-start gap-3 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 transition-colors no-underline <%= !n.read_at ? 'bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50' : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700' %>">
+    <% if (n.actor_avatar) { %>
+    <img src="<%= n.actor_avatar %>" class="w-9 h-9 rounded-full object-cover flex-shrink-0" alt="">
+    <% } else { %>
+    <div class="w-9 h-9 rounded-full bg-brand-200 dark:bg-slate-600 flex items-center justify-center flex-shrink-0 text-sm font-semibold text-brand-700 dark:text-slate-200">
+      <%= n.actor_name.charAt(0).toUpperCase() %>
+    </div>
+    <% } %>
+    <div class="flex-1 min-w-0">
+      <p class="text-sm text-slate-800 dark:text-slate-100">
+        <span class="font-semibold"><%= n.actor_name %></span> <%= describeNotification(n) %>
+      </p>
+      <% if (n.post_title) { %>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate"><%= n.post_title %></p>
+      <% } %>
+      <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5"><%= timeAgo(n.created_at) %></p>
+    </div>
+  </a>
+  <% }) %>
+</div>
+
+<script src="/js/app.js"></script>
+</body></html>
