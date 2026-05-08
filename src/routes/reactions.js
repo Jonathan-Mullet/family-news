@@ -43,6 +43,23 @@ router.post('/posts/:id/react', requireAuth, async (req, res) => {
     } else {
       await pool.query('INSERT INTO reactions (post_id, user_id, emoji) VALUES (?, ?, ?)', [postId, userId, emoji]);
       userReacted = true;
+      // Insert reaction notification (fire-and-forget)
+      (async () => {
+        try {
+          const [[post]] = await pool.query(
+            'SELECT user_id FROM posts WHERE id = ?',
+            [postId]
+          );
+          if (post && post.user_id !== userId) {
+            pool.query(
+              'INSERT INTO notifications (user_id, actor_id, type, post_id, meta) VALUES (?, ?, ?, ?, ?)',
+              [post.user_id, userId, 'reaction', postId, emoji]
+            ).catch(e => console.error('Reaction notification insert error:', e.message));
+          }
+        } catch (e) {
+          console.error('Reaction notification error:', e.message);
+        }
+      })();
     }
     const [[{ count }]] = await pool.query(
       'SELECT COUNT(*) AS count FROM reactions WHERE post_id = ? AND emoji = ?',
