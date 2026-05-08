@@ -4,7 +4,7 @@ const router = express.Router();
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 
-const MIN_QUERY_LEN = 2;
+const MIN_QUERY_LEN = 3; // MySQL FULLTEXT default min token size is 3
 
 // Returns an HTML-safe snippet of `content` with the first occurrence of
 // `query` wrapped in <mark> tags. Strips @[Name](id) mention tokens first.
