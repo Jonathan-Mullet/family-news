@@ -122,6 +122,7 @@ app.use('/', require('./routes/photos'));
 app.use('/feedback', require('./routes/feedback'));
 app.use('/whats-new', require('./routes/whats-new'));
 app.use('/notifications', require('./routes/notifications'));
+app.use('/search', require('./routes/search'));
 
 // ── Server startup ────────────────────────────────────────────────────────────
 async function start() {
