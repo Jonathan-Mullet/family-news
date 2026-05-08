@@ -19,10 +19,11 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
   }
   try {
     const { content: resolvedContent, mentionedUserIds } = await resolveMentions(content.trim(), pool);
-    await pool.query(
+    const [commentResult] = await pool.query(
       'INSERT INTO comments (post_id, parent_id, user_id, content) VALUES (?, ?, ?, ?)',
       [req.params.id, parent_id || null, req.session.user.id, resolvedContent]
     );
+    const commentId = commentResult.insertId;
 
     // Send notification to post author (with notify_comments preference)
     try {
@@ -40,10 +41,32 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
             { title: `${req.session.user.name} commented on your post`, body: content.trim().substring(0, 100), url: `/post/${post.id}` },
             { checkColumn: 'push_notify_comments' }
           );
+          pool.query(
+            'INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id) VALUES (?, ?, ?, ?, ?)',
+            [post.user_id, req.session.user.id, 'comment', post.id, commentId]
+          ).catch(e => console.error('Notification insert error:', e.message));
         }
       }
     } catch (notifyErr) {
       console.error('Comment notification error:', notifyErr.message);
+    }
+
+    // Fire-and-forget: reply notification
+    if (parent_id) {
+      (async () => {
+        try {
+          const [[parentComment]] = await pool.query(
+            'SELECT user_id FROM comments WHERE id = ?',
+            [parent_id]
+          );
+          if (parentComment && parentComment.user_id !== req.session.user.id) {
+            await pool.query(
+              'INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id) VALUES (?, ?, ?, ?, ?)',
+              [parentComment.user_id, req.session.user.id, 'reply', req.params.id, commentId]
+            );
+          }
+        } catch (e) { console.error('Reply notification error:', e.message); }
+      })();
     }
 
     // Fire-and-forget: mention notifications (skip self-mentions)
@@ -63,6 +86,10 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
             for (const mu of mentionedUsers) {
               sendPushToUser(mu.id, { title: `${authorName} mentioned you`, body: excerpt, url: `/post/${postId}` });
               sendMentionNotification(mu.email, mu.name, authorName, excerpt, postUrl);
+              pool.query(
+                'INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id) VALUES (?, ?, ?, ?, ?)',
+                [mu.id, req.session.user.id, 'mention', postId, commentId]
+              ).catch(e => console.error('Mention notification insert error:', e.message));
             }
           } catch (mentionErr) {
             console.error('Mention notification error:', mentionErr.message);
