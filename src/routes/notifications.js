@@ -24,6 +24,14 @@ router.get('/', requireAuth, async (req, res) => {
       [userId]
     );
 
+    // If the changelog dot was showing, clear it here too so the dot
+    // disappears on the next navigation without requiring a /whats-new visit.
+    if (res.locals.showChangelogDot) {
+      pool.query('UPDATE users SET whats_new_seen_at = NOW() WHERE id = ?', [userId])
+        .catch(e => console.error('whats_new_seen_at update error:', e.message));
+      req.session.user.whats_new_seen_at = new Date();
+    }
+
     res.render('notifications', { notifications });
   } catch (err) {
     console.error(err);
