@@ -256,24 +256,26 @@
     </button>
   </div>
   <nav class="fn-drawer-nav">
-    <a href="/" class="fn-drawer-link">Feed</a>
-    <a href="/search" class="fn-drawer-link">Search</a>
-    <a href="/photos" class="fn-drawer-link">Photos</a>
-    <a href="/profile" class="fn-drawer-link">Profile</a>
-    <a href="/feedback" class="fn-drawer-link">Feedback</a>
-    <a href="/notifications" class="fn-drawer-link">Notifications<% if (showNotificationDot) { %><span class="notif-dot" aria-hidden="true"></span><% } %></a>
-    <a href="/whats-new" class="fn-drawer-link">What's New</a>
+    <a href="/" class="fn-drawer-link fn-drawer-link--primary">Feed</a>
+    <a href="/search" class="fn-drawer-link fn-drawer-link--primary">Search</a>
+    <a href="/photos" class="fn-drawer-link fn-drawer-link--primary">Photos</a>
+    <a href="/notifications" class="fn-drawer-link fn-drawer-link--primary">Notifications<% if (showNotificationDot) { %><span class="notif-dot" aria-hidden="true"></span><% } %></a>
+
+    <span class="fn-drawer-section-label">Account</span>
+    <a href="/settings" class="fn-drawer-link fn-drawer-link--secondary">Settings</a>
+    <a href="/whats-new" class="fn-drawer-link fn-drawer-link--secondary">What's New</a>
+
     <% if (user.role === 'admin' || user.role === 'moderator') { %>
-      <div class="fn-drawer-sep"></div>
+      <span class="fn-drawer-section-label">Admin</span>
       <% if (user.role === 'admin') { %>
-        <a href="/admin" class="fn-drawer-link">Admin</a>
+        <a href="/admin" class="fn-drawer-link fn-drawer-link--secondary">Admin</a>
       <% } %>
-      <a href="/mod" class="fn-drawer-link">Mod</a>
-      <a href="/guide" class="fn-drawer-link">Guide</a>
+      <a href="/mod" class="fn-drawer-link fn-drawer-link--secondary">Mod</a>
+      <a href="/guide" class="fn-drawer-link fn-drawer-link--secondary">Guide</a>
     <% } %>
   </nav>
   <div class="fn-drawer-footer">
-    <a href="/logout" class="fn-drawer-link fn-drawer-link--danger">Sign out</a>
+    <a href="/logout" class="fn-drawer-footer-btn">Sign out</a>
   </div>
 </div>
 <script>
