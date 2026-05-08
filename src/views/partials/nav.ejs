@@ -136,6 +136,23 @@
   .dark .fn-nav-link-danger:hover { color: #e08878; background: rgba(224, 136, 120, 0.07); }
   .dark .fn-dark-toggle { color: #9a7e5a; }
   .dark .fn-dark-toggle:hover { background: rgba(245, 229, 208, 0.07); color: #f5e5d0; }
+
+  .notif-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #3b82f6;
+    margin-left: 4px;
+    margin-bottom: 2px;
+    vertical-align: middle;
+    animation: notif-pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes notif-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.75); }
+  }
+  .dark .notif-dot { background: #60a5fa; }
 </style>
 
 <style>
@@ -167,7 +184,9 @@
         <div class="fn-nav-sep"></div>
         <a href="/feedback" class="fn-nav-link">Feedback</a>
         <div class="fn-nav-sep"></div>
-        <a href="/whats-new" class="fn-nav-link">What's New<% if (showChangelogDot) { %><span class="inline-block w-1.5 h-1.5 rounded-full bg-brand-600 ml-1 mb-0.5 align-middle" aria-hidden="true"></span><% } %></a>
+        <a href="/notifications" class="fn-nav-link">Notifications<% if (showNotificationDot) { %><span class="notif-dot" aria-hidden="true"></span><% } %></a>
+        <div class="fn-nav-sep"></div>
+        <a href="/whats-new" class="fn-nav-link">What's New</a>
         <div class="fn-nav-sep"></div>
         <a href="/profile" class="fn-nav-link">Profile</a>
         <div class="fn-nav-sep"></div>
@@ -225,7 +244,8 @@
     <a href="/photos" class="fn-drawer-link">Photos</a>
     <a href="/profile" class="fn-drawer-link">Profile</a>
     <a href="/feedback" class="fn-drawer-link">Feedback</a>
-    <a href="/whats-new" class="fn-drawer-link">What's New<% if (showChangelogDot) { %><span class="inline-block w-1.5 h-1.5 rounded-full bg-brand-600 ml-0.5 mb-0.5 align-middle" aria-hidden="true"></span><% } %></a>
+    <a href="/notifications" class="fn-drawer-link">Notifications<% if (showNotificationDot) { %><span class="notif-dot" aria-hidden="true"></span><% } %></a>
+    <a href="/whats-new" class="fn-drawer-link">What's New</a>
     <% if (user.role === 'admin' || user.role === 'moderator') { %>
       <div class="fn-drawer-sep"></div>
       <% if (user.role === 'admin') { %>
