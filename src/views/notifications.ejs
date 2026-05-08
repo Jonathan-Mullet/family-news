@@ -48,7 +48,7 @@ function describeNotification(n) {
 
   .notif-row {
     position: relative;
-    overflow: visible;
+    overflow: hidden;
     transition: max-height 0.25s ease, opacity 0.25s ease, margin 0.25s ease;
     max-height: 200px;
   }
@@ -115,18 +115,30 @@ function describeNotification(n) {
 <script src="/js/app.js"></script>
 <script>
 (function () {
+  var ANIM_MS = 280;
+
+  function checkEmpty() {
+    if (!document.querySelector('.notif-row')) {
+      document.getElementById('notif-empty').style.display = '';
+      var cb = document.getElementById('notif-clear-all');
+      if (cb) cb.remove();
+    }
+  }
+
   function dismissRow(row, url) {
     row.classList.add('notif-removing');
+    var timer = setTimeout(function () { row.remove(); checkEmpty(); }, ANIM_MS);
     fetch(url, { method: 'DELETE', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-      .catch(function () { row.classList.remove('notif-removing'); });
-    setTimeout(function () {
-      row.remove();
-      if (!document.querySelector('.notif-row')) {
-        document.getElementById('notif-empty').style.display = '';
-        var cb = document.getElementById('notif-clear-all');
-        if (cb) cb.remove();
-      }
-    }, 280);
+      .catch(function () { clearTimeout(timer); row.classList.remove('notif-removing'); });
+  }
+
+  function dismissChangelog() {
+    var card = document.getElementById('changelog-card');
+    if (!card) return;
+    card.classList.add('notif-removing');
+    var timer = setTimeout(function () { card.remove(); checkEmpty(); }, ANIM_MS);
+    fetch('/whats-new/seen', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .catch(function () { clearTimeout(timer); card.classList.remove('notif-removing'); });
   }
 
   // X button dismiss
@@ -138,43 +150,36 @@ function describeNotification(n) {
     });
   });
 
-  // Clear all
+  // Clear all — deletes notification rows AND dismisses the changelog card if present
   var clearBtn = document.getElementById('notif-clear-all');
   if (clearBtn) {
     clearBtn.addEventListener('click', function () {
-      var rows = document.querySelectorAll('.notif-row');
+      var rows = document.querySelectorAll('#notif-list .notif-row');
       rows.forEach(function (row) { row.classList.add('notif-removing'); });
       fetch('/notifications', { method: 'DELETE', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .catch(function () { rows.forEach(function (row) { row.classList.remove('notif-removing'); }); });
-      setTimeout(function () {
+      var timer = setTimeout(function () {
         rows.forEach(function (row) { row.remove(); });
         document.getElementById('notif-empty').style.display = '';
         clearBtn.remove();
-      }, 280);
+      }, ANIM_MS);
+      // Also dismiss the changelog card if visible
+      dismissChangelog();
     });
   }
 
-  // Changelog card dismiss
+  // Changelog card X button
   var changelogBtn = document.getElementById('changelog-dismiss');
   if (changelogBtn) {
     changelogBtn.addEventListener('click', function (e) {
       e.preventDefault();
       e.stopPropagation();
-      var card = document.getElementById('changelog-card');
-      card.classList.add('notif-removing');
-      fetch('/whats-new/seen', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .catch(function () { card.classList.remove('notif-removing'); });
-      setTimeout(function () {
-        card.remove();
-        if (!document.querySelector('.notif-row')) {
-          document.getElementById('notif-empty').style.display = '';
-        }
-      }, 280);
+      dismissChangelog();
     });
   }
 
-  // Swipe left to dismiss (touch devices only)
-  document.querySelectorAll('.notif-row').forEach(function (row) {
+  // Swipe left to dismiss (touch devices only — notification rows only, not changelog card)
+  document.querySelectorAll('#notif-list .notif-row').forEach(function (row) {
     var startX = 0, startY = 0, dragging = false;
     var link = row.querySelector('a');
 
