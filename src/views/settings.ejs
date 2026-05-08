@@ -318,17 +318,56 @@
     });
   });
 
-  // ── Email notification auto-save toggles ──────────────────────────────────
+  // ── Email notification auto-save toggles (AJAX — avoids scroll-to-top) ───
+  function _saveNotifPrefs(failedEl) {
+    var posts = document.getElementById('toggle-notify-posts');
+    var comments = document.getElementById('toggle-notify-comments');
+    var body = 'notify_posts=' + (posts.checked ? 1 : 0) + '&notify_comments=' + (comments.checked ? 1 : 0);
+    fetch('/settings/notifications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: body
+    }).then(function (r) {
+      if (!r.ok && failedEl) failedEl.checked = !failedEl.checked;
+    }).catch(function () {
+      if (failedEl) failedEl.checked = !failedEl.checked;
+    });
+  }
+
   ['toggle-notify-posts', 'toggle-notify-comments'].forEach(function (id) {
     var t = document.getElementById(id);
-    if (t) t.addEventListener('change', function () { t.closest('form').submit(); });
+    if (t) t.addEventListener('change', function () { _saveNotifPrefs(t); });
   });
 
-  // ── Push pref auto-save toggles (shared form — all three sent together) ───
-  document.querySelectorAll('#push-prefs-form input[type="checkbox"]').forEach(function (cb) {
-    cb.addEventListener('change', function () {
-      document.getElementById('push-prefs-form').submit();
+  // ── Push pref auto-save toggles (AJAX — avoids scroll-to-top) ────────────
+  function _savePushPrefs(failedEl) {
+    var form = document.getElementById('push-prefs-form');
+    if (!form) return;
+    var posts = form.querySelector('[name="push_notify_posts"]');
+    var comments = form.querySelector('[name="push_notify_comments"]');
+    var bigNews = form.querySelector('[name="push_notify_big_news"]');
+    var body = 'push_notify_posts=' + (posts.checked ? 1 : 0) +
+               '&push_notify_comments=' + (comments.checked ? 1 : 0) +
+               '&push_notify_big_news=' + (bigNews.checked ? 1 : 0);
+    fetch('/settings/push-prefs', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: body
+    }).then(function (r) {
+      if (!r.ok && failedEl) failedEl.checked = !failedEl.checked;
+    }).catch(function () {
+      if (failedEl) failedEl.checked = !failedEl.checked;
     });
+  }
+
+  document.querySelectorAll('#push-prefs-form input[type="checkbox"]').forEach(function (cb) {
+    cb.addEventListener('change', function () { _savePushPrefs(cb); });
   });
 
   // ── Avatar ────────────────────────────────────────────────────────────────
