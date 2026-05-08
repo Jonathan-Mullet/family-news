@@ -67,9 +67,19 @@ app.use(async (req, res, next) => {
     const latestAt = app.locals.latestChangelogAt;
     const seenAt = req.session.user.whats_new_seen_at;
     res.locals.showChangelogDot = !!(latestAt && (!seenAt || new Date(latestAt) > new Date(seenAt)));
+    try {
+      const [[{ unread }]] = await pool.query(
+        'SELECT COUNT(*) AS unread FROM notifications WHERE user_id = ? AND read_at IS NULL',
+        [req.session.user.id]
+      );
+      res.locals.showNotificationDot = res.locals.showChangelogDot || unread > 0;
+    } catch {
+      res.locals.showNotificationDot = res.locals.showChangelogDot;
+    }
   } else {
     res.locals.familyMembers = [];
     res.locals.showChangelogDot = false;
+    res.locals.showNotificationDot = false;
   }
   next();
 });
@@ -111,6 +121,7 @@ app.use('/push', require('./routes/push'));
 app.use('/', require('./routes/photos'));
 app.use('/feedback', require('./routes/feedback'));
 app.use('/whats-new', require('./routes/whats-new'));
+app.use('/notifications', require('./routes/notifications'));
 
 // ── Server startup ────────────────────────────────────────────────────────────
 async function start() {
