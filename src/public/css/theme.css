@@ -347,7 +347,7 @@ input[type="datetime-local"].fn-input {
 }
 .fn-settings-section-header svg { color: #8b7355; flex-shrink: 0; }
 .dark .fn-settings-section-header { border-bottom-color: rgba(154, 126, 90, 0.15); }
-.dark .fn-settings-section-header svg { color: #7a6040; }
+.dark .fn-settings-section-header svg { color: #9a7e5a; }
 
 .fn-settings-section-label {
   font-size: 0.68rem;
@@ -369,7 +369,7 @@ input[type="datetime-local"].fn-input {
   border-bottom: 1px solid rgba(139, 115, 85, 0.1);
   transition: opacity 0.15s;
 }
-.fn-settings-row:last-of-type { border-bottom: none; }
+.fn-settings-row:last-child { border-bottom: none; }
 .fn-settings-row-wrap--editing .fn-settings-row { opacity: 0.45; pointer-events: none; }
 
 .fn-settings-row-label {
@@ -387,7 +387,7 @@ input[type="datetime-local"].fn-input {
   flex: 1;
   font-family: 'Crimson Pro', Georgia, serif;
   font-size: 1rem;
-  color: #4a3825;
+  color: #4a3525;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -457,6 +457,11 @@ input[type="datetime-local"].fn-input {
 .fn-toggle input:checked + .fn-toggle-slider { background: #8b5e3c; }
 .fn-toggle input:checked + .fn-toggle-slider::before { transform: translateX(20px); }
 .fn-toggle input:disabled + .fn-toggle-slider { opacity: 0.45; cursor: not-allowed; }
+.fn-toggle input:focus-visible + .fn-toggle-slider { box-shadow: 0 0 0 3px rgba(139, 94, 60, 0.25); }
+.dark .fn-toggle input:focus-visible + .fn-toggle-slider { box-shadow: 0 0 0 3px rgba(196, 137, 90, 0.3); }
+.fn-settings-row-edit:focus-visible { outline: 2px solid rgba(139, 94, 60, 0.5); outline-offset: 2px; }
+.fn-drawer-footer-btn:focus-visible { outline: 2px solid rgba(139, 94, 60, 0.5); outline-offset: 2px; }
+.fn-settings-feedback-link:focus-visible { outline: 2px solid rgba(139, 94, 60, 0.5); outline-offset: 2px; }
 .dark .fn-toggle-slider { background: rgba(154, 126, 90, 0.3); }
 .dark .fn-toggle input:checked + .fn-toggle-slider { background: #c4895a; }
 
@@ -472,7 +477,7 @@ input[type="datetime-local"].fn-input {
 .fn-toggle-row-label {
   font-family: 'Crimson Pro', Georgia, serif;
   font-size: 1rem;
-  color: #4a3825;
+  color: #4a3525;
 }
 .dark .fn-toggle-row-label { color: #c8a880; }
 .fn-toggle-row-sub {
@@ -491,13 +496,15 @@ input[type="datetime-local"].fn-input {
   cursor: pointer;
   border-bottom: 1px solid rgba(139, 115, 85, 0.1);
 }
+.fn-settings-avatar-row:hover { background: rgba(44, 24, 16, 0.03); }
+.dark .fn-settings-avatar-row:hover { background: rgba(245, 229, 208, 0.04); }
 .fn-settings-avatar-circle {
   width: 48px;
   height: 48px;
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
-  background: #f5e8d5;
+  background: #f5e5d0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -506,11 +513,11 @@ input[type="datetime-local"].fn-input {
   color: #8b5e3c;
   border: 2px solid rgba(139, 94, 60, 0.18);
 }
-.dark .fn-settings-avatar-circle { background: #3a2415; color: #c4895a; border-color: rgba(196, 137, 90, 0.2); }
+.dark .fn-settings-avatar-circle { background: #3a2a1c; color: #c4895a; border-color: rgba(196, 137, 90, 0.2); }
 .fn-settings-avatar-label {
   font-family: 'Crimson Pro', Georgia, serif;
   font-size: 1rem;
-  color: #4a3825;
+  color: #4a3525;
 }
 .dark .fn-settings-avatar-label { color: #c8a880; }
 .fn-settings-avatar-sub {
@@ -546,7 +553,7 @@ input[type="datetime-local"].fn-input {
   padding: 0.5rem;
   transition: color 0.15s;
 }
-.fn-settings-feedback-link:hover { color: #4a3825; }
+.fn-settings-feedback-link:hover { color: #4a3525; }
 .dark .fn-settings-feedback-link { color: #7a6040; }
 .dark .fn-settings-feedback-link:hover { color: #c8a880; }
 
@@ -830,8 +837,7 @@ input[type="datetime-local"].fn-input {
   color: #8b7355;
   padding: 0.6rem 1.25rem;
 }
-.fn-drawer-link--secondary:hover { color: #2c1810; }
-.dark .fn-drawer-link--secondary { color: #6b5030; }
+.dark .fn-drawer-link--secondary { color: #7a6040; }
 .dark .fn-drawer-link--secondary:hover { color: #f5e5d0; }
 
 .fn-drawer-footer-btn {
@@ -841,6 +847,7 @@ input[type="datetime-local"].fn-input {
   padding: 0.75rem 1rem;
   text-align: center;
   font-family: 'Crimson Pro', Georgia, serif;
+  font-weight: 600;
   font-size: 0.95rem;
   color: #b9503c;
   background: none;
