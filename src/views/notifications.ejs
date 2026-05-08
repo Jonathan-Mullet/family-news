@@ -138,6 +138,9 @@ function describeNotification(n) {
     card.classList.add('notif-removing');
     var timer = setTimeout(function () { card.remove(); checkEmpty(); }, ANIM_MS);
     fetch('/whats-new/seen', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function () {
+        document.querySelectorAll('.notif-dot, .fn-hamburger-dot').forEach(function (el) { el.remove(); });
+      })
       .catch(function () { clearTimeout(timer); card.classList.remove('notif-removing'); });
   }
 
