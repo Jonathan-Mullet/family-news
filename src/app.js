@@ -114,6 +114,7 @@ app.use('/', require('./routes/posts'));
 app.use('/', require('./routes/reactions'));
 app.use('/', require('./routes/comments'));
 app.use('/profile', require('./routes/profile'));
+app.use('/settings', require('./routes/settings'));
 app.use('/admin', require('./routes/admin'));
 app.use('/', require('./routes/mod'));
 app.use('/', require('./routes/members'));
