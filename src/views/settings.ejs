@@ -1,0 +1,417 @@
+<%- include('partials/head', { title: 'Settings' }) %>
+<%- include('partials/nav') %>
+
+<div class="fn-settings-page">
+  <h1 class="fn-settings-title">Settings</h1>
+
+  <% if (flash.error) { %><div class="fn-flash-error"><%= flash.error %></div><% } %>
+  <% if (flash.success) { %><div class="fn-flash-success"><%= flash.success %></div><% } %>
+
+  <%# ── Section 1: Profile ── %>
+  <div class="fn-settings-card">
+    <div class="fn-settings-section-header">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      <span class="fn-settings-section-label">Profile</span>
+    </div>
+
+    <%# Avatar row %>
+    <div>
+      <div class="fn-settings-avatar-row" id="avatar-row">
+        <div class="fn-settings-avatar-circle" id="avatar-preview">
+          <% if (user.avatar_url) { %>
+            <img src="<%= user.avatar_url %>" style="width:100%;height:100%;object-fit:cover;" alt="" id="avatar-img">
+          <% } else { %>
+            <%= user.name.charAt(0).toUpperCase() %>
+          <% } %>
+        </div>
+        <div>
+          <div class="fn-settings-avatar-label" id="avatar-change-label">Change photo</div>
+          <div class="fn-settings-avatar-sub">JPG or PNG, up to 5 MB</div>
+          <% if (user.avatar_url) { %>
+            <button type="button" class="fn-settings-avatar-remove" id="avatar-remove-btn" onclick="event.stopPropagation()">Remove</button>
+          <% } %>
+        </div>
+        <input type="file" id="avatar-file-input" accept="image/*" style="display:none;">
+      </div>
+      <div id="avatar-pending-actions" style="display:none;padding:0.5rem 0;border-bottom:1px solid rgba(139,115,85,0.1);">
+        <div class="fn-row-form-actions">
+          <button type="button" class="fn-btn" id="avatar-save-btn">Save photo</button>
+          <button type="button" class="fn-btn-ghost" id="avatar-cancel-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <%# Display name row %>
+    <div class="fn-settings-row-wrap" id="wrap-name">
+      <div class="fn-settings-row">
+        <span class="fn-settings-row-label">Name</span>
+        <span class="fn-settings-row-value" id="val-name"><%= user.name %></span>
+        <button class="fn-settings-row-edit" data-edit-row="wrap-name">Edit</button>
+      </div>
+      <div class="fn-row-form">
+        <form method="POST" action="/settings/name">
+          <div class="fn-field">
+            <label class="fn-label" for="s-name">Display name</label>
+            <input class="fn-input" type="text" id="s-name" name="name" value="<%= user.name %>" required autocomplete="name">
+          </div>
+          <div class="fn-row-form-actions">
+            <button type="submit" class="fn-btn">Save</button>
+            <button type="button" class="fn-btn-ghost" data-cancel-row="wrap-name">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <%# Birthday row %>
+    <%
+      const _months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const _bdVal = user.birthday || '';
+      const _bdM = _bdVal ? _bdVal.slice(5,7) : '';
+      const _bdD = _bdVal ? _bdVal.slice(8,10) : '';
+      const _bdY = _bdVal ? _bdVal.slice(0,4) : '';
+      let _bdDisplay = 'Not set';
+      if (_bdVal) {
+        const _mi = parseInt(_bdM, 10) - 1;
+        _bdDisplay = _months[_mi] + ' ' + parseInt(_bdD, 10) + ', ' + _bdY;
+      }
+      const _bdNow = new Date().getFullYear();
+    %>
+    <div class="fn-settings-row-wrap" id="wrap-birthday">
+      <div class="fn-settings-row">
+        <span class="fn-settings-row-label">Birthday</span>
+        <span class="fn-settings-row-value"><%= _bdDisplay %></span>
+        <button class="fn-settings-row-edit" data-edit-row="wrap-birthday"><%= _bdVal ? 'Edit' : 'Add' %></button>
+      </div>
+      <div class="fn-row-form">
+        <form method="POST" action="/settings/birthday">
+          <div class="fn-field">
+            <label class="fn-label">Birthday</label>
+            <div style="display:flex;gap:0.5rem;">
+              <select name="birthday_month" class="fn-select" style="flex:1.5;width:auto;min-width:0;" required>
+                <option value="" disabled <%= !_bdM ? 'selected' : '' %>>Month</option>
+                <% _months.forEach(function(m, i) { const v = ('0'+(i+1)).slice(-2); %>
+                <option value="<%= v %>" <%= _bdM === v ? 'selected' : '' %>><%= m %></option>
+                <% }); %>
+              </select>
+              <select name="birthday_day" class="fn-select" style="flex:0.8;width:auto;min-width:0;" required>
+                <option value="" disabled <%= !_bdD ? 'selected' : '' %>>Day</option>
+                <% for (let _d = 1; _d <= 31; _d++) { const v = ('0'+_d).slice(-2); %>
+                <option value="<%= v %>" <%= _bdD === v ? 'selected' : '' %>><%= _d %></option>
+                <% } %>
+              </select>
+              <select name="birthday_year" class="fn-select" style="flex:1;width:auto;min-width:0;" required>
+                <option value="" disabled <%= !_bdY ? 'selected' : '' %>>Year</option>
+                <% for (let _y = _bdNow; _y >= 1920; _y--) { %>
+                <option value="<%= _y %>" <%= _bdY === String(_y) ? 'selected' : '' %>><%= _y %></option>
+                <% } %>
+              </select>
+            </div>
+          </div>
+          <div class="fn-row-form-actions">
+            <button type="submit" class="fn-btn">Save</button>
+            <button type="button" class="fn-btn-ghost" data-cancel-row="wrap-birthday">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <%# ── Section 2: Account ── %>
+  <div class="fn-settings-card">
+    <div class="fn-settings-section-header">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <span class="fn-settings-section-label">Account</span>
+    </div>
+
+    <%# Email row %>
+    <%
+      const _ep = user.email.indexOf('@');
+      const _maskedEmail = user.email.slice(0, Math.min(2, _ep)) + '•••' + user.email.slice(_ep);
+    %>
+    <div class="fn-settings-row-wrap" id="wrap-email">
+      <div class="fn-settings-row">
+        <span class="fn-settings-row-label">Email</span>
+        <span class="fn-settings-row-value"><%= _maskedEmail %></span>
+        <button class="fn-settings-row-edit" data-edit-row="wrap-email">Change</button>
+      </div>
+      <div class="fn-row-form">
+        <form method="POST" action="/settings/email">
+          <div class="fn-field">
+            <label class="fn-label" for="s-email">New email</label>
+            <input class="fn-input" type="email" id="s-email" name="email" value="<%= user.email %>" required autocomplete="email">
+          </div>
+          <div class="fn-field">
+            <label class="fn-label" for="s-email-pw">Current password</label>
+            <input class="fn-input" type="password" id="s-email-pw" name="password" required autocomplete="current-password">
+          </div>
+          <div class="fn-row-form-actions">
+            <button type="submit" class="fn-btn">Save</button>
+            <button type="button" class="fn-btn-ghost" data-cancel-row="wrap-email">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <%# Password row %>
+    <div class="fn-settings-row-wrap" id="wrap-password">
+      <div class="fn-settings-row">
+        <span class="fn-settings-row-label">Password</span>
+        <span class="fn-settings-row-value">••••••••</span>
+        <button class="fn-settings-row-edit" data-edit-row="wrap-password">Change</button>
+      </div>
+      <div class="fn-row-form">
+        <form method="POST" action="/settings/password">
+          <div class="fn-field">
+            <label class="fn-label" for="s-cur-pw">Current password</label>
+            <input class="fn-input" type="password" id="s-cur-pw" name="current_password" required autocomplete="current-password">
+          </div>
+          <div class="fn-field">
+            <label class="fn-label" for="s-new-pw">New password <span style="font-weight:400;letter-spacing:0;text-transform:none;opacity:0.7;">(min 8 characters)</span></label>
+            <input class="fn-input" type="password" id="s-new-pw" name="new_password" required minlength="8" autocomplete="new-password">
+          </div>
+          <div class="fn-row-form-actions">
+            <button type="submit" class="fn-btn">Save</button>
+            <button type="button" class="fn-btn-ghost" data-cancel-row="wrap-password">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <%# Role row (read-only) %>
+    <div class="fn-settings-row">
+      <span class="fn-settings-row-label">Role</span>
+      <span class="fn-settings-row-value" style="text-transform:capitalize;"><%= user.role %></span>
+    </div>
+  </div>
+
+  <%# ── Section 3: Notifications ── %>
+  <div class="fn-settings-card">
+    <div class="fn-settings-section-header">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span class="fn-settings-section-label">Notifications</span>
+    </div>
+
+    <%# New posts toggle — each toggle is its own form to avoid zeroing the other pref on submit %>
+    <div class="fn-toggle-row">
+      <div class="fn-toggle-row-label">New posts</div>
+      <form method="POST" action="/settings/notifications" id="form-notify-posts">
+        <input type="hidden" name="notify_comments" value="<%= user.notify_comments ? 1 : 0 %>">
+        <label class="fn-toggle">
+          <input type="checkbox" name="notify_posts" value="1" <%= user.notify_posts ? 'checked' : '' %> id="toggle-notify-posts">
+          <span class="fn-toggle-slider"></span>
+        </label>
+      </form>
+    </div>
+
+    <%# Comments toggle %>
+    <div class="fn-toggle-row">
+      <div class="fn-toggle-row-label">Comments on my posts</div>
+      <form method="POST" action="/settings/notifications" id="form-notify-comments">
+        <input type="hidden" name="notify_posts" value="<%= user.notify_posts ? 1 : 0 %>">
+        <label class="fn-toggle">
+          <input type="checkbox" name="notify_comments" value="1" <%= user.notify_comments ? 'checked' : '' %> id="toggle-notify-comments">
+          <span class="fn-toggle-slider"></span>
+        </label>
+      </form>
+    </div>
+
+    <%# Push notifications toggle row — bridged to existing push state machine via MutationObserver %>
+    <div class="fn-toggle-row" id="push-toggle-row">
+      <div>
+        <div class="fn-toggle-row-label">Push notifications</div>
+        <div class="fn-toggle-row-sub" id="push-toggle-status">Loading…</div>
+      </div>
+      <label class="fn-toggle">
+        <input type="checkbox" id="push-settings-toggle" disabled>
+        <span class="fn-toggle-slider"></span>
+      </label>
+    </div>
+
+    <%# Push prefs sub-row (shown when push enabled) %>
+    <div id="push-prefs-visible-row" style="display:none;padding:0.5rem 0;border-bottom:1px solid rgba(139,115,85,0.1);">
+      <form method="POST" action="/settings/push-prefs" id="push-prefs-form">
+        <label class="fn-checkbox-label" style="margin-bottom:0.5rem;">
+          <input class="fn-checkbox" type="checkbox" name="push_notify_posts" value="1">
+          <span>Posts</span>
+        </label>
+        <label class="fn-checkbox-label" style="margin-bottom:0.5rem;">
+          <input class="fn-checkbox" type="checkbox" name="push_notify_comments" value="1">
+          <span>Comments on my posts</span>
+        </label>
+        <label class="fn-checkbox-label" style="margin-bottom:0.75rem;">
+          <input class="fn-checkbox" type="checkbox" name="push_notify_big_news" value="1">
+          <span>Big News</span>
+        </label>
+        <button type="submit" class="fn-btn" style="font-size:0.85rem;padding:0.4rem 0.9rem;">Save push prefs</button>
+      </form>
+    </div>
+  </div>
+
+  <a href="/feedback" class="fn-settings-feedback-link">Send feedback to the admin</a>
+</div>
+
+<%# Hidden push state machine — app.js manages these IDs; kept in DOM but not displayed %>
+<div aria-hidden="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">
+  <div id="push-section"
+    data-notify-posts="<%= user.push_notify_posts != null ? user.push_notify_posts : 1 %>"
+    data-notify-comments="<%= user.push_notify_comments != null ? user.push_notify_comments : 1 %>"
+    data-notify-big-news="<%= user.push_notify_big_news != null ? user.push_notify_big_news : 1 %>">
+    <div id="push-state-default" class="hidden">
+      <button id="push-enable-btn" type="button">Enable</button>
+    </div>
+    <div id="push-state-enabled" class="hidden">
+      <button id="push-disable-btn" type="button">Disable</button>
+      <form method="POST" action="/settings/push-prefs">
+        <input type="checkbox" name="push_notify_posts" value="1">
+        <input type="checkbox" name="push_notify_comments" value="1">
+        <input type="checkbox" name="push_notify_big_news" value="1">
+      </form>
+    </div>
+    <div id="push-state-denied" class="hidden">
+      <p id="push-denied-instructions"></p>
+    </div>
+    <div id="push-ios-notice" class="hidden"></div>
+    <div id="push-email-notice" class="hidden"></div>
+  </div>
+</div>
+
+<%# Hidden avatar upload form (same pattern as profile.ejs) %>
+<form id="avatar-upload-form" method="POST" action="/settings/avatar" enctype="multipart/form-data" style="display:none;">
+  <input type="file" name="avatar" id="avatar-upload-input">
+</form>
+<form id="avatar-remove-form" method="POST" action="/settings/avatar/remove" style="display:none;"></form>
+
+<script src="/js/app.js"></script>
+<script>
+(function () {
+  // ── Inline edit rows ──────────────────────────────────────────────────────
+  document.querySelectorAll('[data-edit-row]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var id = btn.dataset.editRow;
+      var wrap = document.getElementById(id);
+      var isOpen = wrap.classList.contains('fn-settings-row-wrap--editing');
+      document.querySelectorAll('.fn-settings-row-wrap--editing').forEach(function (w) {
+        w.classList.remove('fn-settings-row-wrap--editing');
+      });
+      if (!isOpen) wrap.classList.add('fn-settings-row-wrap--editing');
+    });
+  });
+
+  document.querySelectorAll('[data-cancel-row]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var wrap = document.getElementById(btn.dataset.cancelRow);
+      wrap.classList.remove('fn-settings-row-wrap--editing');
+    });
+  });
+
+  // ── Email notification auto-save toggles ──────────────────────────────────
+  ['toggle-notify-posts', 'toggle-notify-comments'].forEach(function (id) {
+    var t = document.getElementById(id);
+    if (t) t.addEventListener('change', function () { t.closest('form').submit(); });
+  });
+
+  // ── Avatar ────────────────────────────────────────────────────────────────
+  var avatarRow = document.getElementById('avatar-row');
+  var avatarFileInput = document.getElementById('avatar-file-input');
+  var avatarUploadInput = document.getElementById('avatar-upload-input');
+  var avatarUploadForm = document.getElementById('avatar-upload-form');
+  var avatarRemoveForm = document.getElementById('avatar-remove-form');
+  var avatarPreview = document.getElementById('avatar-preview');
+  var avatarPendingActions = document.getElementById('avatar-pending-actions');
+  var avatarRemoveBtn = document.getElementById('avatar-remove-btn');
+  var originalPreviewHtml = avatarPreview.innerHTML;
+  var pendingFile = null;
+
+  avatarRow.addEventListener('click', function () { avatarFileInput.click(); });
+  if (avatarRemoveBtn) {
+    avatarRemoveBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      avatarRemoveForm.submit();
+    });
+  }
+
+  avatarFileInput.addEventListener('change', function (e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    pendingFile = file;
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      avatarPreview.innerHTML = '<img src="' + ev.target.result + '" style="width:100%;height:100%;object-fit:cover;" alt="">';
+      avatarPendingActions.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+    avatarFileInput.value = '';
+  });
+
+  document.getElementById('avatar-save-btn').addEventListener('click', function () {
+    if (!pendingFile) return;
+    var dt = new DataTransfer();
+    dt.items.add(pendingFile);
+    avatarUploadInput.files = dt.files;
+    avatarUploadForm.submit();
+  });
+
+  document.getElementById('avatar-cancel-btn').addEventListener('click', function () {
+    avatarPreview.innerHTML = originalPreviewHtml;
+    avatarPendingActions.style.display = 'none';
+    pendingFile = null;
+  });
+
+  // ── Push toggle bridge ────────────────────────────────────────────────────
+  var pushToggle = document.getElementById('push-settings-toggle');
+  var pushStatus = document.getElementById('push-toggle-status');
+  var pushPrefsRow = document.getElementById('push-prefs-visible-row');
+  var stateEnabled = document.getElementById('push-state-enabled');
+  var stateDenied = document.getElementById('push-state-denied');
+  var iosNotice = document.getElementById('push-ios-notice');
+
+  function syncPushToggle() {
+    var isEnabled = stateEnabled && stateEnabled.style.display !== '' && stateEnabled.style.display !== 'none';
+    var isDenied = stateDenied && stateDenied.style.display !== '' && stateDenied.style.display !== 'none';
+    var isIos = iosNotice && iosNotice.style.display !== '' && iosNotice.style.display !== 'none';
+
+    pushToggle.disabled = isDenied || isIos;
+    pushToggle.checked = isEnabled;
+
+    if (isEnabled) {
+      pushStatus.textContent = 'On for this device';
+      pushPrefsRow.style.display = 'block';
+      var section = document.getElementById('push-section');
+      if (section) {
+        var pp = document.querySelector('#push-prefs-form [name="push_notify_posts"]');
+        var pc = document.querySelector('#push-prefs-form [name="push_notify_comments"]');
+        var pb = document.querySelector('#push-prefs-form [name="push_notify_big_news"]');
+        if (pp) pp.checked = section.dataset.notifyPosts !== '0';
+        if (pc) pc.checked = section.dataset.notifyComments !== '0';
+        if (pb) pb.checked = section.dataset.notifyBigNews !== '0';
+      }
+    } else if (isDenied) {
+      pushStatus.textContent = 'Blocked by browser';
+      pushPrefsRow.style.display = 'none';
+    } else if (isIos) {
+      pushStatus.textContent = 'Add to Home Screen first';
+      pushPrefsRow.style.display = 'none';
+    } else {
+      pushStatus.textContent = 'Off';
+      pushPrefsRow.style.display = 'none';
+    }
+  }
+
+  var pushSection = document.getElementById('push-section');
+  if (pushSection) {
+    var observer = new MutationObserver(syncPushToggle);
+    observer.observe(pushSection, { attributes: true, attributeFilter: ['style', 'class'], subtree: true });
+  }
+
+  pushToggle.addEventListener('change', function () {
+    if (pushToggle.checked) {
+      var enableBtn = document.getElementById('push-enable-btn');
+      if (enableBtn) enableBtn.click();
+    } else {
+      var disableBtn = document.getElementById('push-disable-btn');
+      if (disableBtn) disableBtn.click();
+    }
+  });
+}());
+</script>
+</body></html>
