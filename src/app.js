@@ -54,7 +54,7 @@ app.use(flash());
 // ── Request locals ────────────────────────────────────────────────────────────
 app.use(async (req, res, next) => {
   res.locals.user = req.session.user || null;
-  res.locals.flash = req.flash();
+  res.locals.flash = req.session.flash ? req.flash() : {};
   if (req.session.user) {
     try {
       const [members] = await pool.query(
