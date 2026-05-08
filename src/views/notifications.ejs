@@ -69,13 +69,16 @@ function describeNotification(n) {
   </div>
 
   <% if (showChangelogDot) { %>
-  <a href="/whats-new" class="flex items-center gap-3 bg-brand-50 dark:bg-slate-800 rounded-2xl shadow-sm border border-brand-200 dark:border-slate-700 border-l-4 border-l-brand-600 p-4 hover:bg-brand-100 dark:hover:bg-slate-700 transition-colors no-underline">
-    <div class="w-9 h-9 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center flex-shrink-0 text-lg">📣</div>
-    <div class="flex-1 min-w-0">
-      <p class="text-sm font-medium text-slate-800 dark:text-slate-100">Family News has been updated</p>
-      <p class="text-xs text-brand-600 dark:text-brand-400 mt-0.5">See what's new →</p>
-    </div>
-  </a>
+  <div id="changelog-card" class="notif-row" style="position:relative;">
+    <a href="/whats-new" class="flex items-center gap-3 bg-brand-50 dark:bg-slate-800 rounded-2xl shadow-sm border border-brand-200 dark:border-slate-700 border-l-4 border-l-brand-600 p-4 pr-12 hover:bg-brand-100 dark:hover:bg-slate-700 transition-colors no-underline">
+      <div class="w-9 h-9 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center flex-shrink-0 text-lg">📣</div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium text-slate-800 dark:text-slate-100">Family News has been updated</p>
+        <p class="text-xs text-brand-600 dark:text-brand-400 mt-0.5">See what's new →</p>
+      </div>
+    </a>
+    <button type="button" id="changelog-dismiss" class="notif-dismiss" aria-label="Dismiss" title="Dismiss">✕</button>
+  </div>
   <% } %>
 
   <p id="notif-empty"
@@ -147,6 +150,25 @@ function describeNotification(n) {
         rows.forEach(function (row) { row.remove(); });
         document.getElementById('notif-empty').style.display = '';
         clearBtn.remove();
+      }, 280);
+    });
+  }
+
+  // Changelog card dismiss
+  var changelogBtn = document.getElementById('changelog-dismiss');
+  if (changelogBtn) {
+    changelogBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var card = document.getElementById('changelog-card');
+      card.classList.add('notif-removing');
+      fetch('/whats-new/seen', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .catch(function () { card.classList.remove('notif-removing'); });
+      setTimeout(function () {
+        card.remove();
+        if (!document.querySelector('.notif-row')) {
+          document.getElementById('notif-empty').style.display = '';
+        }
       }, 280);
     });
   }

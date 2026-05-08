@@ -5,6 +5,17 @@ const { requireAuth } = require('../middleware/auth');
 
 router.use(requireAuth);
 
+router.post('/seen', async (req, res) => {
+  try {
+    await pool.query('UPDATE users SET whats_new_seen_at = NOW() WHERE id = ?', [req.session.user.id]);
+    req.session.user.whats_new_seen_at = new Date();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.json({ ok: false });
+  }
+});
+
 router.get('/', async (req, res) => {
   try {
     const [entries] = await pool.query(
