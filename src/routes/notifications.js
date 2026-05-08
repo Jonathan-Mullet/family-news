@@ -30,6 +30,7 @@ router.get('/', requireAuth, async (req, res) => {
       req.session.user.whats_new_seen_at = new Date();
     }
 
+    res.set('Cache-Control', 'no-store');
     res.render('notifications', { notifications });
   } catch (err) {
     console.error(err);
