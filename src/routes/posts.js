@@ -224,6 +224,10 @@ router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
             for (const mu of mentionedUsers) {
               sendPushToUser(mu.id, { title: `${authorName} mentioned you`, body: excerpt, url: `/post/${postId}` });
               sendMentionNotification(mu.email, mu.name, authorName, excerpt, postUrl);
+              pool.query(
+                'INSERT INTO notifications (user_id, actor_id, type, post_id) VALUES (?, ?, ?, ?)',
+                [mu.id, req.session.user.id, 'mention', postId]
+              ).catch(e => console.error('Mention notification insert error:', e.message));
             }
           } catch (mentionErr) {
             console.error('Mention notification error:', mentionErr.message);
