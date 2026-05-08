@@ -474,6 +474,9 @@ input[type="datetime-local"].fn-input {
   border-bottom: 1px solid rgba(139, 115, 85, 0.1);
 }
 .fn-toggle-row:last-child { border-bottom: none; }
+.fn-toggle-row--sub { padding-left: 1rem; }
+.fn-toggle-row--sub .fn-toggle-row-label { font-size: 0.9rem; color: #6b5442; }
+.dark .fn-toggle-row--sub .fn-toggle-row-label { color: #9a7e5a; }
 .fn-toggle-row-label {
   font-family: 'Crimson Pro', Georgia, serif;
   font-size: 1rem;

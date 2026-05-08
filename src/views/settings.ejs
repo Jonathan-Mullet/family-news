@@ -233,21 +233,29 @@
     </div>
 
     <%# Push prefs sub-row (shown when push enabled) %>
-    <div id="push-prefs-visible-row" style="display:none;padding:0.5rem 0;border-bottom:1px solid rgba(139,115,85,0.1);">
+    <div id="push-prefs-visible-row" style="display:none;">
       <form method="POST" action="/settings/push-prefs" id="push-prefs-form">
-        <label class="fn-checkbox-label" style="margin-bottom:0.5rem;">
-          <input class="fn-checkbox" type="checkbox" name="push_notify_posts" value="1">
-          <span>Posts</span>
-        </label>
-        <label class="fn-checkbox-label" style="margin-bottom:0.5rem;">
-          <input class="fn-checkbox" type="checkbox" name="push_notify_comments" value="1">
-          <span>Comments on my posts</span>
-        </label>
-        <label class="fn-checkbox-label" style="margin-bottom:0.75rem;">
-          <input class="fn-checkbox" type="checkbox" name="push_notify_big_news" value="1">
-          <span>Big News</span>
-        </label>
-        <button type="submit" class="fn-btn" style="font-size:0.85rem;padding:0.4rem 0.9rem;">Save push prefs</button>
+        <div class="fn-toggle-row fn-toggle-row--sub">
+          <div class="fn-toggle-row-label">Posts</div>
+          <label class="fn-toggle">
+            <input type="checkbox" name="push_notify_posts" value="1">
+            <span class="fn-toggle-slider"></span>
+          </label>
+        </div>
+        <div class="fn-toggle-row fn-toggle-row--sub">
+          <div class="fn-toggle-row-label">Comments on my posts</div>
+          <label class="fn-toggle">
+            <input type="checkbox" name="push_notify_comments" value="1">
+            <span class="fn-toggle-slider"></span>
+          </label>
+        </div>
+        <div class="fn-toggle-row fn-toggle-row--sub">
+          <div class="fn-toggle-row-label">Big News</div>
+          <label class="fn-toggle">
+            <input type="checkbox" name="push_notify_big_news" value="1">
+            <span class="fn-toggle-slider"></span>
+          </label>
+        </div>
       </form>
     </div>
   </div>
@@ -314,6 +322,13 @@
   ['toggle-notify-posts', 'toggle-notify-comments'].forEach(function (id) {
     var t = document.getElementById(id);
     if (t) t.addEventListener('change', function () { t.closest('form').submit(); });
+  });
+
+  // ── Push pref auto-save toggles (shared form — all three sent together) ───
+  document.querySelectorAll('#push-prefs-form input[type="checkbox"]').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      document.getElementById('push-prefs-form').submit();
+    });
   });
 
   // ── Avatar ────────────────────────────────────────────────────────────────
