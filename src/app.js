@@ -6,6 +6,7 @@ const flash = require('connect-flash');
 const bcrypt = require('bcrypt');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { pool, initDb } = require('./db');
 const { startCron } = require('./cron');
 const { renderContent } = require('./utils/mentions');
@@ -21,15 +22,27 @@ app.set('views', path.join(__dirname, 'views'));
 app.locals.renderContent = renderContent;
 app.locals.extractVideoEmbed = extractVideoEmbed;
 
+// Content hash of CSS + JS — changes on every deploy that modifies assets,
+// busting browser caches without relying on ETags or file timestamps.
+app.locals.assetVersion = (() => {
+  try {
+    const css = fs.readFileSync(path.join(__dirname, 'public/css/theme.css'));
+    const js = fs.readFileSync(path.join(__dirname, 'public/js/app.js'));
+    return crypto.createHash('sha1').update(css).update(js).digest('hex').slice(0, 8);
+  } catch {
+    return Date.now().toString(36);
+  }
+})();
+
 // ── Static files ─────────────────────────────────────────────────────────────
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders(res, filePath) {
     if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
-      // no-cache forces the browser to revalidate on every load, preventing iOS
-      // PWA from serving stale JS/CSS assets after a deploy.
-      res.set('Cache-Control', 'no-cache');
+      // URLs include ?v=<contentHash> so each deploy with changed files gets a
+      // new URL — long max-age is safe and avoids any ETag/mtime stale-cache issues.
+      res.set('Cache-Control', 'public, max-age=31536000, immutable');
     }
   }
 }));
@@ -53,6 +66,8 @@ app.use(flash());
 
 // ── Request locals ────────────────────────────────────────────────────────────
 app.use(async (req, res, next) => {
+  // Prevent HTML pages from being served from cache — ensures fresh content after deploys.
+  res.set('Cache-Control', 'no-cache');
   res.locals.user = req.session.user || null;
   res.locals.flash = req.session.flash ? req.flash() : {};
   if (req.session.user) {

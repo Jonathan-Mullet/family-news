@@ -61,7 +61,7 @@
   <% } %>
 </div>
 
-<script src="/js/app.js"></script>
+<script src="/js/app.js?v=<%= assetVersion %>"></script>
 <script>
   const _galleryPhotos = <%- JSON.stringify(photos.map(p => p.photo_url)).replace(/<\//g, '<\\/') %>;
 </script>
