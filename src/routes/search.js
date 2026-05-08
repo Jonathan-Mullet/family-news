@@ -43,7 +43,10 @@ function buildSnippet(content, query) {
 router.get('/', requireAuth, async (req, res) => {
   const q = (req.query.q || '').trim();
 
+  const wantJson = req.query.format === 'json';
+
   if (q.length < MIN_QUERY_LEN) {
+    if (wantJson) return res.json({ query: q, results: [], error: null });
     return res.render('search', { query: q, results: null, error: null });
   }
 
@@ -67,9 +70,11 @@ router.get('/', requireAuth, async (req, res) => {
       snippet: buildSnippet(r.content, q),
     }));
 
+    if (wantJson) return res.json({ query: q, results, error: null });
     res.render('search', { query: q, results, error: null });
   } catch (err) {
     console.error('Search error:', err);
+    if (wantJson) return res.json({ query: q, results: [], error: 'Search is temporarily unavailable.' });
     res.render('search', { query: q, results: null, error: 'Search is temporarily unavailable.' });
   }
 });
