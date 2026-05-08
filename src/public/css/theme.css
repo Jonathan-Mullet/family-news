@@ -535,11 +535,58 @@ input[type="datetime-local"].fn-input {
   padding: 0;
   font-family: inherit;
   text-decoration: underline;
-  margin-top: 0.2rem;
-  display: block;
 }
 .fn-settings-avatar-remove:hover { color: #8b3020; }
 .dark .fn-settings-avatar-remove { color: #e08878; }
+
+/* Settings page — centered avatar layout */
+.fn-settings-avatar-centered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 1.25rem 0 1rem;
+  border-bottom: 1px solid rgba(139, 115, 85, 0.1);
+  cursor: pointer;
+}
+.fn-settings-avatar-circle--lg { width: 72px; height: 72px; font-size: 1.75rem; }
+.fn-settings-avatar-btns { display: flex; align-items: center; gap: 0.75rem; }
+.fn-settings-avatar-change-btn {
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: 0.875rem;
+  color: #4a3525;
+  background: rgba(139, 115, 85, 0.1);
+  border: 1px solid rgba(139, 115, 85, 0.22);
+  border-radius: 4px;
+  padding: 0.3rem 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.fn-settings-avatar-change-btn:hover { background: rgba(139, 115, 85, 0.18); }
+.fn-settings-avatar-change-btn:focus-visible { outline: 2px solid #8b5e3c; outline-offset: 2px; }
+.dark .fn-settings-avatar-change-btn { color: #c8a880; background: rgba(154, 126, 90, 0.12); border-color: rgba(154, 126, 90, 0.2); }
+.dark .fn-settings-avatar-change-btn:hover { background: rgba(154, 126, 90, 0.2); }
+
+/* Notifications sub-labels and note */
+.fn-settings-sub-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #8b7355;
+  padding: 0.75rem 0 0;
+}
+.dark .fn-settings-sub-label { color: #7a6040; }
+.fn-settings-note {
+  font-size: 0.78rem;
+  color: #8b7355;
+  line-height: 1.4;
+  padding: 0.25rem 0 0.6rem;
+  border-bottom: 1px solid rgba(139, 115, 85, 0.1);
+  margin: 0;
+}
+.dark .fn-settings-note { color: #9a8060; }
+#push-toggle-row { border-bottom: none; }
 
 /* Settings page — feedback footer link */
 .fn-settings-feedback-link {
@@ -752,6 +799,16 @@ input[type="datetime-local"].fn-input {
   color: #8b7355;
   margin-top: 0.1rem;
 }
+.fn-drawer-header-link {
+  text-decoration: none;
+  border-radius: 4px;
+  padding: 0.15rem 0.3rem;
+  margin: -0.15rem -0.3rem;
+  transition: background 0.15s;
+  display: block;
+}
+.fn-drawer-header-link:hover { background: rgba(44, 24, 16, 0.06); }
+.dark .fn-drawer-header-link:hover { background: rgba(245, 229, 208, 0.07); }
 .fn-drawer-close {
   position: absolute;
   top: 0.75rem;

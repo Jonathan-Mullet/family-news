@@ -16,17 +16,16 @@
 
     <%# Avatar row %>
     <div>
-      <div class="fn-settings-avatar-row" id="avatar-row">
-        <div class="fn-settings-avatar-circle" id="avatar-preview">
+      <div class="fn-settings-avatar-centered" id="avatar-row">
+        <div class="fn-settings-avatar-circle fn-settings-avatar-circle--lg" id="avatar-preview">
           <% if (user.avatar_url) { %>
             <img src="<%= user.avatar_url %>" style="width:100%;height:100%;object-fit:cover;" alt="" id="avatar-img">
           <% } else { %>
             <%= user.name.charAt(0).toUpperCase() %>
           <% } %>
         </div>
-        <div>
-          <div class="fn-settings-avatar-label" id="avatar-change-label">Change photo</div>
-          <div class="fn-settings-avatar-sub">JPG or PNG, up to 5 MB</div>
+        <div class="fn-settings-avatar-btns">
+          <button type="button" class="fn-settings-avatar-change-btn" id="avatar-change-label">Change photo</button>
           <% if (user.avatar_url) { %>
             <button type="button" class="fn-settings-avatar-remove" id="avatar-remove-btn" onclick="event.stopPropagation()">Remove</button>
           <% } %>
@@ -191,6 +190,8 @@
       <span class="fn-settings-section-label">Notifications</span>
     </div>
 
+    <div class="fn-settings-sub-label">Email</div>
+
     <%# New posts toggle — each toggle is its own form to avoid zeroing the other pref on submit %>
     <div class="fn-toggle-row">
       <div class="fn-toggle-row-label">New posts</div>
@@ -214,6 +215,10 @@
         </label>
       </form>
     </div>
+
+    <p class="fn-settings-note">Big News posts are always emailed to everyone, regardless of these settings.</p>
+
+    <div class="fn-settings-sub-label">Push</div>
 
     <%# Push notifications toggle row — bridged to existing push state machine via MutationObserver %>
     <div class="fn-toggle-row" id="push-toggle-row">
