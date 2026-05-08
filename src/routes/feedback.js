@@ -9,7 +9,8 @@ router.use(requireAuth);
 router.get('/', (req, res) => {
   const submitted = req.query.submitted || null;
   const error = req.query.error || null;
-  const autoOpen = submitted || req.query.from || null;
+  const raw = submitted || req.query.from;
+  const autoOpen = ['bug', 'feature'].includes(raw) ? raw : null;
   res.render('feedback', { submitted, error, autoOpen });
 });
 
