@@ -74,6 +74,7 @@ router.post('/password', async (req, res) => {
 // Save the user's email notification preferences for new posts and comments.
 // No flash success message — this is an auto-save handler; the flash message would be distracting.
 router.post('/notifications', async (req, res) => {
+  const isAjax = req.headers['x-requested-with'] === 'XMLHttpRequest';
   const notify_posts = req.body.notify_posts ? 1 : 0;
   const notify_comments = req.body.notify_comments ? 1 : 0;
   try {
@@ -85,8 +86,10 @@ router.post('/notifications', async (req, res) => {
     req.session.user.notify_comments = notify_comments;
   } catch (err) {
     console.error(err);
+    if (isAjax) return res.status(500).json({ ok: false, error: 'Could not save preferences.' });
     req.flash('error', 'Could not save preferences.');
   }
+  if (isAjax) return res.json({ ok: true });
   res.redirect('/settings');
 });
 
@@ -136,6 +139,7 @@ router.post('/birthday', async (req, res) => {
 // Save the user's push notification preferences for posts, comments, and big-news announcements.
 // No flash success message — this is an auto-save handler; the flash message would be distracting.
 router.post('/push-prefs', async (req, res) => {
+  const isAjax = req.headers['x-requested-with'] === 'XMLHttpRequest';
   const push_notify_posts = req.body.push_notify_posts ? 1 : 0;
   const push_notify_comments = req.body.push_notify_comments ? 1 : 0;
   const push_notify_big_news = req.body.push_notify_big_news ? 1 : 0;
@@ -149,8 +153,10 @@ router.post('/push-prefs', async (req, res) => {
     req.session.user.push_notify_big_news = push_notify_big_news;
   } catch (err) {
     console.error(err);
+    if (isAjax) return res.status(500).json({ ok: false, error: 'Could not save push preferences.' });
     req.flash('error', 'Could not save push preferences.');
   }
+  if (isAjax) return res.json({ ok: true });
   res.redirect('/settings');
 });
 
