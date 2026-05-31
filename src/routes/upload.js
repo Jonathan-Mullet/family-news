@@ -1,11 +1,29 @@
 // Multer + Sharp image processing middleware for single photo, multi-photo gallery, and avatar uploads.
 const multer = require('multer');
 const sharp = require('sharp');
+const heicConvert = require('heic-convert');
 const path = require('path');
 const fs = require('fs');
 
 // This path is a Docker volume mount: /app/uploads inside the container maps to a persistent directory on the Pi host.
 const UPLOADS_DIR = '/app/uploads';
+
+// iPhones default to HEIC, which sharp's bundled libheif can't decode (no HEVC
+// decoder plugin) — it would silently write a 0-byte file. Detect HEIC by its
+// ISO-BMFF `ftyp` brand and convert to a JPEG buffer (pure-JS, libheif WASM)
+// before handing off to sharp. JPEG/PNG pass through untouched.
+const HEIC_BRANDS = new Set(['heic', 'heix', 'heim', 'heis', 'hevc', 'hevx', 'hevm', 'hevs', 'mif1', 'msf1']);
+function isHeic(buffer) {
+  if (!buffer || buffer.length < 12) return false;
+  if (buffer.toString('latin1', 4, 8) !== 'ftyp') return false;
+  return HEIC_BRANDS.has(buffer.toString('latin1', 8, 12));
+}
+async function toProcessableBuffer(buffer) {
+  if (!isHeic(buffer)) return buffer;
+  // libheif applies the rotation transforms while decoding, so the JPEG comes out
+  // upright; sharp's later .rotate() then becomes a harmless no-op.
+  return heicConvert({ buffer, format: 'JPEG', quality: 1 });
+}
 
 // Ensure uploads directory exists
 try { fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch {}
@@ -28,7 +46,8 @@ const upload = multer({
 async function processAndSave(buffer) {
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
   const outPath = path.join(UPLOADS_DIR, filename);
-  await sharp(buffer)
+  const src = await toProcessableBuffer(buffer);
+  await sharp(src)
     // .rotate() with no argument reads the EXIF orientation tag and auto-rotates the image,
     // which fixes sideways or upside-down photos taken on phones.
     .rotate()
@@ -61,7 +80,8 @@ function handleUpload(req, res, next) {
 async function processAndSaveAvatar(buffer) {
   const filename = `avatar-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
   const outPath = path.join(UPLOADS_DIR, filename);
-  await sharp(buffer)
+  const src = await toProcessableBuffer(buffer);
+  await sharp(src)
     // .rotate() auto-corrects EXIF orientation so selfies aren't sideways.
     .rotate()
     .resize(256, 256, { fit: 'cover', position: 'centre' })
