@@ -277,7 +277,12 @@
     <% } %>
   </nav>
   <div class="fn-drawer-footer" id="drawer-footer">
-    <a href="/logout" class="fn-drawer-footer-btn">Sign out</a>
+    <%# Logout must be a POST so a hostile link/img can't sign members out;
+        .fn-drawer-footer-btn already styles buttons (background:none, border,
+        cursor) so this renders identically to the old <a>. %>
+    <form method="POST" action="/logout" style="margin:0;">
+      <button type="submit" class="fn-drawer-footer-btn">Sign out</button>
+    </form>
   </div>
 </div>
 <script>

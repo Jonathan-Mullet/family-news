@@ -99,9 +99,16 @@ router.post('/mod/posts/:id/restore', requireMod, async (req, res) => {
 
 router.post('/mod/posts/:id/purge', requireMod, async (req, res) => {
   try {
+    // Snapshot photo paths first (the DELETE cascades post_photos away), but
+    // only unlink AFTER the DB delete succeeds — and only for posts that are
+    // actually in the trash. Orphaned files are recoverable; deleted files of
+    // a live post are not.
     const [photos] = await pool.query('SELECT photo_url FROM post_photos WHERE post_id = ?', [req.params.id]);
-    photos.forEach(ph => deleteUploadedFile(ph.photo_url));
-    await pool.query('DELETE FROM posts WHERE id = ?', [req.params.id]);
+    const [result] = await pool.query(
+      'DELETE FROM posts WHERE id = ? AND deleted_at IS NOT NULL',
+      [req.params.id]
+    );
+    if (result.affectedRows > 0) photos.forEach(ph => deleteUploadedFile(ph.photo_url));
   } catch (err) { console.error(err); }
   res.redirect('/mod');
 });
@@ -115,7 +122,8 @@ router.post('/mod/comments/:id/restore', requireMod, async (req, res) => {
 
 router.post('/mod/comments/:id/purge', requireMod, async (req, res) => {
   try {
-    await pool.query('DELETE FROM comments WHERE id = ?', [req.params.id]);
+    // Purge can only ever touch already-trashed comments.
+    await pool.query('DELETE FROM comments WHERE id = ? AND deleted_at IS NOT NULL', [req.params.id]);
   } catch (err) { console.error(err); }
   res.redirect('/mod');
 });

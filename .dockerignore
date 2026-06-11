@@ -1,5 +1,10 @@
 .env
+.env.example
 node_modules
 .git
 .github
+.gitignore
+.dockerignore
+.superpowers
+docs
 *.md

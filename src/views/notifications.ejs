@@ -11,7 +11,7 @@ function timeAgo(date) {
   if (hrs < 24) return hrs + 'h ago';
   const days = Math.floor(hrs / 24);
   if (days < 7) return days + 'd ago';
-  return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return null; // >=7d: render an absolute <time data-ts> instead (viewer's TZ, not the server's)
 }
 function describeNotification(n) {
   if (n.type === 'comment') return 'commented on your post';
@@ -103,7 +103,7 @@ function describeNotification(n) {
           <% if (n.post_title) { %>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate"><%= n.post_title %></p>
           <% } %>
-          <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5"><%= timeAgo(n.created_at) %></p>
+          <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5"><% const ago = timeAgo(n.created_at); %><% if (ago) { %><%= ago %><% } else { %><time data-ts="<%= new Date(n.created_at).toISOString() %>" data-opts='{"month":"short","day":"numeric"}'></time><% } %></p>
         </div>
       </a>
       <button type="button" class="notif-dismiss" data-id="<%= n.id %>" aria-label="Dismiss notification" title="Dismiss">✕</button>

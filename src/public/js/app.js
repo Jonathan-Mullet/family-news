@@ -3,15 +3,24 @@
 // viewer's local timezone client-side.
 // EJS renders timestamps server-side (wrong TZ), so we emit bare <time data-ts="ISO">
 // elements and fill them here. data-fmt="long" = weekday+long month, "compact" = no year.
-document.querySelectorAll('time[data-ts]').forEach(el => {
-  const fmt = el.dataset.fmt;
-  const opts = fmt === 'long'
-    ? { weekday:'long', month:'long', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', timeZoneName:'short' }
-    : fmt === 'compact'
-    ? { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', timeZoneName:'short' }
-    : { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', timeZoneName:'short' };
-  el.textContent = new Date(el.dataset.ts).toLocaleString('en-US', opts);
-});
+// Rootable so feed "Load more" can localize times inside freshly-appended cards.
+function localizeTimes(root = document) {
+  root.querySelectorAll('time[data-ts]').forEach(el => {
+    // data-opts: raw Intl options JSON for one-off date formats (admin lists, invite
+    // expiry, etc.) so server views never bake their UTC clock into visible text.
+    if (el.dataset.opts) {
+      try { el.textContent = new Date(el.dataset.ts).toLocaleDateString('en-US', JSON.parse(el.dataset.opts)); return; } catch (_) {}
+    }
+    const fmt = el.dataset.fmt;
+    const opts = fmt === 'long'
+      ? { weekday:'long', month:'long', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', timeZoneName:'short' }
+      : fmt === 'compact'
+      ? { month:'short', day:'numeric', hour:'numeric', minute:'2-digit', timeZoneName:'short' }
+      : { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit', timeZoneName:'short' };
+    el.textContent = new Date(el.dataset.ts).toLocaleString('en-US', opts);
+  });
+}
+localizeTimes();
 
 // ── Dark mode ────────────────────────────────────────────────────────────────
 // Dark mode toggle
@@ -99,12 +108,16 @@ async function fetchReactionNames(postId) {
 const EMOJI_ORDER = ['❤️','👍','😂','😮','😢','🎉','🙏','🔥','💯','🫶','👏','🥳','😍','🤣','😭','💪','🎂','🌟','👀','🤔','💔'];
 
 // Seeded from data-reactions attributes set by the server so initial render is instant.
+// Rootable so feed "Load more" can seed state for freshly-appended cards.
 const reactionState = {};
-document.querySelectorAll('[id^="reaction-chips-"]').forEach(el => {
-  const postId = el.id.replace('reaction-chips-', '');
-  try { reactionState[postId] = JSON.parse(el.dataset.reactions || '{}'); }
-  catch { reactionState[postId] = {}; }
-});
+function seedReactions(root = document) {
+  root.querySelectorAll('[id^="reaction-chips-"]').forEach(el => {
+    const postId = el.id.replace('reaction-chips-', '');
+    try { reactionState[postId] = JSON.parse(el.dataset.reactions || '{}'); }
+    catch { reactionState[postId] = {}; }
+  });
+}
+seedReactions();
 
 function renderReactionChips(postId) {
   const chipsArea = document.getElementById(`reaction-chips-${postId}`);
@@ -494,12 +507,12 @@ function _makeCarouselArrow(label, handler) {
   return btn;
 }
 
-function _initPhotoCarousels() {
+function _initPhotoCarousels(root = document) {
   const THUMB = 52;
   const GAP = 5;
   const MAX_H = 280;
 
-  document.querySelectorAll('.photo-carousel').forEach(container => {
+  root.querySelectorAll('.photo-carousel').forEach(container => {
     const urls = JSON.parse(container.dataset.photos || '[]');
     if (urls.length < 2) return;
 
@@ -594,21 +607,66 @@ function _initPhotoCarousels() {
   });
 }
 
-// Wire single-photo click → lightbox
-document.querySelectorAll('.photo-single-wrap').forEach(wrap => {
-  const urls = JSON.parse(wrap.dataset.photos || '[]');
-  wrap.addEventListener('click', () => _openLightbox(urls, 0));
-});
-
-// Wire two-photo click → lightbox at the tapped index
-document.querySelectorAll('.photo-two-wrap').forEach(wrap => {
-  const urls = JSON.parse(wrap.dataset.photos || '[]');
-  wrap.querySelectorAll('.photo-two-img').forEach(img => {
-    img.addEventListener('click', () => _openLightbox(urls, parseInt(img.dataset.index) || 0));
+// Photo layouts (single / two-up / carousel) — rootable for appended feed pages.
+function initPhotoLayouts(root = document) {
+  // Wire single-photo click → lightbox
+  root.querySelectorAll('.photo-single-wrap').forEach(wrap => {
+    const urls = JSON.parse(wrap.dataset.photos || '[]');
+    wrap.addEventListener('click', () => _openLightbox(urls, 0));
   });
-});
 
-_initPhotoCarousels();
+  // Wire two-photo click → lightbox at the tapped index
+  root.querySelectorAll('.photo-two-wrap').forEach(wrap => {
+    const urls = JSON.parse(wrap.dataset.photos || '[]');
+    wrap.querySelectorAll('.photo-two-img').forEach(img => {
+      img.addEventListener('click', () => _openLightbox(urls, parseInt(img.dataset.index) || 0));
+    });
+  });
+
+  _initPhotoCarousels(root);
+}
+initPhotoLayouts();
+
+// ── Feed "Load more" ──────────────────────────────────────────────────────────
+// Older unpinned posts page in via /api/feed-page (keyset cursor). The server
+// returns post-card HTML rendered by the same partial as the page itself; we
+// append it and re-run the per-element initializers scoped to the new nodes
+// (reaction clicks/comment forms are document-delegated, so they just work).
+const _loadMoreBtn = document.getElementById('feed-load-more');
+if (_loadMoreBtn) {
+  _loadMoreBtn.addEventListener('click', async () => {
+    _loadMoreBtn.disabled = true;
+    const label = _loadMoreBtn.textContent;
+    _loadMoreBtn.textContent = 'Loading…';
+    try {
+      const r = await fetch(`/api/feed-page?before=${encodeURIComponent(_loadMoreBtn.dataset.before)}&beforeId=${encodeURIComponent(_loadMoreBtn.dataset.beforeId)}`);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const { html, hasMore, cursor } = await r.json();
+      if (html) {
+        const frag = document.createElement('div');
+        frag.innerHTML = html;
+        localizeTimes(frag);
+        seedReactions(frag);
+        initPhotoLayouts(frag);
+        frag.querySelectorAll('.mention-input').forEach(el => window._attachMentionInput && window._attachMentionInput(el));
+        const feed = document.getElementById('feed');
+        while (frag.firstChild) feed.appendChild(frag.firstChild);
+      }
+      if (hasMore && cursor) {
+        _loadMoreBtn.dataset.before = cursor.before;
+        _loadMoreBtn.dataset.beforeId = cursor.beforeId;
+        _loadMoreBtn.textContent = label;
+        _loadMoreBtn.disabled = false;
+      } else {
+        _loadMoreBtn.parentElement.remove();
+      }
+    } catch (e) {
+      console.error('load more failed:', e);
+      _loadMoreBtn.textContent = 'Couldn’t load — tap to retry';
+      _loadMoreBtn.disabled = false;
+    }
+  });
+}
 
 // ── Feed auto-refresh ─────────────────────────────────────────────────────────
 // Auto-refresh polling (feed page only)
@@ -881,3 +939,35 @@ if (_pushSection) {
 
   _initPushSection();
 }
+
+// ── Scheduled-post datetime handling ─────────────────────────────────────────
+// datetime-local inputs carry a timezone-less wall-clock, but the server runs
+// UTC — parsing the raw value there lands 7-8h off for Pacific users. So:
+// 1. Inputs with a data-iso attribute (admin reschedule) get their value
+//    filled here from the UTC ISO, rendered in the viewer's LOCAL time.
+// 2. On submit of any form marked data-schedule-form, the local wall-clock is
+//    converted to a UTC ISO string in the hidden publish_at_utc field, which
+//    is what the server actually parses.
+(function () {
+  const pad = n => String(n).padStart(2, '0');
+
+  document.querySelectorAll('input[type="datetime-local"][data-iso]').forEach(inp => {
+    const d = new Date(inp.dataset.iso);
+    if (isNaN(d.getTime())) return;
+    inp.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  });
+
+  document.querySelectorAll('form[data-schedule-form]').forEach(form => {
+    form.addEventListener('submit', () => {
+      const local = form.querySelector('input[type="datetime-local"]');
+      const hidden = form.querySelector('input[name="publish_at_utc"]');
+      if (!local || !hidden) return;
+      hidden.value = '';
+      if (local.value) {
+        // The browser parses a bare 'YYYY-MM-DDTHH:mm' string as LOCAL time.
+        const d = new Date(local.value);
+        if (!isNaN(d.getTime())) hidden.value = d.toISOString();
+      }
+    });
+  });
+})();

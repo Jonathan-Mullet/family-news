@@ -5,7 +5,25 @@ on:
     branches: [main]
 
 jobs:
+  # Gate: unit tests must pass before any image is built or deployed.
+  # Runs on GitHub-hosted runners — must NOT require the Pi.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
   build:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -32,7 +50,12 @@ jobs:
           context: .
           push: true
           platforms: linux/arm64
-          tags: ghcr.io/jonathan-mullet/family-news:latest
+          # Push both :latest (what compose deploys) and an immutable :<sha>
+          # tag so a bad deploy can be rolled back by pinning the previous
+          # commit's SHA tag in docker-compose.yml.
+          tags: |
+            ghcr.io/jonathan-mullet/family-news:latest
+            ghcr.io/jonathan-mullet/family-news:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -45,3 +68,24 @@ jobs:
           cd /home/jmull/docker
           docker compose pull family-news
           docker compose up -d --force-recreate family-news
+
+      # The service has no published host port (NPM reaches it over the
+      # Docker network), so probe /health from inside the container.
+      # This cannot auto-rollback — it exists to make a broken deploy
+      # loudly visible in Actions instead of failing silently.
+      - name: Post-deploy health check
+        run: |
+          echo "Waiting for family-news to answer /health..."
+          for i in $(seq 1 6); do
+            if docker exec family-news wget -qO- http://localhost:3000/health; then
+              echo ""
+              echo "Health check passed (attempt $i)."
+              exit 0
+            fi
+            echo "Attempt $i/6 failed; retrying in 5s..."
+            sleep 5
+          done
+          echo "::error::family-news failed its post-deploy health check — /health never answered after 6 attempts (30s)."
+          echo "Recent container logs:"
+          docker logs --tail 50 family-news || true
+          exit 1

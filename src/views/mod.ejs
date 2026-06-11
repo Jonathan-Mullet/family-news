@@ -13,7 +13,10 @@
     </p>
     <div class="flex items-center gap-2 flex-wrap">
       <code class="flex-1 text-xs bg-white dark:bg-slate-800 border border-green-200 dark:border-green-700 rounded-lg px-3 py-2 text-green-700 dark:text-green-300 break-all min-w-0"><%= flash.success %></code>
-      <button onclick="navigator.clipboard.writeText(<%- JSON.stringify(flash.success) %>).then(()=>this.textContent='Copied!')"
+      <%# URL lives in a data attribute (HTML-escaped), not inside a JS string literal —
+          the old raw JSON.stringify emitted literal double-quotes inside onclick="...",
+          terminating the attribute and breaking the button. %>
+      <button data-url="<%= flash.success %>" onclick="navigator.clipboard.writeText(this.dataset.url).then(()=>this.textContent='Copied!')"
         class="text-xs bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap min-h-[36px] flex-shrink-0">Copy link</button>
     </div>
   </div>
@@ -48,11 +51,11 @@
           <div class="flex-1 min-w-0">
             <code class="text-xs text-slate-600 dark:text-slate-300 break-all"><%= url %></code>
             <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-              Created by <%= invite.created_by_name %> · Expires <%= new Date(invite.expires_at).toLocaleDateString('en-US', { month:'short', day:'numeric' }) %>
+              Created by <%= invite.created_by_name %> · Expires <time data-ts="<%= new Date(invite.expires_at).toISOString() %>" data-opts='{"month":"short","day":"numeric"}'></time>
             </p>
           </div>
           <div class="flex gap-2 flex-shrink-0">
-            <button onclick="navigator.clipboard.writeText('<%= url %>').then(()=>this.textContent='✓')"
+            <button data-url="<%= url %>" onclick="navigator.clipboard.writeText(this.dataset.url).then(()=>this.textContent='✓')"
               class="text-xs text-brand-600 dark:text-brand-400 hover:text-brand-700 px-2 py-1.5 border border-brand-200 dark:border-brand-700 rounded-lg transition-colors min-h-[32px]">Copy</button>
             <form method="POST" action="/mod/invites/<%= invite.id %>/revoke" onsubmit="return confirm('Revoke this invite?')">
               <button type="submit" class="text-xs text-red-500 hover:text-red-700 px-2 py-1.5 border border-red-200 dark:border-red-800 rounded-lg transition-colors min-h-[32px]">Revoke</button>

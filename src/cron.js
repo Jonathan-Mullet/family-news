@@ -1,21 +1,26 @@
 /**
  * Scheduled tasks for Family News via node-cron.
  *
- * Currently runs a single daily job at 8 am server time. The server is a
- * Raspberry Pi 5 set to the America/Chicago timezone, so cron expressions
- * without an explicit timezone fire in Central Time.
+ * The container clock runs UTC, so every daily job passes an explicit
+ * `{ timezone: 'America/Los_Angeles' }` option — without it a "0 8 * * *"
+ * schedule would fire at 8 am UTC (midnight/1 am Pacific), not the labeled
+ * local hour the family expects.
  *
- * The job auto-posts birthday and anniversary messages. It handles two
- * distinct sources of events:
- *   1. `users.birthday` — a DATE column on the users table for family members
- *      who have accounts. Posts include a calculated age.
- *   2. `events` table — manually entered birthdays and anniversaries for
- *      people who do not have accounts (e.g. deceased relatives, children).
+ * Jobs:
+ *   - 8 am Pacific daily: auto-posts birthday and anniversary messages from
+ *     two sources: `users.birthday` (members with accounts; includes age) and
+ *     the `events` table (manually entered events for people without accounts).
+ *   - 3 am Pacific daily: purges soft-deleted posts/comments older than 14 days.
+ *   - Every 5 minutes: delivers email/push notifications for scheduled posts
+ *     whose publish_at has arrived (the create route deliberately skips
+ *     notifications for future-dated posts).
  */
 
 const cron = require('node-cron');
 const { pool } = require('./db');
 const { deleteUploadedFile } = require('./routes/upload');
+const { sendNewPostNotification, sendBigNewsNotification, sendMentionNotification } = require('./email');
+const { sendPushToAllUsers, sendPushToUser } = require('./push');
 
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 
@@ -45,8 +50,15 @@ function startCron() {
       // ── User birthdays (users.birthday column) ──────────────────────────────
       // Only covers family members who have an account and have filled in their
       // birthday. Age is calculated from the birth year stored in the column.
+      // Feb-29 birthdays: in non-leap years Feb 29 never matches NOW(), so the
+      // OR clause celebrates them on Feb 28 instead (only when this February
+      // actually ends on the 28th — in leap years the exact match handles it).
       const [birthdayUsers] = await pool.query(
-        'SELECT id, name, birthday FROM users WHERE MONTH(birthday) = MONTH(NOW()) AND DAY(birthday) = DAY(NOW()) AND active = 1'
+        `SELECT id, name, birthday FROM users WHERE active = 1 AND (
+           (MONTH(birthday) = MONTH(NOW()) AND DAY(birthday) = DAY(NOW()))
+           OR (MONTH(birthday) = 2 AND DAY(birthday) = 29
+               AND MONTH(NOW()) = 2 AND DAY(NOW()) = 28 AND DAY(LAST_DAY(NOW())) = 28)
+         )`
       );
       for (const u of birthdayUsers) {
         const age = new Date().getFullYear() - new Date(u.birthday).getFullYear();
@@ -59,8 +71,12 @@ function startCron() {
       // Covers anniversaries and birthdays for people without accounts. Events
       // are entered by an admin via the /admin/events UI and stored by
       // month+day (no year), so no age calculation is possible here.
+      // Same Feb-29 handling as user birthdays above.
       const [events] = await pool.query(
-        'SELECT * FROM events WHERE month = MONTH(NOW()) AND day = DAY(NOW())'
+        `SELECT * FROM events WHERE
+           (month = MONTH(NOW()) AND day = DAY(NOW()))
+           OR (month = 2 AND day = 29
+               AND MONTH(NOW()) = 2 AND DAY(NOW()) = 28 AND DAY(LAST_DAY(NOW())) = 28)`
       );
       for (const event of events) {
         let content;
@@ -76,9 +92,9 @@ function startCron() {
     } catch (err) {
       console.error('[cron] Error processing events:', err.message);
     }
-  });
+  }, { timezone: 'America/Los_Angeles' });
 
-  // Run at 3am every day: hard-delete soft-deleted posts and comments older than 14 days.
+  // Run at 3am every day (Pacific): hard-delete soft-deleted posts and comments older than 14 days.
   cron.schedule('0 3 * * *', async () => {
     console.log('[cron] Running trash purge...');
     try {
@@ -86,9 +102,12 @@ function startCron() {
         'SELECT id FROM posts WHERE deleted_at IS NOT NULL AND deleted_at < DATE_SUB(NOW(), INTERVAL 14 DAY)'
       );
       for (const post of stalePosts) {
+        // Snapshot photo paths first (DELETE cascades post_photos away), but
+        // unlink only AFTER the row delete succeeds — an orphaned file is
+        // recoverable, a deleted file under a still-live DB row is not.
         const [photos] = await pool.query('SELECT photo_url FROM post_photos WHERE post_id = ?', [post.id]);
-        photos.forEach(ph => deleteUploadedFile(ph.photo_url));
-        await pool.query('DELETE FROM posts WHERE id = ?', [post.id]);
+        const [result] = await pool.query('DELETE FROM posts WHERE id = ? AND deleted_at IS NOT NULL', [post.id]);
+        if (result.affectedRows > 0) photos.forEach(ph => deleteUploadedFile(ph.photo_url));
         console.log(`[cron] Purged post ${post.id}`);
       }
       // Purge standalone deleted comments whose parent post is still alive
@@ -105,6 +124,91 @@ function startCron() {
       console.log(`[cron] Trash purge complete: ${stalePosts.length} posts, ${staleComments.length} comments.`);
     } catch (err) {
       console.error('[cron] Error purging trash:', err.message);
+    }
+  }, { timezone: 'America/Los_Angeles' });
+
+  // Every 5 minutes: deliver notifications for scheduled posts whose publish
+  // time has arrived. The create route (src/routes/posts.js) deliberately
+  // skips ALL notifications when publish_at is in the future and leaves
+  // notified_at NULL; this job sends the same email/push/mention notifications
+  // once the post is live. (No timezone option needed — */5 is wall-clock
+  // agnostic, and the query compares UTC NOW() against UTC publish_at.)
+  cron.schedule('*/5 * * * *', async () => {
+    try {
+      const [due] = await pool.query(`
+        SELECT p.id, p.title, p.content, p.big_news, p.user_id, u.name AS author_name
+        FROM posts p JOIN users u ON p.user_id = u.id
+        WHERE p.publish_at IS NOT NULL AND p.publish_at <= NOW()
+          AND p.notified_at IS NULL AND p.deleted_at IS NULL
+      `);
+      if (!due.length) return;
+      const [users] = await pool.query('SELECT id, email, notify_posts FROM users WHERE active = 1');
+
+      for (const post of due) {
+        // Stamp notified_at BEFORE sending anything — at-most-once delivery,
+        // chosen deliberately: if the process crashes mid-send, some members
+        // may miss one notification, but the whole family can never be
+        // double-emailed. The notified_at IS NULL guard in the UPDATE also
+        // prevents two overlapping ticks from both claiming the same post.
+        const [claim] = await pool.query(
+          'UPDATE posts SET notified_at = NOW() WHERE id = ? AND notified_at IS NULL',
+          [post.id]
+        );
+        if (claim.affectedRows !== 1) continue;
+
+        const poster = { id: post.user_id, name: post.author_name };
+        // Stored content carries resolved @[Name](id) tokens; render them back
+        // to plain "@Name" for email/push bodies.
+        const plainContent = post.content.replace(/@\[([^\]]+)\]\(\d+\)/g, '@$1');
+        const postForEmail = { id: post.id, title: post.title, content: plainContent };
+
+        if (post.big_news) {
+          sendBigNewsNotification(users, poster, postForEmail)
+            .catch(err => console.error('[cron] Big news email error:', err));
+          sendPushToAllUsers(
+            { title: `📣 Big News from ${poster.name}`, body: (post.title || plainContent).substring(0, 100), url: `/post/${post.id}` },
+            { excludeUserId: poster.id, checkColumn: 'push_notify_big_news' }
+          ).catch(err => console.error('[cron] Big news push error:', err));
+        } else {
+          sendNewPostNotification(users, poster, postForEmail)
+            .catch(err => console.error('[cron] New post email error:', err));
+          sendPushToAllUsers(
+            { title: `${poster.name} posted`, body: plainContent.substring(0, 100), url: '/' },
+            { excludeUserId: poster.id, checkColumn: 'push_notify_posts' }
+          ).catch(err => console.error('[cron] New post push error:', err));
+        }
+
+        // Mentions were also deferred at create time. The mentioned user ids
+        // are recovered from the stored @[Name](id) tokens (no name re-matching).
+        const mentionIds = [...new Set(
+          [...post.content.matchAll(/@\[[^\]]+\]\((\d+)\)/g)].map(m => parseInt(m[1], 10))
+        )].filter(id => id !== post.user_id);
+        if (mentionIds.length) {
+          try {
+            const [mentioned] = await pool.query(
+              'SELECT id, email, name FROM users WHERE id IN (?) AND active = 1',
+              [mentionIds]
+            );
+            const excerpt = plainContent.substring(0, 80);
+            const postUrl = `${process.env.BASE_URL}/post/${post.id}`;
+            for (const mu of mentioned) {
+              sendPushToUser(mu.id, { title: `${poster.name} mentioned you`, body: excerpt, url: `/post/${post.id}` })
+                .catch(err => console.error('[cron] Mention push error:', err));
+              sendMentionNotification(mu.email, mu.name, poster.name, excerpt, postUrl)
+                .catch(err => console.error('[cron] Mention email error:', err));
+              pool.query(
+                'INSERT INTO notifications (user_id, actor_id, type, post_id) VALUES (?, ?, ?, ?)',
+                [mu.id, post.user_id, 'mention', post.id]
+              ).catch(e => console.error('[cron] Mention notification insert error:', e.message));
+            }
+          } catch (e) {
+            console.error('[cron] Mention delivery error:', e.message);
+          }
+        }
+        console.log(`[cron] Sent notifications for scheduled post ${post.id}`);
+      }
+    } catch (err) {
+      console.error('[cron] Scheduled-post notification error:', err.message);
     }
   });
 

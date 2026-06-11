@@ -7,7 +7,7 @@
 
   <%# Post creation card %>
   <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4">
-    <form method="POST" action="/posts" id="post-form" enctype="multipart/form-data">
+    <form method="POST" action="/posts" id="post-form" data-schedule-form enctype="multipart/form-data">
       <input type="file" name="photos" id="photo-input" accept="image/*" multiple class="hidden">
       <div class="space-y-3">
         <textarea name="content" rows="3" placeholder="Share some news with the family..."
@@ -30,11 +30,15 @@
               class="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-amber-600 focus:ring-amber-500">
             <span class="text-sm text-slate-600 dark:text-slate-300">📣 Mark as Big News <span class="text-slate-400 dark:text-slate-500 font-normal">(emails everyone)</span></span>
           </label>
-          <%# Schedule row %>
+          <%# Schedule row — the datetime-local input is the user's LOCAL wall-clock;
+              app.js converts it into the hidden publish_at_utc field (UTC ISO) on
+              submit, which is what the server actually parses. The named visible
+              input is only a no-JS fallback. %>
           <div>
             <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Schedule (optional)</label>
             <input type="datetime-local" name="publish_at"
               class="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600">
+            <input type="hidden" name="publish_at_utc" value="">
           </div>
         </div>
         <div class="flex items-center justify-between gap-2">
@@ -91,6 +95,17 @@
   <%- include('partials/post-card', { post, isScheduled, reactionsByPost, reactionNames, commentsByPost, readersByPost, memberCount }) %>
   <% }) %>
   </div>
+
+  <%# Load more — older unpinned posts page in via /api/feed-page (keyset cursor). %>
+  <% if (feedHasMore && feedCursor) { %>
+  <div class="text-center py-2">
+    <button id="feed-load-more"
+      data-before="<%= feedCursor.before %>" data-before-id="<%= feedCursor.beforeId %>"
+      class="px-6 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors min-h-[40px]">
+      Show older posts
+    </button>
+  </div>
+  <% } %>
 
   <%# Archived Big News %>
   <% if (archivedBigNews.length) { %>

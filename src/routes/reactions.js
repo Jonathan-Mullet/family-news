@@ -32,6 +32,14 @@ router.post('/posts/:id/react', requireAuth, async (req, res) => {
   const postId = req.params.id;
   const userId = req.session.user.id;
   try {
+    // The target post must exist, not be in the trash, and be published —
+    // authors may react to their own scheduled (not yet published) posts.
+    const [[targetPost]] = await pool.query(
+      'SELECT id FROM posts WHERE id = ? AND deleted_at IS NULL AND (publish_at IS NULL OR publish_at <= NOW() OR user_id = ?)',
+      [postId, userId]
+    );
+    if (!targetPost) return res.status(404).json({ error: 'Post not found' });
+
     const [existing] = await pool.query(
       'SELECT id FROM reactions WHERE post_id = ? AND user_id = ? AND emoji = ?',
       [postId, userId, emoji]

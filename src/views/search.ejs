@@ -2,15 +2,6 @@
 <%- include('partials/nav') %>
 
 <%
-function formatDate(date) {
-  const d = new Date(date);
-  const now = new Date();
-  const sameYear = d.getFullYear() === now.getFullYear();
-  return d.toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric',
-    year: sameYear ? undefined : 'numeric'
-  });
-}
 %>
 
 <style>
@@ -73,7 +64,7 @@ function formatDate(date) {
         <div class="flex-1 min-w-0">
           <div class="flex items-baseline justify-between gap-2 mb-1">
             <span class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate"><%= r.author_name %></span>
-            <span class="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0"><%= formatDate(r.created_at) %></span>
+            <span class="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0"><time data-ts="<%= new Date(r.created_at).toISOString() %>" data-opts='{"month":"short","day":"numeric"}'></time></span>
           </div>
           <% if (r.title) { %>
           <p class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1"><%= r.title %></p>

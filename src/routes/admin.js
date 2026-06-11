@@ -8,8 +8,7 @@ const { requireAdmin } = require('../middleware/auth');
 const crypto = require('crypto');
 const { sendPasswordReset, sendPromotionNotification, sendFeedbackResolved } = require('../email');
 const { sendPushToUser, sendTestPushById } = require('../push');
-const fs = require('fs');
-const path = require('path');
+const { parsePublishAt, toSqlUtc } = require('../utils/dates');
 
 // All routes in this file require admin role; non-admins are rejected before any handler runs.
 router.use(requireAdmin);
@@ -201,8 +200,10 @@ router.post('/users/:id/set-role', async (req, res) => {
     const roleRank = { member: 0, moderator: 1, admin: 2 };
     if (roleRank[role] > roleRank[target.role]) {
       const roleLabel = role.charAt(0).toUpperCase() + role.slice(1);
-      sendPushToUser(target.id, { title: `You've been made a ${roleLabel} on Family News 🎉`, body: 'Tap to see your new guide.', url: '/guide' });
-      sendPromotionNotification(target.email, target.name, role);
+      sendPushToUser(target.id, { title: `You've been made a ${roleLabel} on Family News 🎉`, body: 'Tap to see your new guide.', url: '/guide' })
+        .catch(err => console.error('Promotion push error:', err));
+      sendPromotionNotification(target.email, target.name, role)
+        .catch(err => console.error('Promotion email error:', err));
     }
   } catch (err) { console.error(err); }
   res.redirect('/admin');
@@ -239,11 +240,13 @@ router.post('/users/:id/send-reset', async (req, res) => {
     const [[user]] = await pool.query('SELECT id, name, email FROM users WHERE id = ?', [req.params.id]);
     if (!user) { req.flash('error', 'User not found.'); return res.redirect('/admin'); }
     const token = crypto.randomBytes(32).toString('hex');
+    // Store sha256(token) only — the raw token exists solely in the email.
+    // In-flight plaintext tokens become invalid at deploy; acceptable (1h expiry).
     await pool.query(
       'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 1 HOUR))',
-      [user.id, token]
+      [user.id, crypto.createHash('sha256').update(token).digest('hex')]
     );
-    sendPasswordReset(user.email, token);
+    sendPasswordReset(user.email, token).catch(err => console.error('Password reset email error:', err));
     req.flash('success', `Password reset email sent to ${user.name}.`);
   } catch (err) {
     console.error(err);
@@ -325,15 +328,20 @@ router.post('/posts/:id/cancel-scheduled', async (req, res) => {
 });
 
 // Update the scheduled time of a future post; new time must be in the future.
+// publish_at_utc is a hidden field the admin page JS fills with a UTC ISO
+// string converted from the datetime-local input — the browser knows the
+// admin's timezone; this UTC container does not (parsing the raw wall-clock
+// here would land 7-8h off for Pacific users). The raw publish_at value is
+// only a no-JS fallback, parsed in server TZ.
 router.post('/posts/:id/reschedule', async (req, res) => {
-  const { publish_at } = req.body;
-  if (!publish_at) {
+  const raw = (req.body.publish_at_utc || '').trim() || (req.body.publish_at || '').trim();
+  if (!raw) {
     req.flash('error', 'No date provided.');
     return res.redirect('/admin');
   }
-  const parsed = new Date(publish_at);
-  if (isNaN(parsed.getTime()) || parsed <= new Date()) {
-    req.flash('error', 'New time must be in the future.');
+  const parsed = parsePublishAt(raw); // null if unparseable or >1 year out
+  if (!parsed || parsed <= new Date()) {
+    req.flash('error', 'New time must be in the future (and no more than a year away).');
     return res.redirect('/admin');
   }
   try {
@@ -345,7 +353,7 @@ router.post('/posts/:id/reschedule', async (req, res) => {
       req.flash('error', 'Scheduled post not found.');
       return res.redirect('/admin');
     }
-    await pool.query('UPDATE posts SET publish_at = ? WHERE id = ?', [parsed, req.params.id]);
+    await pool.query('UPDATE posts SET publish_at = ? WHERE id = ?', [toSqlUtc(parsed), req.params.id]);
     req.flash('success', 'Post rescheduled.');
   } catch (err) {
     console.error(err);
@@ -372,15 +380,23 @@ router.post('/push/:id/test', async (req, res) => {
   res.json(result);
 });
 
-// Delete a changelog entry and update the sidecar file so the nav dot reflects the new latest.
+// Delete a changelog entry and refresh the in-memory latest-changelog timestamp
+// so the nav dot reflects the new latest immediately.
+//
+// Deliberately does NOT rewrite src/data/changelog-meta.json: the committed
+// sidecar in the repo is the source of truth (app.js loads it into
+// app.locals.latestChangelogAt at startup), and the host-side
+// scripts/add-changelog.js is the ONLY writer. Writing the file here would
+// only touch the container's ephemeral filesystem — every redeploy would
+// revert it, resurrecting a stale What's New dot. The in-memory update below
+// mirrors the startup load semantics (ISO string or null) and a redeploy
+// re-reading the committed sidecar is acceptable drift for a delete.
 router.post('/changelog/:id/delete', async (req, res) => {
   try {
     await pool.query('DELETE FROM changelog WHERE id = ?', [req.params.id]);
     const [[row]] = await pool.query('SELECT MAX(published_at) AS latestAt FROM changelog');
     const newLatest = row.latestAt ? new Date(row.latestAt).toISOString() : null;
     req.app.locals.latestChangelogAt = newLatest;
-    const sidecarPath = path.join(__dirname, '../data/changelog-meta.json');
-    await fs.promises.writeFile(sidecarPath, JSON.stringify({ latestAt: newLatest }, null, 2) + '\n');
     req.flash('success', 'Changelog entry deleted.');
   } catch (err) {
     console.error(err);

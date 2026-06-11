@@ -34,6 +34,18 @@ app.locals.assetVersion = (() => {
   }
 })();
 
+// ── Security headers ─────────────────────────────────────────────────────────
+// Minimal hand-rolled header set (no helmet). No CSP — the views rely on inline
+// scripts throughout. Referrer-Policy is no-referrer specifically because
+// password-reset URLs carry the token in the query string and must never leak
+// via the Referer header to external links.
+app.use((req, res, next) => {
+  res.set('X-Frame-Options', 'SAMEORIGIN');
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('Referrer-Policy', 'no-referrer');
+  next();
+});
+
 // ── Static files ─────────────────────────────────────────────────────────────
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -46,9 +58,9 @@ app.use(express.static(path.join(__dirname, 'public'), {
     }
   }
 }));
-// /uploads is a Docker volume mount — uploaded photos live outside the container
-// image so they survive image rebuilds and deploys.
-app.use('/uploads', express.static('/app/uploads'));
+// Liveness probe for Docker HEALTHCHECK / post-deploy verification. No session,
+// no DB — answers as long as the process serves requests.
+app.get('/health', (_req, res) => res.json({ ok: true }));
 
 // ── Session ───────────────────────────────────────────────────────────────────
 const sessionStore = new MySQLStore({}, pool);
@@ -60,9 +72,23 @@ app.use(session({
   // users logged in indefinitely rather than being logged out after 30 days.
   rolling: true,
   store: sessionStore,
-  cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 1000 * 60 * 60 * 24 * 30 },
+  cookie: { secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 1000 * 60 * 60 * 24 * 30 },
 }));
 app.use(flash());
+
+// Family photos are private — require a logged-in session to fetch them. This mount
+// sits AFTER the session middleware deliberately (the old pre-session mount served
+// /uploads to anyone on the internet who had or guessed a URL). A bare 401 (not a
+// login redirect) so a stale <img> fails quietly. /uploads is a Docker volume mount —
+// photos live outside the image so they survive rebuilds and deploys. Cache-Control
+// private: browsers may cache (filenames are content-unique, never reused), shared
+// caches must not store family photos.
+app.use('/uploads', (req, res, next) => {
+  if (!req.session.user) return res.status(401).end();
+  next();
+}, express.static('/app/uploads', {
+  setHeaders(res) { res.set('Cache-Control', 'private, max-age=2592000'); },
+}));
 
 // ── Request locals ────────────────────────────────────────────────────────────
 app.use(async (req, res, next) => {
@@ -81,13 +107,25 @@ app.use(async (req, res, next) => {
     }
     const latestAt = app.locals.latestChangelogAt;
     try {
-      const [[{ unread, whats_new_seen_at }]] = await pool.query(
-        'SELECT COUNT(n.id) AS unread, u.whats_new_seen_at FROM users u LEFT JOIN notifications n ON n.user_id = u.id AND n.read_at IS NULL WHERE u.id = ? GROUP BY u.id',
+      const [[me]] = await pool.query(
+        'SELECT COUNT(n.id) AS unread, u.whats_new_seen_at, u.role, u.active FROM users u LEFT JOIN notifications n ON n.user_id = u.id AND n.read_at IS NULL WHERE u.id = ? GROUP BY u.id',
         [req.session.user.id]
       );
-      res.locals.showChangelogDot = !!(latestAt && (!whats_new_seen_at || new Date(latestAt) > new Date(whats_new_seen_at)));
-      res.locals.showNotificationDot = res.locals.showChangelogDot || unread > 0;
+      // Stale-privilege defense: rolling 30/90-day cookies would otherwise let a
+      // deactivated or demoted user keep their old session privileges forever.
+      // Refresh role from the DB every request; kill the session on deactivation.
+      if (!me || !me.active) {
+        // Deactivated (or deleted) account — destroy the session and bail out to
+        // /login rather than calling next(): destroy() unsets req.session, which
+        // downstream middleware and routes dereference.
+        return req.session.destroy(() => res.redirect('/login'));
+      }
+      req.session.user.role = me.role;
+      res.locals.user = req.session.user;
+      res.locals.showChangelogDot = !!(latestAt && (!me.whats_new_seen_at || new Date(latestAt) > new Date(me.whats_new_seen_at)));
+      res.locals.showNotificationDot = res.locals.showChangelogDot || me.unread > 0;
     } catch {
+      // DB hiccup: fail open (keep the session) but hide the dots.
       res.locals.showChangelogDot = false;
       res.locals.showNotificationDot = false;
     }
@@ -140,6 +178,13 @@ app.use('/whats-new', require('./routes/whats-new'));
 app.use('/notifications', require('./routes/notifications'));
 app.use('/search', require('./routes/search'));
 
+// ── Process-level safety net ──────────────────────────────────────────────────
+// Fire-and-forget notification/preview work can reject after the response is
+// sent; log it rather than letting Node (v15+) kill the whole process.
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason);
+});
+
 // ── Server startup ────────────────────────────────────────────────────────────
 async function start() {
   // Fail fast rather than running in a silently broken state.
@@ -183,4 +228,10 @@ async function start() {
   app.listen(PORT, () => console.log(`Family News running on port ${PORT}`));
 }
 
-start().catch(err => { console.error(err); process.exit(1); });
+// Only listen when run directly (Docker CMD: `node src/app.js`); requiring this
+// module (e.g. from a future test) gets the app without binding a port.
+if (require.main === module) {
+  start().catch(err => { console.error(err); process.exit(1); });
+}
+
+module.exports = app;

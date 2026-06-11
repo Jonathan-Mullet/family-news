@@ -6,6 +6,7 @@ const bcrypt = require('bcrypt');
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { handleAvatarUpload, deleteUploadedFile } = require('./upload');
+const { isValidBirthday } = require('../utils/dates');
 
 // All settings routes require an authenticated session.
 router.use(requireAuth);
@@ -66,6 +67,21 @@ router.post('/password', async (req, res) => {
     }
     const hash = await bcrypt.hash(new_password, 12);
     await pool.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, req.session.user.id]);
+
+    // Log out this user's OTHER sessions (changing a password should evict
+    // anyone else holding the old credentials), keeping the current one.
+    // express-mysql-session JSON.stringify's the session into `data`, which
+    // contains '...,"user":{"id":<n>,"name":...' — the trailing comma keeps
+    // id 5 from matching id 50. Best-effort: never fail the password change.
+    try {
+      await pool.query(
+        'DELETE FROM sessions WHERE session_id != ? AND data LIKE ?',
+        [req.sessionID, `%"user":{"id":${Number(req.session.user.id)},%`]
+      );
+    } catch (sessErr) {
+      console.error('Session invalidation error (password change):', sessErr.message);
+    }
+
     req.flash('success', 'Password changed successfully.');
   } catch (err) { console.error(err); req.flash('error', 'Could not update password.'); }
   res.redirect('/settings');
@@ -93,26 +109,32 @@ router.post('/notifications', async (req, res) => {
   res.redirect('/settings');
 });
 
-// Upload and save a new avatar; the old avatar file is deleted from disk before saving the new path.
+// Upload and save a new avatar; the old avatar file is deleted from disk only
+// AFTER the DB update succeeds — if the old file were unlinked first and the
+// UPDATE then failed, every page would render a broken avatar image.
 router.post('/avatar', handleAvatarUpload, async (req, res) => {
   if (req.uploadError) { req.flash('error', req.uploadError); return res.redirect('/settings'); }
   if (!req.uploadedPath) { req.flash('error', 'No image received.'); return res.redirect('/settings'); }
   try {
-    // Delete the existing avatar from disk to avoid orphaned files accumulating in the uploads volume.
-    if (req.session.user.avatar_url) deleteUploadedFile(req.session.user.avatar_url);
+    const oldAvatar = req.session.user.avatar_url;
     await pool.query('UPDATE users SET avatar_url = ? WHERE id = ?', [req.uploadedPath, req.session.user.id]);
     req.session.user.avatar_url = req.uploadedPath;
+    // Best-effort cleanup of the now-unreferenced old file (deleteUploadedFile
+    // logs-and-continues on failure) to avoid orphans accumulating in uploads.
+    if (oldAvatar) deleteUploadedFile(oldAvatar);
     req.flash('success', 'Profile photo updated.');
   } catch (err) { console.error(err); req.flash('error', 'Could not save photo.'); }
   res.redirect('/settings');
 });
 
-// Remove the current avatar; deletes the file from disk and clears the DB column.
+// Remove the current avatar; clears the DB column first, then deletes the file
+// from disk (same ordering rationale as the upload route above).
 router.post('/avatar/remove', async (req, res) => {
   try {
-    if (req.session.user.avatar_url) deleteUploadedFile(req.session.user.avatar_url);
+    const oldAvatar = req.session.user.avatar_url;
     await pool.query('UPDATE users SET avatar_url = NULL WHERE id = ?', [req.session.user.id]);
     req.session.user.avatar_url = null;
+    if (oldAvatar) deleteUploadedFile(oldAvatar);
     req.flash('success', 'Profile photo removed.');
   } catch (err) { console.error(err); req.flash('error', 'Could not remove photo.'); }
   res.redirect('/settings');
@@ -123,8 +145,9 @@ router.post('/birthday', async (req, res) => {
   const { birthday_month, birthday_day, birthday_year } = req.body;
   if (!birthday_month || !birthday_day || !birthday_year) { req.flash('error', 'Birthday is required.'); return res.redirect('/settings'); }
   const birthday = `${birthday_year}-${birthday_month}-${birthday_day}`;
-  const date = new Date(birthday);
-  if (isNaN(date.getTime()) || date >= new Date()) {
+  // Strict calendar check: `new Date('2025-02-31')` silently rolls over to
+  // March 3, which then fails MySQL strict mode with an opaque error.
+  if (!isValidBirthday(birthday) || new Date(birthday) >= new Date()) {
     req.flash('error', 'Please enter a valid birthday.');
     return res.redirect('/settings');
   }

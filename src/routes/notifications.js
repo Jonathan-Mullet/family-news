@@ -15,6 +15,8 @@ router.get('/', requireAuth, async (req, res) => {
       JOIN users u ON n.actor_id = u.id
       JOIN posts p ON n.post_id = p.id
       WHERE n.user_id = ?
+        AND p.deleted_at IS NULL
+        AND (p.publish_at IS NULL OR p.publish_at <= NOW())
       ORDER BY n.created_at DESC
       LIMIT 50
     `, [userId]);

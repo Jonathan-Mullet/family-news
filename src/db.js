@@ -209,8 +209,42 @@ async function initDb() {
     `ALTER TABLE notifications ADD INDEX idx_user_read (user_id, read_at)`,
     `ALTER TABLE posts ADD FULLTEXT INDEX ft_posts (title, content)`,
   ];
+  // Only the "already applied" duplicate errors are expected and silently
+  // ignored: ER_DUP_FIELDNAME (column exists) and ER_DUP_KEYNAME (index
+  // exists). Anything else — connection trouble, a genuinely failed ALTER
+  // (e.g. FULLTEXT on an unsupported engine), bad SQL — is logged loudly so
+  // a broken migration is visible in the container logs instead of being
+  // swallowed. Startup still continues: none of these ALTERs are critical
+  // enough to take the whole site down over, and crash-looping the container
+  // would make things worse for a live deploy.
+  const EXPECTED_MIGRATION_ERRORS = ['ER_DUP_FIELDNAME', 'ER_DUP_KEYNAME'];
   for (const q of migrations) {
-    try { await pool.query(q); } catch { /* column already exists */ }
+    try {
+      await pool.query(q);
+    } catch (err) {
+      if (EXPECTED_MIGRATION_ERRORS.includes(err.code)) continue; // already applied
+      console.error(`MIGRATION FAILED (continuing startup): ${q}\n  → ${err.code || ''} ${err.message}`);
+    }
+  }
+
+  // ── notified_at migration + one-time backfill ───────────────────────────────
+  // posts.notified_at records when family-wide notifications for a post were
+  // sent (NULL = not yet sent; the 5-minute cron picks those up once
+  // publish_at arrives). The backfill must run ONLY when the column is first
+  // created — running it on every startup would stamp legitimately-pending
+  // scheduled posts — so it lives inside the same try as the ALTER: once the
+  // column exists the ALTER throws and the backfill is skipped. Backfilling
+  // notified_at = created_at means the cron never re-notifies historical posts.
+  try {
+    await pool.query(`ALTER TABLE posts ADD COLUMN notified_at DATETIME NULL`);
+    await pool.query(`UPDATE posts SET notified_at = created_at`);
+  } catch (err) {
+    // ER_DUP_FIELDNAME = column already exists, backfill already ran — the
+    // expected steady-state. Anything else means the migration genuinely
+    // failed and must be visible, not silent.
+    if (err.code !== 'ER_DUP_FIELDNAME') {
+      console.error(`MIGRATION FAILED (continuing startup): posts.notified_at\n  → ${err.code || ''} ${err.message}`);
+    }
   }
 }
 

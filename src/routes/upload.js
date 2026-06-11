@@ -4,6 +4,7 @@ const sharp = require('sharp');
 const heicConvert = require('heic-convert');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 // This path is a Docker volume mount: /app/uploads inside the container maps to a persistent directory on the Pi host.
 const UPLOADS_DIR = '/app/uploads';
@@ -44,7 +45,9 @@ const upload = multer({
 });
 
 async function processAndSave(buffer) {
-  const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+  // Unguessable name: upload URLs act like capability tokens for family photos,
+  // so use a CSPRNG — the old Date.now()+Math.random() prefix was predictable.
+  const filename = `${crypto.randomBytes(16).toString('hex')}.jpg`;
   const outPath = path.join(UPLOADS_DIR, filename);
   const src = await toProcessableBuffer(buffer);
   await sharp(src)
@@ -78,7 +81,7 @@ function handleUpload(req, res, next) {
 }
 
 async function processAndSaveAvatar(buffer) {
-  const filename = `avatar-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+  const filename = `avatar-${crypto.randomBytes(16).toString('hex')}.jpg`;
   const outPath = path.join(UPLOADS_DIR, filename);
   const src = await toProcessableBuffer(buffer);
   await sharp(src)

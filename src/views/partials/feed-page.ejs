@@ -1,0 +1,7 @@
+<%# One keyset page of regular posts, rendered server-side for the feed's
+    "Load more" endpoint (/api/feed-page) — same card partial, same locals shape
+    as the feed page itself, so appended cards are pixel-identical. isScheduled
+    covers the author previewing their own not-yet-published post. %>
+<% posts.forEach(post => { const isScheduled = post.publish_at && new Date(post.publish_at) > new Date(); %>
+<%- include('post-card', { post, isScheduled, reactionsByPost, reactionNames, commentsByPost, readersByPost, memberCount }) %>
+<% }) %>

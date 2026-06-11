@@ -19,7 +19,7 @@ router.get('/member/:id', requireAuth, async (req, res) => {
 
     const [posts] = await pool.query(`
       SELECT p.*, u.name AS author_name, u.avatar_url AS author_avatar,
-        (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
+        (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id AND c.deleted_at IS NULL) AS comment_count,
         lp.og_title, lp.og_description, lp.og_image, lp.url AS preview_url
       FROM posts p
       JOIN users u ON p.user_id = u.id

@@ -37,7 +37,7 @@
   <link rel="stylesheet" href="/css/theme.css?v=<%= assetVersion %>">
   <% if (user && familyMembers && familyMembers.length) { %>
   <script>
-    window.FAMILY_MEMBERS = <%- JSON.stringify(familyMembers.map(m => ({ id: m.id, name: m.name }))).replace(/<\//g, '<\\/') %>;
+    window.FAMILY_MEMBERS = <%- JSON.stringify(familyMembers.map(m => ({ id: m.id, name: m.name }))).replace(/</g, '\\u003c') %>;
   </script>
   <% } %>
 </head>

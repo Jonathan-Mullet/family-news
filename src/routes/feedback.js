@@ -26,7 +26,9 @@ router.post('/bug', async (req, res) => {
       'INSERT INTO feedback (user_id, type, title, description, severity) VALUES (?, "bug", ?, ?, ?)',
       [req.session.user.id, title, description, severity]
     );
-    const [[admin]] = await pool.query('SELECT email FROM users WHERE role = "admin" LIMIT 1');
+    // active = 1 + deterministic ORDER BY: never email a deactivated admin,
+    // and always pick the same (first) admin account.
+    const [[admin]] = await pool.query('SELECT email FROM users WHERE role = "admin" AND active = 1 ORDER BY id LIMIT 1');
     if (admin) {
       (async () => {
         await sendFeedbackNotification(admin.email, req.session.user.name, { type: 'bug', title, description, severity });
@@ -50,7 +52,9 @@ router.post('/feature', async (req, res) => {
       'INSERT INTO feedback (user_id, type, title, description) VALUES (?, "feature", ?, ?)',
       [req.session.user.id, title, description]
     );
-    const [[admin]] = await pool.query('SELECT email FROM users WHERE role = "admin" LIMIT 1');
+    // active = 1 + deterministic ORDER BY: never email a deactivated admin,
+    // and always pick the same (first) admin account.
+    const [[admin]] = await pool.query('SELECT email FROM users WHERE role = "admin" AND active = 1 ORDER BY id LIMIT 1');
     if (admin) {
       (async () => {
         await sendFeedbackNotification(admin.email, req.session.user.name, { type: 'feature', title, description, severity: null });

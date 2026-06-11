@@ -18,6 +18,14 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
     return res.redirect(`/post/${req.params.id}`);
   }
   try {
+    // The target post must exist, not be in the trash, and be published —
+    // authors may comment on their own scheduled (not yet published) posts.
+    const [[targetPost]] = await pool.query(
+      'SELECT id FROM posts WHERE id = ? AND deleted_at IS NULL AND (publish_at IS NULL OR publish_at <= NOW() OR user_id = ?)',
+      [req.params.id, req.session.user.id]
+    );
+    if (!targetPost) return res.redirect('/');
+
     const { content: resolvedContent, mentionedUserIds } = await resolveMentions(content.trim(), pool);
     const [commentResult] = await pool.query(
       'INSERT INTO comments (post_id, parent_id, user_id, content) VALUES (?, ?, ?, ?)',
@@ -34,13 +42,14 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
       if (postRows.length) {
         const post = postRows[0];
         const toUser = { id: post.user_id, email: post.email, notify_comments: post.notify_comments };
-        sendCommentNotification(toUser, req.session.user, { id: post.id, title: post.title });
+        sendCommentNotification(toUser, req.session.user, { id: post.id, title: post.title })
+          .catch(err => console.error('Comment email error:', err));
         if (post.user_id !== req.session.user.id) {
           sendPushToUser(
             post.user_id,
             { title: `${req.session.user.name} commented on your post`, body: content.trim().substring(0, 100), url: `/post/${post.id}` },
             { checkColumn: 'push_notify_comments' }
-          );
+          ).catch(err => console.error('Comment push error:', err));
           pool.query(
             'INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id) VALUES (?, ?, ?, ?, ?)',
             [post.user_id, req.session.user.id, 'comment', post.id, commentId]
@@ -84,8 +93,10 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
               [toNotify]
             );
             for (const mu of mentionedUsers) {
-              sendPushToUser(mu.id, { title: `${authorName} mentioned you`, body: excerpt, url: `/post/${postId}` });
-              sendMentionNotification(mu.email, mu.name, authorName, excerpt, postUrl);
+              sendPushToUser(mu.id, { title: `${authorName} mentioned you`, body: excerpt, url: `/post/${postId}` })
+                .catch(err => console.error('Mention push error:', err));
+              sendMentionNotification(mu.email, mu.name, authorName, excerpt, postUrl)
+                .catch(err => console.error('Mention email error:', err));
               pool.query(
                 'INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id) VALUES (?, ?, ?, ?, ?)',
                 [mu.id, req.session.user.id, 'mention', postId, commentId]
