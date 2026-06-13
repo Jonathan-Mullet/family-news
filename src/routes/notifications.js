@@ -8,7 +8,7 @@ router.get('/', requireAuth, async (req, res) => {
   const userId = req.session.user.id;
   try {
     const [notifications] = await pool.query(`
-      SELECT n.id, n.type, n.post_id, n.meta, n.read_at, n.created_at,
+      SELECT n.id, n.type, n.post_id, n.comment_id, n.meta, n.read_at, n.created_at,
              u.name AS actor_name, u.avatar_url AS actor_avatar,
              p.title AS post_title
       FROM notifications n

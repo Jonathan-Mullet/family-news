@@ -250,6 +250,13 @@
           </label>
         </div>
         <div class="fn-toggle-row fn-toggle-row--sub">
+          <div class="fn-toggle-row-label">Reactions</div>
+          <label class="fn-toggle">
+            <input type="checkbox" name="push_notify_reactions" value="1">
+            <span class="fn-toggle-slider"></span>
+          </label>
+        </div>
+        <div class="fn-toggle-row fn-toggle-row--sub">
           <div class="fn-toggle-row-label">Big News</div>
           <label class="fn-toggle">
             <input type="checkbox" name="push_notify_big_news" value="1">
@@ -268,6 +275,7 @@
   <div id="push-section"
     data-notify-posts="<%= user.push_notify_posts != null ? user.push_notify_posts : 1 %>"
     data-notify-comments="<%= user.push_notify_comments != null ? user.push_notify_comments : 1 %>"
+    data-notify-reactions="<%= user.push_notify_reactions != null ? user.push_notify_reactions : 1 %>"
     data-notify-big-news="<%= user.push_notify_big_news != null ? user.push_notify_big_news : 1 %>">
     <h2 style="display:none;" aria-hidden="true"></h2>
     <div id="push-state-default" class="hidden">
@@ -278,6 +286,7 @@
       <form method="POST" action="/settings/push-prefs">
         <input type="checkbox" name="push_notify_posts" value="1">
         <input type="checkbox" name="push_notify_comments" value="1">
+        <input type="checkbox" name="push_notify_reactions" value="1">
         <input type="checkbox" name="push_notify_big_news" value="1">
       </form>
     </div>
@@ -348,9 +357,11 @@
     if (!form) return;
     var posts = form.querySelector('[name="push_notify_posts"]');
     var comments = form.querySelector('[name="push_notify_comments"]');
+    var reactions = form.querySelector('[name="push_notify_reactions"]');
     var bigNews = form.querySelector('[name="push_notify_big_news"]');
     var body = 'push_notify_posts=' + (posts.checked ? 1 : 0) +
                '&push_notify_comments=' + (comments.checked ? 1 : 0) +
+               '&push_notify_reactions=' + (reactions.checked ? 1 : 0) +
                '&push_notify_big_news=' + (bigNews.checked ? 1 : 0);
     fetch('/settings/push-prefs', {
       method: 'POST',
@@ -440,9 +451,11 @@
       if (section) {
         var pp = document.querySelector('#push-prefs-form [name="push_notify_posts"]');
         var pc = document.querySelector('#push-prefs-form [name="push_notify_comments"]');
+        var pr = document.querySelector('#push-prefs-form [name="push_notify_reactions"]');
         var pb = document.querySelector('#push-prefs-form [name="push_notify_big_news"]');
         if (pp) pp.checked = section.dataset.notifyPosts !== '0';
         if (pc) pc.checked = section.dataset.notifyComments !== '0';
+        if (pr) pr.checked = section.dataset.notifyReactions !== '0';
         if (pb) pb.checked = section.dataset.notifyBigNews !== '0';
       }
     } else if (isDenied) {

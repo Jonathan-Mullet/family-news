@@ -18,7 +18,11 @@ function describeNotification(n) {
   if (n.type === 'reply') return 'replied to your comment';
   if (n.type === 'mention') return 'mentioned you';
   if (n.type === 'reaction') return 'reacted ' + n.meta + ' to your post';
+  if (n.type === 'comment_reaction') return 'reacted ' + n.meta + ' to your comment';
   return '';
+}
+function notifLink(n) {
+  return '/post/' + n.post_id + (n.comment_id ? '#comment-' + n.comment_id : '');
 }
 %>
 
@@ -88,7 +92,7 @@ function describeNotification(n) {
   <div id="notif-list">
     <% notifications.forEach(function(n, i) { %>
     <div class="notif-row<%= i > 0 ? ' mt-3' : '' %>" data-id="<%= n.id %>">
-      <a href="/post/<%= n.post_id %>" class="flex items-start gap-3 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 pr-8 transition-colors no-underline <%= !n.read_at ? 'bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50' : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700' %>">
+      <a href="<%= notifLink(n) %>" class="flex items-start gap-3 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 pr-8 transition-colors no-underline <%= !n.read_at ? 'bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50' : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700' %>">
         <% if (n.actor_avatar) { %>
         <img src="<%= n.actor_avatar %>" class="w-9 h-9 rounded-full object-cover flex-shrink-0" alt="">
         <% } else { %>
