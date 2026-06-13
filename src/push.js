@@ -12,7 +12,7 @@ const { pool } = require('./db');
 
 // Columns on the `users` table that are valid push preference flags.
 // Whitelisting prevents SQL injection if a call site ever passes user-controlled data.
-const PUSH_PREF_COLUMNS = new Set(['push_notify_posts', 'push_notify_comments', 'push_notify_big_news']);
+const PUSH_PREF_COLUMNS = new Set(['push_notify_posts', 'push_notify_comments', 'push_notify_big_news', 'push_notify_reactions']);
 
 // ── VAPID initialisation ──────────────────────────────────────────────────────
 
