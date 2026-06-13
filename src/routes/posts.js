@@ -254,6 +254,23 @@ router.get('/post/:id', requireAuth, async (req, res) => {
     const topLevel = comments.filter(c => !c.parent_id);
     topLevel.forEach(c => { c.replies = comments.filter(r => r.parent_id === c.id); });
 
+    // Load reactions for every comment + reply in one aggregate query, with a
+    // `mine` flag for the current user, and attach `comment.reactions` to each.
+    const allCommentIds = comments.map(c => c.id);
+    const reactionsByComment = {};
+    if (allCommentIds.length) {
+      const [rows] = await pool.query(
+        `SELECT comment_id, emoji, COUNT(*) AS count,
+                SUM(user_id = ?) AS mine
+         FROM comment_reactions WHERE comment_id IN (?) GROUP BY comment_id, emoji`,
+        [userId, allCommentIds]
+      );
+      rows.forEach(r => {
+        (reactionsByComment[r.comment_id] ||= []).push({ emoji: r.emoji, count: r.count, mine: !!Number(r.mine) });
+      });
+    }
+    comments.forEach(c => { c.reactions = reactionsByComment[c.id] || []; });
+
     res.render('post', { post, reactions: reactionMap, comments: topLevel, reactionNames });
   } catch (err) {
     console.error(err);
