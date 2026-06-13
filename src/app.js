@@ -165,6 +165,7 @@ app.use(async (req, res, next) => {
 app.use('/', require('./routes/auth'));
 app.use('/', require('./routes/posts'));
 app.use('/', require('./routes/reactions'));
+app.use('/', require('./routes/commentReactions'));
 app.use('/', require('./routes/comments'));
 app.use('/profile', require('./routes/profile'));
 app.use('/settings', require('./routes/settings'));
