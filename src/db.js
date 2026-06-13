@@ -83,6 +83,16 @@ async function initDb() {
       FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id)
     )`,
+    `CREATE TABLE IF NOT EXISTS comment_reactions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      comment_id INT NOT NULL,
+      user_id INT NOT NULL,
+      emoji VARCHAR(10) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_comment_reaction (comment_id, user_id, emoji),
+      FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )`,
     `CREATE TABLE IF NOT EXISTS password_reset_tokens (
       id INT AUTO_INCREMENT PRIMARY KEY,
       user_id INT NOT NULL,
@@ -207,6 +217,11 @@ async function initDb() {
     `ALTER TABLE comments MODIFY COLUMN deleted_at TIMESTAMP NULL`,
     `ALTER TABLE users ADD COLUMN whats_new_seen_at DATETIME NULL`,
     `ALTER TABLE notifications ADD INDEX idx_user_read (user_id, read_at)`,
+    // Comment reactions: extend the notification type enum and add the per-user
+    // push preference. MODIFY COLUMN is declarative and safe to re-run; the
+    // BOOLEAN/TINYINT(1) column follows the existing push_notify_* convention.
+    `ALTER TABLE notifications MODIFY COLUMN type ENUM('comment','reply','mention','reaction','comment_reaction') NOT NULL`,
+    `ALTER TABLE users ADD COLUMN push_notify_reactions TINYINT(1) DEFAULT 1`,
     `ALTER TABLE posts ADD FULLTEXT INDEX ft_posts (title, content)`,
   ];
   // Only the "already applied" duplicate errors are expected and silently
