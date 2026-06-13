@@ -1140,6 +1140,97 @@ input[type="datetime-local"].fn-input {
 }
 .dark .fn-reply-toggle:hover { background: #3a2a1c; }
 
+/* ── Comment reactions: chips, react button, quick bar ───────────────────── */
+.fn-reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.8125rem;
+  line-height: 1;
+  color: #6b7280;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  padding: 3px 9px;
+  min-height: 28px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.fn-reaction-chip:hover { border-color: #c49a6c; }
+.fn-reaction-chip--mine {
+  background: #fdf6f0;
+  border-color: #e5c9b0;
+  color: #8b5e3c;
+}
+.dark .fn-reaction-chip {
+  color: #cbd5e1;
+  background: rgba(51, 65, 85, 0.5);
+  border-color: #475569;
+}
+.dark .fn-reaction-chip:hover { border-color: #a97c50; }
+.dark .fn-reaction-chip--mine {
+  background: rgba(124, 86, 50, 0.25);
+  border-color: #5c3d2e;
+  color: #c49a6c;
+}
+
+.fn-comment-react-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  font-size: 0.8125rem;
+  line-height: 1;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  padding: 3px 7px;
+  min-height: 28px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.fn-comment-react-btn span { font-size: 0.7rem; margin-left: 1px; }
+.fn-comment-react-btn:hover { background: #f1f5f9; color: #64748b; }
+.dark .fn-comment-react-btn { color: #64748b; }
+.dark .fn-comment-react-btn:hover { background: rgba(51, 65, 85, 0.5); color: #cbd5e1; }
+
+.fn-quick-bar {
+  position: absolute;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  padding: 5px 8px;
+}
+.fn-quick-emoji {
+  font-size: 1.4rem;
+  line-height: 1;
+  background: none;
+  border: none;
+  border-radius: 9999px;
+  padding: 4px;
+  min-width: 40px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.15s;
+}
+.fn-quick-emoji:hover { transform: scale(1.2); background: #f1f5f9; }
+.fn-quick-more { font-size: 1.1rem; color: #94a3b8; }
+.dark .fn-quick-bar {
+  background: #1e293b;
+  border-color: #475569;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.dark .fn-quick-emoji:hover { background: rgba(51, 65, 85, 0.7); }
+.dark .fn-quick-more { color: #64748b; }
+
 /* ── Feedback page ─────────────────────────────────────────── */
 .fn-feedback-page {
   max-width: 36rem;

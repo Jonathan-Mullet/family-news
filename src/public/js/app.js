@@ -141,7 +141,7 @@ function renderReactionChips(postId) {
     chipsArea.insertBefore(chip, toggleBtn);
   });
 
-  if (_pickerPostId === postId) _syncPickerState(postId);
+  if (_pickerTarget && _pickerTarget.type === 'post' && _pickerTarget.id === postId) _syncPickerState();
 }
 
 async function renderReactionSummary(postId) {
@@ -198,6 +198,15 @@ async function handleReactionClick(postId, emoji) {
   } catch (e) { console.error(e); }
 }
 
+// ── Generalized react dispatch (posts + comments) ───────────────────────────────
+// The picker sheet and quick bar are reused for any target via a {type,id} pair.
+// type 'post' routes to the existing post chip/summary flow above; type 'comment'
+// re-renders that comment's chip row from the POST response JSON.
+function dispatchReact(target, emoji) {
+  if (target.type === 'post') return handleReactionClick(target.id, emoji);
+  if (target.type === 'comment') return handleCommentReactionClick(target.id, emoji);
+}
+
 // Event delegation — chips and summary (handles dynamically-created chips too)
 document.addEventListener('click', e => {
   const chip = e.target.closest('.reaction-chip');
@@ -242,7 +251,7 @@ const _pickerGrid = document.createElement('div');
 _pickerGrid.style.cssText = 'display:grid;grid-template-columns:repeat(7,1fr);gap:4px;';
 _pickerSheet.appendChild(_pickerGrid);
 
-let _pickerPostId = null;
+let _pickerTarget = null; // { type:'post'|'comment', id }
 let _pickerOverlay = null;
 const _pickerBtns = {};
 
@@ -254,16 +263,19 @@ EMOJI_ORDER.forEach(e => {
   btn.style.cssText = 'font-size:1.5rem;padding:8px;border-radius:10px;border:2px solid transparent;background:none;cursor:pointer;min-height:48px;display:flex;align-items:center;justify-content:center;';
   btn.addEventListener('click', ev => {
     ev.stopPropagation();
-    const postId = _pickerPostId;
+    const target = _pickerTarget;
     _hidePickerSheet();
-    if (postId) handleReactionClick(postId, e);
+    if (target) dispatchReact(target, e);
   });
   _pickerGrid.appendChild(btn);
   _pickerBtns[e] = btn;
 });
 
-function _syncPickerState(postId) {
-  const state = reactionState[postId] || {};
+function _syncPickerState() {
+  // Only the post flow tracks per-emoji userReacted state in reactionState;
+  // for comments we leave the grid neutral (chip row reflects the truth).
+  const state = (_pickerTarget && _pickerTarget.type === 'post')
+    ? (reactionState[_pickerTarget.id] || {}) : {};
   EMOJI_ORDER.forEach(e => {
     const btn = _pickerBtns[e];
     const active = !!state[e]?.userReacted;
@@ -272,10 +284,10 @@ function _syncPickerState(postId) {
   });
 }
 
-function _showPickerSheet(postId) {
-  if (_pickerPostId) return; // already open
-  _pickerPostId = postId;
-  _syncPickerState(postId);
+function _showPickerSheet(target) {
+  if (_pickerTarget) return; // already open
+  _pickerTarget = target;
+  _syncPickerState();
   _pickerOverlay = document.createElement('div');
   _pickerOverlay.style.cssText = 'position:fixed;inset:0;z-index:40;background:rgba(0,0,0,0.3)';
   document.body.appendChild(_pickerOverlay);
@@ -291,7 +303,7 @@ function _showPickerSheet(postId) {
 function _hidePickerSheet() {
   _pickerSheet.style.transform = 'translateY(100%)';
   if (_pickerOverlay) { _pickerOverlay.remove(); _pickerOverlay = null; }
-  _pickerPostId = null;
+  _pickerTarget = null;
 }
 
 _pickerCloseBtn.addEventListener('click', e => { e.stopPropagation(); _hidePickerSheet(); });
@@ -299,7 +311,167 @@ _pickerCloseBtn.addEventListener('click', e => { e.stopPropagation(); _hidePicke
 // Event delegation — works for any post, including ones added after page load
 document.addEventListener('click', e => {
   const toggleBtn = e.target.closest('.emoji-picker-toggle');
-  if (toggleBtn) _showPickerSheet(toggleBtn.dataset.postId);
+  if (toggleBtn) _showPickerSheet({ type: 'post', id: toggleBtn.dataset.postId });
+});
+
+// ── Comment reactions: chips + iMessage-style quick bar ─────────────────────────
+// QUICK_EMOJI / ALLOWED_EMOJI are hardcoded here for the client. They MUST stay in
+// sync with src/utils/reactionEmoji.js (the server-side source of truth).
+const QUICK_EMOJI = ['❤️', '👍', '😂', '😮', '😢', '🙏'];
+// ALLOWED_EMOJI === EMOJI_ORDER above (the full 21); reused via EMOJI_ORDER.
+
+// Re-render a single comment's chip row from the /comments/:id/react JSON, or from
+// a full {emoji:{count,mine}} map. We keep a tiny per-comment state map so toggling
+// one emoji doesn't wipe the others.
+const commentReactionState = {}; // id -> { emoji: count }  (only emojis the user reacted to are flagged via mine set)
+const commentMine = {};          // id -> Set(emoji) the current user reacted to
+
+function _seedCommentState(row) {
+  const id = row.dataset.commentId;
+  if (commentReactionState[id]) return;
+  const counts = {}; const mine = new Set();
+  row.querySelectorAll('.fn-reaction-chip').forEach(chip => {
+    const emoji = chip.dataset.emoji;
+    const m = chip.textContent.trim().match(/(\d+)\s*$/);
+    counts[emoji] = m ? parseInt(m[1], 10) : 0;
+    if (chip.classList.contains('fn-reaction-chip--mine')) mine.add(emoji);
+  });
+  commentReactionState[id] = counts;
+  commentMine[id] = mine;
+}
+
+function renderCommentChips(commentId) {
+  // Update every chip row for this comment id (a comment id is unique, but the
+  // bubble + reactions row share it; we target the reactions container).
+  document.querySelectorAll(`.fn-comment-reactions[data-comment-id="${commentId}"]`).forEach(row => {
+    const counts = commentReactionState[commentId] || {};
+    const mine = commentMine[commentId] || new Set();
+    row.querySelectorAll('.fn-reaction-chip').forEach(c => c.remove());
+    const reactBtn = row.querySelector('.fn-comment-react-btn');
+    EMOJI_ORDER.forEach(emoji => {
+      const count = counts[emoji];
+      if (!count || count <= 0) return;
+      const chip = document.createElement('button');
+      chip.className = 'fn-reaction-chip' + (mine.has(emoji) ? ' fn-reaction-chip--mine' : '');
+      chip.dataset.emoji = emoji;
+      chip.textContent = emoji + ' ' + count;
+      row.insertBefore(chip, reactBtn);
+    });
+  });
+}
+
+async function handleCommentReactionClick(commentId, emoji) {
+  // Seed from current DOM if we haven't tracked this comment yet.
+  const anyRow = document.querySelector(`.fn-comment-reactions[data-comment-id="${commentId}"]`);
+  if (anyRow) _seedCommentState(anyRow);
+  if (!commentReactionState[commentId]) { commentReactionState[commentId] = {}; commentMine[commentId] = new Set(); }
+  try {
+    const res = await fetch(`/comments/${commentId}/react`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emoji }),
+    });
+    const data = await res.json(); // { emoji, count, userReacted }
+    if (data.count === 0) {
+      delete commentReactionState[commentId][emoji];
+      commentMine[commentId].delete(emoji);
+    } else {
+      commentReactionState[commentId][emoji] = data.count;
+      if (data.userReacted) commentMine[commentId].add(emoji); else commentMine[commentId].delete(emoji);
+    }
+    renderCommentChips(commentId);
+  } catch (e) { console.error(e); }
+}
+
+// ── Comment quick bar (the 6 QUICK_EMOJI + ＋ to expand to the full picker) ───────
+const _quickBar = document.createElement('div');
+_quickBar.className = 'fn-quick-bar';
+_quickBar.style.display = 'none';
+document.body.appendChild(_quickBar);
+let _quickBarTarget = null;
+
+QUICK_EMOJI.forEach(e => {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'fn-quick-emoji';
+  btn.textContent = e;
+  btn.addEventListener('click', ev => {
+    ev.stopPropagation();
+    const id = _quickBarTarget;
+    _hideQuickBar();
+    if (id) handleCommentReactionClick(id, e);
+  });
+  _quickBar.appendChild(btn);
+});
+const _quickMore = document.createElement('button');
+_quickMore.type = 'button';
+_quickMore.className = 'fn-quick-emoji fn-quick-more';
+_quickMore.textContent = '＋';
+_quickMore.addEventListener('click', ev => {
+  ev.stopPropagation();
+  const id = _quickBarTarget;
+  _hideQuickBar();
+  if (id) _showPickerSheet({ type: 'comment', id });
+});
+_quickBar.appendChild(_quickMore);
+
+function _showQuickBar(commentId, anchorEl) {
+  _hideQuickBar();
+  _quickBarTarget = commentId;
+  _quickBar.style.display = 'flex';
+  // Position above the anchor, clamped to the viewport.
+  const r = anchorEl.getBoundingClientRect();
+  const bw = _quickBar.offsetWidth || 240;
+  let left = Math.max(8, Math.min(r.left, window.innerWidth - bw - 8));
+  let top = r.top - _quickBar.offsetHeight - 8 + window.scrollY;
+  if (top < window.scrollY + 8) top = r.bottom + 8 + window.scrollY; // flip below if no room
+  _quickBar.style.left = left + 'px';
+  _quickBar.style.top = top + 'px';
+  setTimeout(() => document.addEventListener('click', _quickBarOutside), 50);
+}
+function _hideQuickBar() {
+  _quickBar.style.display = 'none';
+  _quickBarTarget = null;
+  document.removeEventListener('click', _quickBarOutside);
+}
+function _quickBarOutside(e) {
+  if (!_quickBar.contains(e.target)) _hideQuickBar();
+}
+
+// Triggers: react button click, long-press (touch), right-click (desktop).
+document.addEventListener('click', e => {
+  const chip = e.target.closest('.fn-reaction-chip');
+  if (chip) {
+    const row = chip.closest('.fn-comment-reactions');
+    if (row) { _seedCommentState(row); handleCommentReactionClick(row.dataset.commentId, chip.dataset.emoji); }
+    return;
+  }
+  const reactBtn = e.target.closest('.fn-comment-react-btn');
+  if (reactBtn) { e.stopPropagation(); _showQuickBar(reactBtn.dataset.commentId, reactBtn); }
+});
+
+// Long-press on a comment bubble (touch) opens the quick bar.
+let _lpTimer = null, _lpFired = false;
+document.addEventListener('touchstart', e => {
+  const bubble = e.target.closest('[data-comment-id]');
+  if (!bubble || e.target.closest('.fn-comment-reactions') || e.target.closest('a')) return;
+  const id = bubble.dataset.commentId;
+  _lpFired = false;
+  _lpTimer = setTimeout(() => {
+    _lpFired = true;
+    e.preventDefault();
+    _showQuickBar(id, bubble);
+  }, 450);
+}, { passive: false });
+document.addEventListener('touchmove', () => { clearTimeout(_lpTimer); }, { passive: true });
+document.addEventListener('touchend', () => { clearTimeout(_lpTimer); }, { passive: true });
+
+// Right-click (desktop) on a comment bubble opens the quick bar.
+document.addEventListener('contextmenu', e => {
+  const bubble = e.target.closest('[data-comment-id]');
+  if (!bubble || e.target.closest('a')) return;
+  e.preventDefault();
+  _showQuickBar(bubble.dataset.commentId, bubble);
 });
 
 // ── @mention autocomplete ─────────────────────────────────────────────────────
