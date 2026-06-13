@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { queueReactionPush, dropReactionPush } = require('../services/reactionPush');
 
 // Server-side whitelist of permitted emoji; the frontend emoji picker mirrors this exact list.
 const ALLOWED = ['❤️', '👍', '😂', '😮', '😢', '🎉', '🙏', '🔥', '💯', '🫶', '👏', '🥳', '😍', '🤣', '😭', '💪', '🎂', '🌟', '👀', '🤔', '💔'];
@@ -48,10 +49,32 @@ router.post('/posts/:id/react', requireAuth, async (req, res) => {
     if (existing.length) {
       await pool.query('DELETE FROM reactions WHERE id = ?', [existing[0].id]);
       userReacted = false;
+      // If that was the user's LAST reaction to this post (and not self),
+      // drop the unread in-app notification + the pending coalesced push.
+      (async () => {
+        try {
+          const [[post]] = await pool.query('SELECT user_id FROM posts WHERE id = ?', [postId]);
+          if (post && post.user_id !== userId) {
+            const [[{ remaining }]] = await pool.query(
+              'SELECT COUNT(*) AS remaining FROM reactions WHERE post_id = ? AND user_id = ?',
+              [postId, userId]
+            );
+            if (Number(remaining) === 0) {
+              await pool.query(
+                "DELETE FROM notifications WHERE user_id = ? AND actor_id = ? AND type = 'reaction' AND post_id = ? AND read_at IS NULL",
+                [post.user_id, userId, postId]
+              );
+              dropReactionPush({ recipientId: post.user_id, actorName: req.session.user.name, targetType: 'post', postId });
+            }
+          }
+        } catch (e) {
+          console.error('Reaction remove cleanup error:', e.message);
+        }
+      })();
     } else {
       await pool.query('INSERT INTO reactions (post_id, user_id, emoji) VALUES (?, ?, ?)', [postId, userId, emoji]);
       userReacted = true;
-      // Insert reaction notification (fire-and-forget)
+      // Insert/refresh reaction notification + queue coalesced push (fire-and-forget)
       (async () => {
         try {
           const [[post]] = await pool.query(
@@ -59,10 +82,20 @@ router.post('/posts/:id/react', requireAuth, async (req, res) => {
             [postId]
           );
           if (post && post.user_id !== userId) {
-            pool.query(
-              'INSERT INTO notifications (user_id, actor_id, type, post_id, meta) VALUES (?, ?, ?, ?, ?)',
-              [post.user_id, userId, 'reaction', postId, emoji]
-            ).catch(e => console.error('Reaction notification insert error:', e.message));
+            // In-app dedup — one notification per (recipient, actor, post).
+            const [[existingNotif]] = await pool.query(
+              "SELECT id FROM notifications WHERE user_id = ? AND actor_id = ? AND type = 'reaction' AND post_id = ? AND read_at IS NULL",
+              [post.user_id, userId, postId]
+            );
+            if (existingNotif) {
+              await pool.query('UPDATE notifications SET meta = ?, created_at = NOW() WHERE id = ?', [emoji, existingNotif.id]);
+            } else {
+              await pool.query(
+                'INSERT INTO notifications (user_id, actor_id, type, post_id, meta) VALUES (?, ?, ?, ?, ?)',
+                [post.user_id, userId, 'reaction', postId, emoji]
+              );
+            }
+            queueReactionPush({ recipientId: post.user_id, actorName: req.session.user.name, emoji, targetType: 'post', postId });
           }
         } catch (e) {
           console.error('Reaction notification error:', e.message);
