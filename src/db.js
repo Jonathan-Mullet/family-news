@@ -223,6 +223,14 @@ async function initDb() {
     `ALTER TABLE notifications MODIFY COLUMN type ENUM('comment','reply','mention','reaction','comment_reaction') NOT NULL`,
     `ALTER TABLE users ADD COLUMN push_notify_reactions TINYINT(1) DEFAULT 1`,
     `ALTER TABLE posts ADD FULLTEXT INDEX ft_posts (title, content)`,
+    // System account that owns automated posts (birthdays, anniversaries) so
+    // they don't appear authored by whichever admin happens to be first in
+    // the table. active=0 keeps it out of the member count, @mention
+    // autocomplete, and notification recipient lists — see cron.js. The
+    // password hash is bcrypt of a random 32-byte string that was discarded
+    // immediately after hashing; login with it is not possible.
+    `INSERT IGNORE INTO users (name, email, password_hash, role, active) VALUES
+      ('Family News', 'system@family-news.internal', '$2b$12$C2iVPCSz0DjSPA/312NDKus8D2p.DxN3LrfUeoPCq8rPgk2342qS6', 'member', 0)`,
   ];
   // Only the "already applied" duplicate errors are expected and silently
   // ignored: ER_DUP_FIELDNAME (column exists) and ER_DUP_KEYNAME (index

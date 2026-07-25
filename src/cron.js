@@ -35,17 +35,18 @@ function startCron() {
   cron.schedule('0 8 * * *', async () => {
     console.log('[cron] Checking birthday/anniversary events...');
     try {
-      // The first admin user is used as the post author for all automated
-      // posts. This avoids creating a dedicated system account and ensures
-      // the post appears in the feed under a real family member's name.
-      const [admins] = await pool.query(
-        "SELECT id FROM users WHERE role = 'admin' AND active = 1 ORDER BY id LIMIT 1"
+      // Automated posts are authored by the dedicated "Family News" system
+      // account (created in db.js migrations) rather than an admin, so they
+      // don't show up as posted by whichever family member happens to run
+      // the server.
+      const [systemUsers] = await pool.query(
+        "SELECT id FROM users WHERE email = 'system@family-news.internal' LIMIT 1"
       );
-      if (!admins.length) {
-        console.log('[cron] No admin user found, skipping event posts.');
+      if (!systemUsers.length) {
+        console.log('[cron] System user not found, skipping event posts.');
         return;
       }
-      const adminId = admins[0].id;
+      const systemUserId = systemUsers[0].id;
 
       // ── User birthdays (users.birthday column) ──────────────────────────────
       // Only covers family members who have an account and have filled in their
@@ -63,7 +64,7 @@ function startCron() {
       for (const u of birthdayUsers) {
         const age = new Date().getFullYear() - new Date(u.birthday).getFullYear();
         const content = `🎂 Today is ${u.name}'s birthday — turning ${age}! 🎉`;
-        await pool.query('INSERT INTO posts (user_id, title, content) VALUES (?, NULL, ?)', [adminId, content]);
+        await pool.query('INSERT INTO posts (user_id, title, content) VALUES (?, NULL, ?)', [systemUserId, content]);
         console.log(`[cron] Birthday post for: ${u.name} (${age})`);
       }
 
@@ -86,7 +87,7 @@ function startCron() {
           content = `💍 Happy anniversary, ${event.name}! 🎊`;
         }
         if (event.note) content += `\n${event.note}`;
-        await pool.query('INSERT INTO posts (user_id, title, content) VALUES (?, NULL, ?)', [adminId, content]);
+        await pool.query('INSERT INTO posts (user_id, title, content) VALUES (?, NULL, ?)', [systemUserId, content]);
         console.log(`[cron] Event post for: ${event.name} (${event.type})`);
       }
     } catch (err) {
