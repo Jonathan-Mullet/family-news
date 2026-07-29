@@ -1143,3 +1143,16 @@ if (_pushSection) {
     });
   });
 })();
+
+// ── Post form: disable submit + show loading state ───────────────────────────
+// Multi-photo uploads give zero visual feedback otherwise while the multipart
+// body sends, which on a slow connection reads as "the button does nothing" —
+// the user re-taps Post, and each re-tap starts a new navigation that cancels
+// the prior in-flight upload before it ever reaches the server (repeated 499s
+// in the nginx access log, one per tap).
+document.getElementById('post-form')?.addEventListener('submit', function () {
+  const btn = this.querySelector('button[type="submit"]');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = 'Posting…';
+});
