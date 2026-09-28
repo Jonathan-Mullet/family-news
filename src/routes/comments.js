@@ -34,13 +34,14 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
     const commentId = commentResult.insertId;
 
     // Send notification to post author (with notify_comments preference)
+    let post = null;
     try {
       const [postRows] = await pool.query(
         'SELECT p.id, p.title, p.user_id, u.email, u.notify_comments FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = ?',
         [req.params.id]
       );
       if (postRows.length) {
-        const post = postRows[0];
+        post = postRows[0];
         const toUser = { id: post.user_id, email: post.email, notify_comments: post.notify_comments };
         sendCommentNotification(toUser, req.session.user, { id: post.id, title: post.title })
           .catch(err => console.error('Comment email error:', err));
@@ -60,21 +61,58 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
       console.error('Comment notification error:', notifyErr.message);
     }
 
-    // Fire-and-forget: reply notification
+    // Resolved up front (awaited, not fire-and-forget) because both blocks
+    // below need it for exclusion — racing two independent fire-and-forget
+    // blocks against a shared mutable variable would make the exclusion
+    // unreliable.
+    let parentCommentAuthorId = null;
     if (parent_id) {
+      const [[parentComment]] = await pool.query('SELECT user_id FROM comments WHERE id = ?', [parent_id]);
+      if (parentComment && parentComment.user_id !== req.session.user.id) {
+        parentCommentAuthorId = parentComment.user_id;
+      }
+    }
+
+    // Fire-and-forget: reply notification (DB row + push — previously push
+    // was missing here, so a genuine threaded reply never actually alerted
+    // its recipient, only showed up silently in their in-app notification list).
+    if (parentCommentAuthorId) {
+      pool.query(
+        'INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id) VALUES (?, ?, ?, ?, ?)',
+        [parentCommentAuthorId, req.session.user.id, 'reply', req.params.id, commentId]
+      ).catch(e => console.error('Reply notification error:', e.message));
+      sendPushToUser(
+        parentCommentAuthorId,
+        { title: `${req.session.user.name} replied to your comment`, body: content.trim().substring(0, 100), url: `/post/${req.params.id}` },
+        { checkColumn: 'push_notify_comments' }
+      ).catch(err => console.error('Reply push error:', err));
+    }
+
+    // Fire-and-forget: notify other thread participants. Only the post author
+    // and (for a genuine threaded reply) the parent comment's author were ever
+    // notified of a new comment — anyone else who'd already commented on the
+    // same post got nothing, even though they're clearly following the thread.
+    if (post) {
       (async () => {
         try {
-          const [[parentComment]] = await pool.query(
-            'SELECT user_id FROM comments WHERE id = ?',
-            [parent_id]
+          const [participants] = await pool.query(
+            `SELECT DISTINCT user_id FROM comments
+             WHERE post_id = ? AND deleted_at IS NULL
+               AND user_id NOT IN (?, ?, ?)`,
+            [req.params.id, req.session.user.id, post.user_id, parentCommentAuthorId || 0]
           );
-          if (parentComment && parentComment.user_id !== req.session.user.id) {
-            await pool.query(
+          for (const { user_id: participantId } of participants) {
+            sendPushToUser(
+              participantId,
+              { title: `${req.session.user.name} also commented`, body: content.trim().substring(0, 100), url: `/post/${req.params.id}` },
+              { checkColumn: 'push_notify_comments' }
+            ).catch(err => console.error('Thread participant push error:', err));
+            pool.query(
               'INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id) VALUES (?, ?, ?, ?, ?)',
-              [parentComment.user_id, req.session.user.id, 'reply', req.params.id, commentId]
-            );
+              [participantId, req.session.user.id, 'comment', req.params.id, commentId]
+            ).catch(e => console.error('Thread participant notification insert error:', e.message));
           }
-        } catch (e) { console.error('Reply notification error:', e.message); }
+        } catch (e) { console.error('Thread participant notification error:', e.message); }
       })();
     }
 
