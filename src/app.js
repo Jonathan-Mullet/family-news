@@ -147,11 +147,16 @@ app.use(async (req, res, next) => {
 
   // Migration safety: syncs birthday, avatar_url, and whats_new_seen_at into sessions that were
   // created before those DB columns were added, so old sessions don't get
-  // stuck in redirect loops or show stale missing-avatar states.
-  if (!('birthday' in req.session.user)) {
+  // stuck in redirect loops or show stale missing-avatar states. Gated per
+  // field (not just on 'birthday') — a session missing only a newer field
+  // (e.g. logged in after birthday was added to the login object but before
+  // avatar_url was) would otherwise never get backfilled for its whole
+  // 30-day rolling lifetime.
+  const needsBackfill = !('birthday' in req.session.user) || !('avatar_url' in req.session.user) || !('whats_new_seen_at' in req.session.user);
+  if (needsBackfill) {
     try {
       const [[u]] = await pool.query('SELECT birthday, avatar_url, whats_new_seen_at FROM users WHERE id = ?', [req.session.user.id]);
-      req.session.user.birthday = u?.birthday || null;
+      if (!('birthday' in req.session.user)) req.session.user.birthday = u?.birthday || null;
       if (!('avatar_url' in req.session.user)) req.session.user.avatar_url = u?.avatar_url || null;
       if (!('whats_new_seen_at' in req.session.user)) req.session.user.whats_new_seen_at = u?.whats_new_seen_at || null;
     } catch { return next(); }

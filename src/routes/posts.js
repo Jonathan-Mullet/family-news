@@ -282,8 +282,21 @@ router.get('/post/:id', requireAuth, async (req, res) => {
 // The link-preview fetch is fire-and-forget (async IIFE) so it never blocks the redirect response.
 router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
   const { title, content, publish_at, publish_at_utc, big_news } = req.body;
-  if (!content?.trim()) { req.flash('error', 'Post content is required.'); return res.redirect('/'); }
-  if (content.trim().length > MAX_CONTENT) { req.flash('error', `Post cannot exceed ${MAX_CONTENT} characters.`); return res.redirect('/'); }
+  if (req.uploadError) {
+    (req.uploadedPaths || []).forEach(p => deleteUploadedFile(p));
+    req.flash('error', req.uploadError);
+    return res.redirect('/');
+  }
+  if (!content?.trim()) {
+    (req.uploadedPaths || []).forEach(p => deleteUploadedFile(p));
+    req.flash('error', 'Post content is required.');
+    return res.redirect('/');
+  }
+  if (content.trim().length > MAX_CONTENT) {
+    (req.uploadedPaths || []).forEach(p => deleteUploadedFile(p));
+    req.flash('error', `Post cannot exceed ${MAX_CONTENT} characters.`);
+    return res.redirect('/');
+  }
 
   const isBigNews = big_news === '1' ? 1 : 0;
 
@@ -430,7 +443,7 @@ router.post('/posts/:id/edit', requireAuth, async (req, res) => {
     return res.redirect('/');
   }
   try {
-    const [rows] = await pool.query('SELECT user_id FROM posts WHERE id = ?', [req.params.id]);
+    const [rows] = await pool.query('SELECT user_id FROM posts WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
     if (!rows.length) return res.redirect('/');
     if (rows[0].user_id !== req.session.user.id && req.session.user.role !== 'admin' && req.session.user.role !== 'moderator') return res.status(403).end();
     const { content: resolvedContent, mentionedUserIds } = await resolveMentions(content.trim(), pool);
@@ -484,7 +497,7 @@ router.post('/posts/:id/pin', requireAuth, async (req, res) => {
 // Toggle big-news flag; sends a push notification when a post is promoted to big news.
 router.post('/posts/:id/toggle-big-news', requireAuth, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT user_id FROM posts WHERE id = ?', [req.params.id]);
+    const [rows] = await pool.query('SELECT user_id FROM posts WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
     if (!rows.length) return res.redirect('/');
     if (rows[0].user_id !== req.session.user.id && req.session.user.role !== 'admin' && req.session.user.role !== 'moderator') return res.status(403).end();
     await pool.query('UPDATE posts SET big_news = NOT big_news WHERE id = ?', [req.params.id]);

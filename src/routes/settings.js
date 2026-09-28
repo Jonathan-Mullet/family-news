@@ -43,7 +43,10 @@ router.post('/email', async (req, res) => {
     req.flash('success', 'Email updated.');
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {
-      req.flash('error', 'That email is already in use.');
+      // Deliberately vague, matching /register's anti-enumeration design
+      // (auth.js) — confirming "already in use" would let an authenticated
+      // member enumerate which emails have accounts on the site.
+      req.flash('error', 'Could not update email.');
       return res.redirect('/settings');
     }
     console.error(err);

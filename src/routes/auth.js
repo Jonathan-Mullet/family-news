@@ -13,7 +13,10 @@ const { isValidBirthday } = require('../utils/dates');
 // per (IP, email) pair. In-memory by design — single Node process. trust proxy
 // is set in app.js, so req.ip is the real client IP behind Nginx.
 const authLimiter = createRateLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
-const limiterKey = (req, email) => `${req.ip}:${(email || '').trim().toLowerCase()}`;
+// Namespaced per action — login and forgot-password used to share one bucket,
+// so exhausting either one (e.g. spamming forgot-password for a victim's
+// email) locked the victim out of the other action too.
+const limiterKey = (req, email, action) => `${action}:${req.ip}:${(email || '').trim().toLowerCase()}`;
 
 // Reset tokens are stored as sha256(token) so a DB leak can't be replayed;
 // the raw token only ever lives in the emailed link.
@@ -28,7 +31,7 @@ router.get('/login', (req, res) => {
 // Authenticate user; active = 1 check blocks disabled accounts from signing in.
 router.post('/login', async (req, res) => {
   const { email, password, remember } = req.body;
-  const key = limiterKey(req, email);
+  const key = limiterKey(req, email, 'login');
   if (!authLimiter.consume(key)) {
     return res.status(429).render('login', {
       flash: { error: 'Too many sign-in attempts. Please wait 15 minutes and try again.' },
@@ -201,7 +204,7 @@ router.get('/forgot-password', (req, res) => {
 // Generate a password reset token and email it; always shows a generic success message to prevent email enumeration.
 router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
-  if (!authLimiter.consume(limiterKey(req, email))) {
+  if (!authLimiter.consume(limiterKey(req, email, 'reset'))) {
     return res.status(429).render('forgot-password', {
       flash: { error: 'Too many attempts. Please wait 15 minutes and try again.' },
     });

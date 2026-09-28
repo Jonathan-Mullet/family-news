@@ -6,16 +6,20 @@ const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { isAllowedEmoji } = require('../utils/reactionEmoji');
 const { queueReactionPush, dropReactionPush } = require('../services/reactionPush');
+const { withNotifyLock } = require('../utils/notifyLock');
 
 // Return the names of everyone who reacted to a comment, grouped by emoji; used to populate hover tooltips and the mobile reaction sheet.
 router.get('/comments/:id/reaction-names', requireAuth, async (req, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT r.emoji, u.name
-      FROM comment_reactions r JOIN users u ON r.user_id = u.id
+      FROM comment_reactions r
+      JOIN users u ON r.user_id = u.id
+      JOIN comments c ON c.id = r.comment_id AND c.deleted_at IS NULL
+      JOIN posts p ON p.id = c.post_id AND p.deleted_at IS NULL AND (p.publish_at IS NULL OR p.publish_at <= NOW() OR p.user_id = ?)
       WHERE r.comment_id = ?
       ORDER BY r.emoji, u.name
-    `, [req.params.id]);
+    `, [req.session.user.id, req.params.id]);
     const byEmoji = {};
     rows.forEach(r => {
       if (!byEmoji[r.emoji]) byEmoji[r.emoji] = [];
@@ -32,10 +36,16 @@ router.post('/comments/:id/react', requireAuth, async (req, res) => {
   const commentId = req.params.id;
   const userId = req.session.user.id;
   try {
-    // The target comment must exist and not be soft-deleted.
+    // The target comment must exist, not be soft-deleted, and belong to a
+    // post that's actually visible (not trashed, and published unless
+    // you're its author previewing it) — matches the same check comments.js
+    // and reactions.js already apply before allowing an action.
     const [[comment]] = await pool.query(
-      'SELECT id, user_id, post_id FROM comments WHERE id = ? AND deleted_at IS NULL',
-      [commentId]
+      `SELECT c.id, c.user_id, c.post_id FROM comments c
+       JOIN posts p ON p.id = c.post_id
+       WHERE c.id = ? AND c.deleted_at IS NULL
+         AND p.deleted_at IS NULL AND (p.publish_at IS NULL OR p.publish_at <= NOW() OR p.user_id = ?)`,
+      [commentId, userId]
     );
     if (!comment) return res.status(404).json({ error: 'Comment not found' });
 
@@ -49,51 +59,48 @@ router.post('/comments/:id/react', requireAuth, async (req, res) => {
       userReacted = false;
       // If that was the user's LAST reaction to this comment (and not self),
       // drop the unread in-app notification + the pending coalesced push.
-      (async () => {
-        try {
-          if (comment.user_id !== userId) {
-            const [[{ remaining }]] = await pool.query(
-              'SELECT COUNT(*) AS remaining FROM comment_reactions WHERE comment_id = ? AND user_id = ?',
-              [commentId, userId]
+      // Lock-serialized against the add-path below (same key) so a rapid
+      // react-then-unreact can't interleave and leave a ghost notification.
+      if (comment.user_id !== userId) {
+        const lockKey = `reaction-notify:comment_reaction:${comment.user_id}:${userId}:${commentId}`;
+        withNotifyLock(pool, lockKey, async (conn) => {
+          const [[{ remaining }]] = await conn.query(
+            'SELECT COUNT(*) AS remaining FROM comment_reactions WHERE comment_id = ? AND user_id = ?',
+            [commentId, userId]
+          );
+          if (Number(remaining) === 0) {
+            await conn.query(
+              "DELETE FROM notifications WHERE user_id = ? AND actor_id = ? AND type = 'comment_reaction' AND comment_id = ? AND read_at IS NULL",
+              [comment.user_id, userId, commentId]
             );
-            if (Number(remaining) === 0) {
-              await pool.query(
-                "DELETE FROM notifications WHERE user_id = ? AND actor_id = ? AND type = 'comment_reaction' AND comment_id = ? AND read_at IS NULL",
-                [comment.user_id, userId, commentId]
-              );
-              dropReactionPush({ recipientId: comment.user_id, actorName: req.session.user.name, targetType: 'comment', postId: comment.post_id, commentId });
-            }
+            dropReactionPush({ recipientId: comment.user_id, actorName: req.session.user.name, targetType: 'comment', postId: comment.post_id, commentId });
           }
-        } catch (e) {
-          console.error('Comment reaction remove cleanup error:', e.message);
-        }
-      })();
+        }).catch(e => console.error('Comment reaction remove cleanup error:', e.message));
+      }
     } else {
       await pool.query('INSERT INTO comment_reactions (comment_id, user_id, emoji) VALUES (?, ?, ?)', [commentId, userId, emoji]);
       userReacted = true;
-      // Insert/refresh reaction notification + queue coalesced push (fire-and-forget).
-      (async () => {
-        try {
-          if (comment.user_id !== userId) {
-            // In-app dedup — one notification per (recipient, actor, comment).
-            const [[existingNotif]] = await pool.query(
-              "SELECT id FROM notifications WHERE user_id = ? AND actor_id = ? AND type = 'comment_reaction' AND comment_id = ? AND read_at IS NULL",
-              [comment.user_id, userId, commentId]
+      // Insert/refresh reaction notification + queue coalesced push
+      // (fire-and-forget, lock-serialized — see remove-path above).
+      if (comment.user_id !== userId) {
+        const lockKey = `reaction-notify:comment_reaction:${comment.user_id}:${userId}:${commentId}`;
+        withNotifyLock(pool, lockKey, async (conn) => {
+          // In-app dedup — one notification per (recipient, actor, comment).
+          const [[existingNotif]] = await conn.query(
+            "SELECT id FROM notifications WHERE user_id = ? AND actor_id = ? AND type = 'comment_reaction' AND comment_id = ? AND read_at IS NULL",
+            [comment.user_id, userId, commentId]
+          );
+          if (existingNotif) {
+            await conn.query('UPDATE notifications SET meta = ?, created_at = NOW() WHERE id = ?', [emoji, existingNotif.id]);
+          } else {
+            await conn.query(
+              "INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id, meta) VALUES (?, ?, 'comment_reaction', ?, ?, ?)",
+              [comment.user_id, userId, comment.post_id, commentId, emoji]
             );
-            if (existingNotif) {
-              await pool.query('UPDATE notifications SET meta = ?, created_at = NOW() WHERE id = ?', [emoji, existingNotif.id]);
-            } else {
-              await pool.query(
-                "INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id, meta) VALUES (?, ?, 'comment_reaction', ?, ?, ?)",
-                [comment.user_id, userId, comment.post_id, commentId, emoji]
-              );
-            }
-            queueReactionPush({ recipientId: comment.user_id, actorName: req.session.user.name, emoji, targetType: 'comment', postId: comment.post_id, commentId });
           }
-        } catch (e) {
-          console.error('Comment reaction notification error:', e.message);
-        }
-      })();
+          queueReactionPush({ recipientId: comment.user_id, actorName: req.session.user.name, emoji, targetType: 'comment', postId: comment.post_id, commentId });
+        }).catch(e => console.error('Comment reaction notification error:', e.message));
+      }
     }
     const [[{ count }]] = await pool.query(
       'SELECT COUNT(*) AS count FROM comment_reactions WHERE comment_id = ? AND emoji = ?',
