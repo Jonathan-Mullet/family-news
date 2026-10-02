@@ -22,6 +22,32 @@ function localizeTimes(root = document) {
 }
 localizeTimes();
 
+// ── Feed read tracking ────────────────────────────────────────────────────────
+// The "👁 Read by" badge used to only increment on GET /post/:id, but the feed
+// renders full post content inline — that route is rarely hit in normal browsing.
+// Track reads from feed visibility instead: fires once per post per page load
+// when a card is ≥60% visible, then stops watching it. Rootable so "Load more"
+// can wire up freshly-appended cards (see feed-load-more handler below).
+const _seenReadIds = new Set();
+let _readObserver = null;
+function observeReads(root = document) {
+  if (!window.IntersectionObserver) return;
+  if (!_readObserver) {
+    _readObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        _readObserver.unobserve(entry.target);
+        const id = entry.target.dataset.postId;
+        if (!id || _seenReadIds.has(id)) return;
+        _seenReadIds.add(id);
+        fetch(`/posts/${id}/mark-read`, { method: 'POST' }).catch(() => {});
+      });
+    }, { threshold: 0.6 });
+  }
+  root.querySelectorAll('[data-post-id]').forEach(el => _readObserver.observe(el));
+}
+observeReads();
+
 // ── Dark mode ────────────────────────────────────────────────────────────────
 // Dark mode toggle
 const darkToggle = document.getElementById('dark-toggle');
@@ -821,6 +847,7 @@ if (_loadMoreBtn) {
         seedReactions(frag);
         initPhotoLayouts(frag);
         frag.querySelectorAll('.mention-input').forEach(el => window._attachMentionInput && window._attachMentionInput(el));
+        observeReads(frag);
         const feed = document.getElementById('feed');
         while (frag.firstChild) feed.appendChild(frag.firstChild);
       }

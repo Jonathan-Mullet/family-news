@@ -278,6 +278,24 @@ router.get('/post/:id', requireAuth, async (req, res) => {
   }
 });
 
+// Marks a post read from feed visibility (IntersectionObserver in app.js). The feed renders
+// full post content inline, so GET /post/:id above is rarely hit in normal browsing — that left
+// the "Read by" receipt badge almost never incrementing. This is the primary read-tracking path.
+router.post('/posts/:id/mark-read', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT id FROM posts WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+    if (!rows.length) return res.status(404).end();
+    await pool.query(
+      'INSERT INTO post_reads (post_id, user_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE read_at = NOW()',
+      [req.params.id, req.session.user.id]
+    );
+    res.status(204).end();
+  } catch (err) {
+    console.error('mark-read error:', err.message);
+    res.status(500).end();
+  }
+});
+
 // Create a new post with optional photo gallery and send email + push notifications to all members.
 // The link-preview fetch is fire-and-forget (async IIFE) so it never blocks the redirect response.
 router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
