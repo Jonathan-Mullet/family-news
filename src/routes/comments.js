@@ -5,7 +5,8 @@ const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { sendCommentNotification, sendMentionNotification } = require('../email');
 const { sendPushToUser } = require('../push');
-const { resolveMentions } = require('../utils/mentions');
+const { resolveMentions, ambiguousNote } = require('../utils/mentions');
+const { planCommentNotifications } = require('../utils/commentNotify');
 
 const MAX_COMMENT = 2000;
 
@@ -44,126 +45,66 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
       parentId = parent.id;
     }
 
-    const { content: resolvedContent, mentionedUserIds } = await resolveMentions(content.trim(), pool);
+    const { content: resolvedContent, mentionedUserIds, ambiguous } = await resolveMentions(content.trim(), pool);
+    const mentionNote = ambiguousNote(ambiguous);
+    if (mentionNote) req.flash('info', mentionNote);
     const [commentResult] = await pool.query(
       'INSERT INTO comments (post_id, parent_id, user_id, content) VALUES (?, ?, ?, ?)',
       [req.params.id, parentId, req.session.user.id, resolvedContent]
     );
     const commentId = commentResult.insertId;
 
-    // Send notification to post author (with notify_comments preference)
-    let post = null;
-    try {
-      const [postRows] = await pool.query(
-        'SELECT p.id, p.title, p.user_id, u.email, u.notify_comments FROM posts p JOIN users u ON p.user_id = u.id WHERE p.id = ?',
-        [req.params.id]
-      );
-      if (postRows.length) {
-        post = postRows[0];
-        const toUser = { id: post.user_id, email: post.email, notify_comments: post.notify_comments };
-        sendCommentNotification(toUser, req.session.user, { id: post.id, title: post.title })
-          .catch(err => console.error('Comment email error:', err));
-        if (post.user_id !== req.session.user.id) {
-          sendPushToUser(
-            post.user_id,
-            { title: `${req.session.user.name} commented on your post`, body: content.trim().substring(0, 100), url: `/post/${post.id}` },
-            { checkColumn: 'push_notify_comments' }
-          ).catch(err => console.error('Comment push error:', err));
+    // Who hears about it — one notification (row + push, and email where the person wants one)
+    // per person, for the most specific reason (utils/commentNotify.js). Fire-and-forget.
+    const actor = req.session.user;
+    const postId = Number(req.params.id);
+    const text = content.trim();
+    (async () => {
+      try {
+        const [[post]] = await pool.query('SELECT id, title, user_id FROM posts WHERE id = ?', [postId]);
+        if (!post) return;
+        let parentAuthorId = null;
+        if (parentId) {
+          const [[pc]] = await pool.query('SELECT user_id FROM comments WHERE id = ?', [parentId]);
+          parentAuthorId = pc ? pc.user_id : null;
+        }
+        const [participants] = await pool.query(
+          'SELECT DISTINCT user_id FROM comments WHERE post_id = ? AND deleted_at IS NULL', [postId]);
+        const plan = planCommentNotifications({
+          actorId: actor.id, postAuthorId: post.user_id, parentAuthorId,
+          participantIds: participants.map((r) => r.user_id), mentionedIds: mentionedUserIds,
+        });
+        if (!plan.size) return;
+        const [people] = await pool.query(
+          'SELECT id, email, name, notify_comments FROM users WHERE id IN (?) AND active = 1', [[...plan.keys()]]);
+        const PUSH_TITLE = {
+          mention: `${actor.name} mentioned you`,
+          reply: `${actor.name} replied to your comment`,
+          comment: `${actor.name} commented on your post`,
+          participant: `${actor.name} also commented`,
+        };
+        for (const u of people) {
+          const why = plan.get(u.id);
           pool.query(
             'INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id) VALUES (?, ?, ?, ?, ?)',
-            [post.user_id, req.session.user.id, 'comment', post.id, commentId]
-          ).catch(e => console.error('Notification insert error:', e.message));
+            [u.id, actor.id, why === 'participant' ? 'comment' : why, postId, commentId]
+          ).catch((e) => console.error('Comment notification insert error:', e.message));
+          // Mentions always push (as before); the rest follow the member's comment-push setting.
+          sendPushToUser(u.id, { title: PUSH_TITLE[why], body: text.substring(0, 100), url: `/post/${postId}` },
+            why === 'mention' ? {} : { checkColumn: 'push_notify_comments' })
+            .catch((err) => console.error('Comment push error:', err));
+          if (why === 'mention') {
+            sendMentionNotification(u.email, u.name, actor.name, text.substring(0, 80), `${process.env.BASE_URL}/post/${postId}`)
+              .catch((err) => console.error('Mention email error:', err));
+          } else if (why === 'comment') {
+            sendCommentNotification({ id: u.id, email: u.email, notify_comments: u.notify_comments }, actor, { id: post.id, title: post.title })
+              .catch((err) => console.error('Comment email error:', err));
+          }
         }
+      } catch (e) {
+        console.error('Comment notification error:', e.message);
       }
-    } catch (notifyErr) {
-      console.error('Comment notification error:', notifyErr.message);
-    }
-
-    // Resolved up front (awaited, not fire-and-forget) because both blocks
-    // below need it for exclusion — racing two independent fire-and-forget
-    // blocks against a shared mutable variable would make the exclusion
-    // unreliable.
-    let parentCommentAuthorId = null;
-    if (parentId) {
-      const [[parentComment]] = await pool.query('SELECT user_id FROM comments WHERE id = ?', [parentId]);
-      if (parentComment && parentComment.user_id !== req.session.user.id) {
-        parentCommentAuthorId = parentComment.user_id;
-      }
-    }
-
-    // Fire-and-forget: reply notification (DB row + push — previously push
-    // was missing here, so a genuine threaded reply never actually alerted
-    // its recipient, only showed up silently in their in-app notification list).
-    if (parentCommentAuthorId) {
-      pool.query(
-        'INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id) VALUES (?, ?, ?, ?, ?)',
-        [parentCommentAuthorId, req.session.user.id, 'reply', req.params.id, commentId]
-      ).catch(e => console.error('Reply notification error:', e.message));
-      sendPushToUser(
-        parentCommentAuthorId,
-        { title: `${req.session.user.name} replied to your comment`, body: content.trim().substring(0, 100), url: `/post/${req.params.id}` },
-        { checkColumn: 'push_notify_comments' }
-      ).catch(err => console.error('Reply push error:', err));
-    }
-
-    // Fire-and-forget: notify other thread participants. Only the post author
-    // and (for a genuine threaded reply) the parent comment's author were ever
-    // notified of a new comment — anyone else who'd already commented on the
-    // same post got nothing, even though they're clearly following the thread.
-    if (post) {
-      (async () => {
-        try {
-          const [participants] = await pool.query(
-            `SELECT DISTINCT user_id FROM comments
-             WHERE post_id = ? AND deleted_at IS NULL
-               AND user_id NOT IN (?, ?, ?)`,
-            [req.params.id, req.session.user.id, post.user_id, parentCommentAuthorId || 0]
-          );
-          for (const { user_id: participantId } of participants) {
-            sendPushToUser(
-              participantId,
-              { title: `${req.session.user.name} also commented`, body: content.trim().substring(0, 100), url: `/post/${req.params.id}` },
-              { checkColumn: 'push_notify_comments' }
-            ).catch(err => console.error('Thread participant push error:', err));
-            pool.query(
-              'INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id) VALUES (?, ?, ?, ?, ?)',
-              [participantId, req.session.user.id, 'comment', req.params.id, commentId]
-            ).catch(e => console.error('Thread participant notification insert error:', e.message));
-          }
-        } catch (e) { console.error('Thread participant notification error:', e.message); }
-      })();
-    }
-
-    // Fire-and-forget: mention notifications (skip self-mentions)
-    if (mentionedUserIds.length) {
-      const toNotify = mentionedUserIds.filter(id => id !== req.session.user.id);
-      const authorName = req.session.user.name;
-      const excerpt = content.trim().substring(0, 80);
-      const postUrl = `${process.env.BASE_URL}/post/${req.params.id}`;
-      const postId = req.params.id;
-      if (toNotify.length) {
-        (async () => {
-          try {
-            const [mentionedUsers] = await pool.query(
-              'SELECT id, email, name FROM users WHERE id IN (?)',
-              [toNotify]
-            );
-            for (const mu of mentionedUsers) {
-              sendPushToUser(mu.id, { title: `${authorName} mentioned you`, body: excerpt, url: `/post/${postId}` })
-                .catch(err => console.error('Mention push error:', err));
-              sendMentionNotification(mu.email, mu.name, authorName, excerpt, postUrl)
-                .catch(err => console.error('Mention email error:', err));
-              pool.query(
-                'INSERT INTO notifications (user_id, actor_id, type, post_id, comment_id) VALUES (?, ?, ?, ?, ?)',
-                [mu.id, req.session.user.id, 'mention', postId, commentId]
-              ).catch(e => console.error('Mention notification insert error:', e.message));
-            }
-          } catch (mentionErr) {
-            console.error('Mention notification error:', mentionErr.message);
-          }
-        })();
-      }
-    }
+    })();
   } catch (err) { console.error(err); }
   // Redirect back to wherever the user came from — the main feed or a member profile page — so they
   // stay in context rather than always being bounced to the individual post detail view.

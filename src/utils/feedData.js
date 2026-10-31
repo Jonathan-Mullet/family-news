@@ -108,6 +108,18 @@ async function enrichPosts(posts, viewerUserId) {
     WHERE c.post_id IN (?) AND c.deleted_at IS NULL
     ORDER BY c.post_id, IFNULL(c.parent_id, c.id), c.created_at ASC
   `, [ids]);
+  // Reactions on every comment and reply (one aggregate query, `mine` for the viewer), so feed
+  // cards can show and toggle them like the post page does.
+  const reactionsByComment = {};
+  if (commentRows.length) {
+    const [crRows] = await pool.query(
+      `SELECT comment_id, emoji, COUNT(*) AS count, SUM(user_id = ?) AS mine
+       FROM comment_reactions WHERE comment_id IN (?) GROUP BY comment_id, emoji`,
+      [viewerUserId, commentRows.map((c) => c.id)]
+    );
+    crRows.forEach((r) => { (reactionsByComment[r.comment_id] ||= []).push({ emoji: r.emoji, count: r.count, mine: !!Number(r.mine) }); });
+  }
+  commentRows.forEach((c) => { c.reactions = reactionsByComment[c.id] || []; });
   const commentsByPost = groupCommentsByPost(commentRows);
 
   return { reactionsByPost, reactionNames, commentsByPost };

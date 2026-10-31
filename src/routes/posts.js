@@ -9,7 +9,7 @@ const { sendPushToAllUsers, sendPushToUser } = require('../push');
 const { handleMultiUpload, deleteUploadedFile } = require('./upload');
 const { fetchOgPreview } = require('../utils/ogFetch');
 const { enrichPosts } = require('../utils/feedData');
-const { resolveMentions } = require('../utils/mentions');
+const { resolveMentions, ambiguousNote, mentionIdsIn } = require('../utils/mentions');
 const { parsePublishAt, toSqlUtc } = require('../utils/dates');
 
 const MAX_CONTENT = 2000;
@@ -297,6 +297,17 @@ router.post('/posts/:id/mark-read', requireAuth, async (req, res) => {
   }
 });
 
+// Big News emails and pushes the whole family, so a member can announce at most two a day
+// (admins and moderators aren't limited). Counts announcements actually sent.
+const BIG_NEWS_PER_DAY = 2;
+async function bigNewsAllowed(user) {
+  if (user.role === 'admin' || user.role === 'moderator') return true;
+  const [[{ n }]] = await pool.query(
+    'SELECT COUNT(*) AS n FROM posts WHERE user_id = ? AND big_news_notified_at > NOW() - INTERVAL 1 DAY', [user.id]);
+  return n < BIG_NEWS_PER_DAY;
+}
+const BIG_NEWS_LIMIT_NOTE = `You've already shared Big News ${BIG_NEWS_PER_DAY} times today, so this went out as a regular post.`;
+
 // Create a new post with optional photo gallery and send email + push notifications to all members.
 // The link-preview fetch is fire-and-forget (async IIFE) so it never blocks the redirect response.
 router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
@@ -320,7 +331,7 @@ router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
     return res.redirect('/');
   }
 
-  const isBigNews = big_news === '1' ? 1 : 0;
+  let isBigNews = big_news === '1' ? 1 : 0;
 
   // publish_at_utc is a hidden field the composer JS fills with a UTC ISO
   // string converted from the datetime-local input — the browser knows the
@@ -341,7 +352,10 @@ router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
   }
 
   try {
-    const { content: resolvedContent, mentionedUserIds } = await resolveMentions(content.trim(), pool);
+    const { content: resolvedContent, mentionedUserIds, ambiguous } = await resolveMentions(content.trim(), pool);
+    const mentionNote = ambiguousNote(ambiguous);
+    if (mentionNote) req.flash('info', mentionNote);
+    if (isBigNews && !(await bigNewsAllowed(req.session.user))) { isBigNews = 0; req.flash('info', BIG_NEWS_LIMIT_NOTE); }
 
     // Post + photos are inserted atomically: a failed photo INSERT must not
     // leave a half-created post in the feed. Notifications stay OUTSIDE the
@@ -411,7 +425,7 @@ router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
           (async () => {
             try {
               const [mentionedUsers] = await pool.query(
-                'SELECT id, email, name FROM users WHERE id IN (?)',
+                'SELECT id, email, name FROM users WHERE id IN (?) AND active = 1',
                 [toNotify]
               );
               for (const mu of mentionedUsers) {
@@ -466,18 +480,25 @@ router.post('/posts/:id/edit', requireAuth, async (req, res) => {
     return res.redirect('/');
   }
   try {
-    const [rows] = await pool.query('SELECT user_id FROM posts WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+    const [rows] = await pool.query('SELECT user_id, content, publish_at FROM posts WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
     if (!rows.length) return res.redirect('/');
     if (rows[0].user_id !== req.session.user.id && req.session.user.role !== 'admin' && req.session.user.role !== 'moderator') return res.status(403).end();
-    const { content: resolvedContent, mentionedUserIds } = await resolveMentions(content.trim(), pool);
+    const { content: resolvedContent, mentionedUserIds, ambiguous } = await resolveMentions(content.trim(), pool);
+    // Only people this edit newly mentions hear about it (fixing a typo mustn't re-notify everyone),
+    // and only once the post is live — a scheduled post's mentions go out when it publishes.
+    const alreadyMentioned = new Set(mentionIdsIn(rows[0].content));
+    const isLive = !rows[0].publish_at || new Date(rows[0].publish_at) <= new Date();
+    const newlyMentioned = isLive ? mentionedUserIds.filter((id) => !alreadyMentioned.has(id)) : [];
+    const mentionNote = ambiguousNote(ambiguous);
+    if (mentionNote) req.flash('info', mentionNote);
     await pool.query(
       'UPDATE posts SET content = ?, title = ?, edited_at = NOW() WHERE id = ?',
       [resolvedContent, title?.trim() || null, req.params.id]
     );
 
-    // Fire-and-forget: mention notifications (re-notify all mentions on edit — v1 simple approach)
-    if (mentionedUserIds.length) {
-      const toNotify = mentionedUserIds.filter(id => id !== req.session.user.id);
+    // Fire-and-forget: mention notifications for the newly mentioned only.
+    if (newlyMentioned.length) {
+      const toNotify = newlyMentioned.filter(id => id !== req.session.user.id);
       const authorName = req.session.user.name;
       const excerpt = content.trim().substring(0, 80);
       const postUrl = `${process.env.BASE_URL}/post/${req.params.id}`;
@@ -486,10 +507,13 @@ router.post('/posts/:id/edit', requireAuth, async (req, res) => {
         (async () => {
           try {
             const [mentionedUsers] = await pool.query(
-              'SELECT id, email, name FROM users WHERE id IN (?)',
+              'SELECT id, email, name FROM users WHERE id IN (?) AND active = 1',
               [toNotify]
             );
             for (const mu of mentionedUsers) {
+              pool.query('INSERT INTO notifications (user_id, actor_id, type, post_id) VALUES (?, ?, ?, ?)',
+                [mu.id, req.session.user.id, 'mention', editedPostId])
+                .catch(e => console.error('Mention notification insert error:', e.message));
               sendPushToUser(mu.id, { title: `${authorName} mentioned you`, body: excerpt, url: `/post/${editedPostId}` })
                 .catch(err => console.error('Mention push error:', err));
               sendMentionNotification(mu.email, mu.name, authorName, excerpt, postUrl)
@@ -518,9 +542,13 @@ router.post('/posts/:id/pin', requireAuth, async (req, res) => {
 // Toggle big-news flag; sends a push notification when a post is promoted to big news.
 router.post('/posts/:id/toggle-big-news', requireAuth, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT user_id FROM posts WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
+    const [rows] = await pool.query('SELECT user_id, big_news, big_news_notified_at FROM posts WHERE id = ? AND deleted_at IS NULL', [req.params.id]);
     if (!rows.length) return res.redirect('/');
     if (rows[0].user_id !== req.session.user.id && req.session.user.role !== 'admin' && req.session.user.role !== 'moderator') return res.status(403).end();
+    if (!rows[0].big_news && !rows[0].big_news_notified_at && !(await bigNewsAllowed(req.session.user))) {
+      req.flash('info', `You've already shared Big News ${BIG_NEWS_PER_DAY} times today — try again tomorrow.`);
+      return res.redirect(backToPost(req));
+    }
     await pool.query('UPDATE posts SET big_news = NOT big_news WHERE id = ?', [req.params.id]);
     // Tell the family once, the first time a published post becomes big news. A scheduled post
     // is announced by the cron when it goes live; flipping the flag off and on never re-sends.

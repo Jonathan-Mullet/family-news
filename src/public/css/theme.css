@@ -1347,3 +1347,13 @@ input[type="datetime-local"].fn-input {
 }
 /* Keyboard focus is always visible. */
 a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid #8b5e3c; outline-offset: 2px; }
+
+/* Touch: the small reaction chips, React buttons and notification ✕ keep their look but get a
+   44px-tall touch area (an invisible margin around them). */
+@media (pointer: coarse) {
+  .fn-reaction-chip, .fn-comment-react-btn, .reaction-btn { position: relative; } /* .notif-dismiss is already absolute */
+  .fn-reaction-chip::after, .fn-comment-react-btn::after, .reaction-btn::after { content: ""; position: absolute; inset: -8px -2px; }
+  .notif-dismiss::after { content: ""; position: absolute; inset: -8px; }
+}
+/* Bottom sheets clear the iPhone home bar. */
+#fn-picker-sheet, #reaction-sheet { padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)) !important; }

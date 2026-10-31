@@ -99,3 +99,51 @@ test('resolveMentions: returns empty for falsy content', async () => {
   assert.equal(r2.content, '');
   assert.deepEqual(r2.mentionedUserIds, []);
 });
+
+// ── 2026-10-31 review: ambiguity is reported, Unicode and long names, forged tokens ──
+const FAMILY = [
+  { id: 2, name: 'Emily mullet' }, { id: 9, name: 'Emily Hirota' },
+  { id: 5, name: 'Emma A Wengerd Miller' }, { id: 6, name: 'José Álvarez' }, { id: 7, name: 'Zoë' },
+];
+
+test('resolveMentions: ambiguous first name is reported with the options', async () => {
+  const r = await resolveMentions('Thanks @Emily!', makePool(FAMILY));
+  assert.equal(r.content, 'Thanks @Emily!');
+  assert.deepEqual(r.mentionedUserIds, []);
+  assert.deepEqual(r.ambiguous, [{ typed: 'Emily', options: ['Emily mullet', 'Emily Hirota'] }]);
+});
+
+test('resolveMentions: the full name settles it (case-insensitive)', async () => {
+  const r = await resolveMentions('Thanks @emily hirota!', makePool(FAMILY));
+  assert.equal(r.content, 'Thanks @[Emily Hirota](9)!');
+  assert.deepEqual(r.ambiguous, []);
+});
+
+test('resolveMentions: names longer than two words, longest match wins', async () => {
+  const r = await resolveMentions('Happy birthday @Emma A Wengerd Miller!', makePool(FAMILY));
+  assert.equal(r.content, 'Happy birthday @[Emma A Wengerd Miller](5)!');
+});
+
+test('resolveMentions: accented and non-Latin letters work', async () => {
+  const r = await resolveMentions('@José and @Zoë', makePool(FAMILY));
+  assert.equal(r.content, '@[José Álvarez](6) and @[Zoë](7)');
+  assert.deepEqual(r.mentionedUserIds.sort(), [6, 7]);
+});
+
+test('resolveMentions: a hand-typed @[Name](id) token is plain text, not a fake link', async () => {
+  const r = await resolveMentions('see @[Admin Person](1)', makePool(FAMILY));
+  assert.equal(r.content, 'see @Admin Person');
+  assert.deepEqual(r.mentionedUserIds, []);
+});
+
+test("resolveMentions: a possessive still mentions the person (@Bob's party)", async () => {
+  const r = await resolveMentions("@Bob's party", makePool([{ id: 2, name: 'Bob Jones' }]));
+  assert.equal(r.content, "@[Bob Jones](2)'s party");
+});
+
+test('mentionIdsIn: the people a stored post mentions', () => {
+  const { mentionIdsIn } = require('./mentions');
+  assert.deepEqual(mentionIdsIn('hi @[Bob Jones](2) and @[Zoë](7), again @[Bob Jones](2)'), [2, 7]);
+  assert.deepEqual(mentionIdsIn('nobody'), []);
+  assert.deepEqual(mentionIdsIn(null), []);
+});

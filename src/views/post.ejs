@@ -2,6 +2,7 @@
 <%- include('partials/nav') %>
 
 <div class="max-w-2xl mx-auto px-4 py-6 space-y-4">
+  <%- include('partials/flash') %>
   <a href="/" class="text-sm text-slate-400 dark:text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">← Back to feed</a>
 
   <%# Post %>
@@ -122,44 +123,7 @@
       <% } %>
     </div>
 
-    <%# Reactions %>
-    <div class="px-5 py-3 border-t border-slate-100 dark:border-slate-700 flex items-center gap-1.5 flex-wrap">
-      <% ['❤️','👍','😂','😮','😢'].forEach(emoji => {
-        const r = reactions[emoji];
-        const count = r?.count || 0;
-        const active = r?.userReacted;
-      %>
-      <button class="reaction-btn flex items-center gap-1 px-3 py-2 rounded-full text-sm transition-all min-h-[40px]
-        <%= active ? 'bg-brand-50 dark:bg-brand-600/20 border border-brand-200 dark:border-brand-700' : 'hover:bg-slate-50 dark:hover:bg-slate-700 border border-transparent' %>"
-        data-post-id="<%= post.id %>" data-emoji="<%= emoji %>">
-        <span><%= emoji %></span>
-        <span class="reaction-count text-sm text-slate-500 dark:text-slate-400 <%= count === 0 ? 'hidden' : '' %>"><%= count %></span>
-      </button>
-      <% }) %>
-
-      <div class="relative ml-1">
-        <button class="emoji-picker-toggle p-1.5 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm min-h-[40px] min-w-[40px]" data-post-id="<%= post.id %>">＋</button>
-        <div class="emoji-picker hidden absolute bottom-12 left-0 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-2xl shadow-xl p-2 z-20 grid grid-cols-4 gap-1 w-40">
-          <% ['🎉','🙏','🔥','💯','🫶','👏','🥳','😍','🤣','😭','💪','🎂','🌟','👀','🤔','💔'].forEach(e => { %>
-          <button class="reaction-btn text-lg p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors min-h-[40px]" data-post-id="<%= post.id %>" data-emoji="<%= e %>"><%= e %></button>
-          <% }) %>
-        </div>
-      </div>
-      <%# Reaction names summary line %>
-      <%
-        const _allEmojis = ['❤️','👍','😂','😮','😢','🎉','🙏','🔥','💯','🫶','👏','🥳','😍','🤣','😭','💪','🎂','🌟','👀','🤔','💔'];
-        const _summaryParts = _allEmojis
-          .filter(e => reactionNames[e] && reactionNames[e].length > 0)
-          .map(e => {
-            const ns = reactionNames[e];
-            if (ns.length <= 2) return e + ' ' + ns.join(', ');
-            return e + ' ' + ns.slice(0, 2).join(', ') + ' and ' + (ns.length - 2) + ' other' + (ns.length - 2 > 1 ? 's' : '');
-          });
-      %>
-      <% if (_summaryParts.length) { %>
-      <button class="reaction-summary text-sm text-slate-400 dark:text-slate-500 mt-1 py-1.5 leading-relaxed text-left w-full hover:text-slate-600 dark:hover:text-slate-300 transition-colors"><%= _summaryParts.join(' · ') %></button>
-      <% } %>
-    </div>
+    <%- include('partials/reactions', { post, reactionData: reactions, names: reactionNames }) %>
   </article>
 
   <%# Comments %>
@@ -314,14 +278,6 @@
 
 <script src="/js/app.js?v=<%= assetVersion %>"></script>
 <script>
-  document.querySelectorAll('.reply-toggle').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const form = document.getElementById(btn.dataset.target);
-      form.classList.toggle('hidden');
-      if (!form.classList.contains('hidden')) form.querySelector('input[name=content]').focus();
-    });
-  });
-
   document.querySelectorAll('.edit-toggle').forEach(btn => {
     btn.addEventListener('click', () => {
       const article = document.querySelector(`article[data-post-id="${btn.dataset.postId}"]`);

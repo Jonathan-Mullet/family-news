@@ -5,6 +5,10 @@ const heicConvert = require('heic-convert');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { imageKind, heicPixels, MAX_PIXELS } = require('../utils/imageGuard');
+
+// A refusal with words for the person uploading (shown instead of the generic failure).
+const refuse = (userMessage) => Object.assign(new Error(userMessage), { userMessage });
 
 // This path is a Docker volume mount: /app/uploads inside the container maps to a persistent directory on the Pi host.
 const UPLOADS_DIR = '/app/uploads';
@@ -49,8 +53,11 @@ async function processAndSave(buffer) {
   // so use a CSPRNG — the old Date.now()+Math.random() prefix was predictable.
   const filename = `${crypto.randomBytes(16).toString('hex')}.jpg`;
   const outPath = path.join(UPLOADS_DIR, filename);
+  const kind = imageKind(buffer);
+  if (!kind) throw refuse('That file isn’t a photo this site can use — try a JPEG, PNG, HEIC, WebP or GIF.');
+  if (kind === 'heic' && heicPixels(buffer) > MAX_PIXELS) throw refuse('That photo is too large to process.');
   const src = await toProcessableBuffer(buffer);
-  await sharp(src)
+  await sharp(src, { limitInputPixels: MAX_PIXELS })
     // .rotate() with no argument reads the EXIF orientation tag and auto-rotates the image,
     // which fixes sideways or upside-down photos taken on phones.
     .rotate()
@@ -74,7 +81,7 @@ function handleUpload(req, res, next) {
       req.uploadedPath = `/uploads/${filename}`;
     } catch (e) {
       console.error('Sharp processing error:', e.message);
-      req.uploadError = 'Could not process image.';
+      req.uploadError = e.userMessage || 'Could not process image.';
     }
     next();
   });
@@ -83,8 +90,11 @@ function handleUpload(req, res, next) {
 async function processAndSaveAvatar(buffer) {
   const filename = `avatar-${crypto.randomBytes(16).toString('hex')}.jpg`;
   const outPath = path.join(UPLOADS_DIR, filename);
+  const kind = imageKind(buffer);
+  if (!kind) throw refuse('That file isn’t a photo this site can use — try a JPEG, PNG, HEIC, WebP or GIF.');
+  if (kind === 'heic' && heicPixels(buffer) > MAX_PIXELS) throw refuse('That photo is too large to process.');
   const src = await toProcessableBuffer(buffer);
-  await sharp(src)
+  await sharp(src, { limitInputPixels: MAX_PIXELS })
     // .rotate() auto-corrects EXIF orientation so selfies aren't sideways.
     .rotate()
     .resize(256, 256, { fit: 'cover', position: 'centre' })
@@ -103,7 +113,7 @@ function handleAvatarUpload(req, res, next) {
       req.uploadedPath = `/uploads/${filename}`;
     } catch (e) {
       console.error('Sharp avatar error:', e.message);
-      req.uploadError = 'Could not process image.';
+      req.uploadError = e.userMessage || 'Could not process image.';
     }
     next();
   });
@@ -124,7 +134,7 @@ function handleMultiUpload(req, res, next) {
       }
     } catch (e) {
       console.error('Multi-upload error:', e.message);
-      req.uploadError = 'Could not process images.';
+      req.uploadError = e.userMessage || 'Could not process images.';
     }
     next();
   });

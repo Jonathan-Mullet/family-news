@@ -139,54 +139,7 @@
   </div>
   <% } %>
 
-  <%# Reactions — Teams-like chip+picker %>
-  <%
-    const _emojiOrder = ['❤️','👍','😂','😮','😢','🎉','🙏','🔥','💯','🫶','👏','🥳','😍','🤣','😭','💪','🎂','🌟','👀','🤔','💔'];
-    const _reactData = {};
-    _emojiOrder.forEach(e => {
-      const r = reactionsByPost?.[post.id]?.[e];
-      if (r?.count) _reactData[e] = { count: r.count, userReacted: !!r.userReacted };
-    });
-    const _rn = (reactionNames && reactionNames[post.id]) ? reactionNames[post.id] : {};
-    const _summaryParts = _emojiOrder
-      .filter(e => _rn[e]?.length > 0)
-      .map(e => {
-        const ns = _rn[e];
-        if (ns.length <= 2) return e + ' ' + ns.join(', ');
-        return e + ' ' + ns.slice(0, 2).join(', ') + ' +' + (ns.length - 2);
-      });
-  %>
-  <div class="px-4 py-2 border-t border-slate-100 dark:border-slate-700">
-    <div class="flex items-center gap-1.5 flex-wrap" id="reaction-chips-<%= post.id %>" data-reactions="<%= JSON.stringify(_reactData) %>">
-
-      <%# Chips for all currently-reacted emojis %>
-      <% _emojiOrder.forEach(emoji => {
-        if (!_reactData[emoji]) return;
-        const r = _reactData[emoji];
-      %>
-      <button class="reaction-chip reaction-btn flex items-center gap-1 px-2 py-1 rounded-full text-sm border transition-all min-h-[30px]
-        <%= r.userReacted ? 'bg-brand-50 dark:bg-brand-600/20 border-brand-300 dark:border-brand-600' : 'bg-slate-50 dark:bg-slate-700/40 border-slate-200 dark:border-slate-600 hover:border-brand-300 dark:hover:border-brand-500' %>"
-        data-post-id="<%= post.id %>" data-emoji="<%= emoji %>">
-        <span><%= emoji %></span>
-        <span class="reaction-count text-sm font-medium text-slate-500 dark:text-slate-400"><%= r.count %></span>
-      </button>
-      <% }) %>
-
-      <%# React button — picker is a single floating element in app.js (avoids overflow:hidden clipping) %>
-      <button class="emoji-picker-toggle flex items-center gap-1 text-sm text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors px-2 py-1 rounded-full border border-transparent hover:border-slate-200 dark:hover:border-slate-600 min-h-[30px]" data-post-id="<%= post.id %>">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 shrink-0">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.536-4.464a.75.75 0 10-1.061-1.061 3.5 3.5 0 01-4.95 0 .75.75 0 00-1.06 1.06 5 5 0 007.07 0zM9 8.5c0 .828-.448 1.5-1 1.5s-1-.672-1-1.5S7.448 7 8 7s1 .672 1 1.5zm3 1.5c.552 0 1-.672 1-1.5S12.552 7 12 7s-1 .672-1 1.5.448 1.5 1 1.5z" clip-rule="evenodd" />
-        </svg>
-        React
-      </button>
-
-    </div>
-
-    <%# Names summary — tap to see who reacted %>
-    <% if (_summaryParts.length) { %>
-    <button class="reaction-summary text-sm text-slate-400 dark:text-slate-500 mt-1 py-1 leading-relaxed text-left w-full hover:text-slate-600 dark:hover:text-slate-300 transition-colors"><%= _summaryParts.join(' · ') %></button>
-    <% } %>
-  </div>
+  <%- include('reactions', { post, reactionData: reactionsByPost?.[post.id] || {}, names: (reactionNames && reactionNames[post.id]) || {} }) %>
 
   <%# Comments section %>
   <%
@@ -228,10 +181,24 @@
         <div class="flex-1 min-w-0">
           <span class="text-sm font-semibold text-slate-700 dark:text-slate-200"><%= comment.author_name %></span>
           <span class="text-base text-slate-500 dark:text-slate-400 ml-1 break-words"><%- renderContent(comment.content) %></span>
-          <div class="flex items-center gap-2 mt-0.5">
-            <time data-ts="<%= new Date(comment.created_at).toISOString() %>" data-fmt="compact" class="text-sm text-slate-400 dark:text-slate-500"></time>
-            <a href="/post/<%= post.id %>" class="text-sm text-brand-600 dark:text-brand-400 hover:underline">Reply</a>
+          <div class="flex items-center gap-1 mt-1 flex-wrap fn-comment-reactions" data-comment-id="<%= comment.id %>">
+            <% (comment.reactions || []).forEach(r => { %>
+            <button class="fn-reaction-chip<%= r.mine ? ' fn-reaction-chip--mine' : '' %>" data-emoji="<%= r.emoji %>"><%= r.emoji %> <%= r.count %></button>
+            <% }) %>
+            <button class="fn-comment-react-btn" data-comment-id="<%= comment.id %>" title="React" aria-label="React to <%= comment.author_name %>'s comment">🙂<span aria-hidden="true">＋</span></button>
           </div>
+          <div class="flex items-center gap-2">
+            <time data-ts="<%= new Date(comment.created_at).toISOString() %>" data-fmt="compact" class="text-sm text-slate-400 dark:text-slate-500"></time>
+            <button type="button" class="reply-toggle text-sm text-brand-600 dark:text-brand-400 min-h-[44px] px-2" data-target="feed-reply-form-<%= comment.id %>" aria-expanded="false">Reply</button>
+          </div>
+          <form method="POST" action="/posts/<%= post.id %>/comments" class="mt-1 hidden" id="feed-reply-form-<%= comment.id %>">
+            <input type="hidden" name="parent_id" value="<%= comment.id %>">
+            <div class="flex gap-2">
+              <input type="text" name="content" placeholder="Reply to <%= comment.author_name %>…" aria-label="Reply to <%= comment.author_name %>" required
+                class="mention-input flex-1 min-w-0 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[44px]">
+              <button type="submit" class="bg-brand-600 text-white text-sm font-medium px-3 rounded-lg hover:bg-brand-700 transition-colors min-h-[44px] shrink-0">Send</button>
+            </div>
+          </form>
           <% if (comment.replies && comment.replies.length) { %>
           <% comment.replies.forEach(reply => { %>
           <div class="flex gap-2 items-start mt-1.5 pl-8">
@@ -243,6 +210,12 @@
             <div class="flex-1 min-w-0">
               <span class="text-sm font-semibold text-slate-700 dark:text-slate-200"><%= reply.author_name %></span>
               <span class="text-base text-slate-500 dark:text-slate-400 ml-1 break-words"><%- renderContent(reply.content) %></span>
+              <div class="flex items-center gap-1 mt-1 flex-wrap fn-comment-reactions" data-comment-id="<%= reply.id %>">
+                <% (reply.reactions || []).forEach(r => { %>
+                <button class="fn-reaction-chip<%= r.mine ? ' fn-reaction-chip--mine' : '' %>" data-emoji="<%= r.emoji %>"><%= r.emoji %> <%= r.count %></button>
+                <% }) %>
+                <button class="fn-comment-react-btn" data-comment-id="<%= reply.id %>" title="React" aria-label="React to <%= reply.author_name %>'s reply">🙂<span aria-hidden="true">＋</span></button>
+              </div>
               <time data-ts="<%= new Date(reply.created_at).toISOString() %>" data-fmt="compact" class="text-sm text-slate-400 dark:text-slate-500 block mt-0.5"></time>
             </div>
           </div>
@@ -252,9 +225,9 @@
       </div>
       <% }) %>
       <form method="POST" action="/posts/<%= post.id %>/comments" class="flex gap-2 items-center pt-2 border-t border-slate-100 dark:border-slate-600">
-        <input type="text" name="content" placeholder="Add a comment…" required
-          class="mention-input flex-1 min-w-0 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[32px]">
-        <button type="submit" class="bg-brand-600 text-white text-sm font-medium px-3 rounded-lg hover:bg-brand-700 transition-colors min-h-[32px] shrink-0">Send</button>
+        <input type="text" name="content" placeholder="Add a comment…" aria-label="Add a comment" required
+          class="mention-input flex-1 min-w-0 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder-slate-400 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 min-h-[44px]">
+        <button type="submit" class="bg-brand-600 text-white text-sm font-medium px-3 rounded-lg hover:bg-brand-700 transition-colors min-h-[44px] shrink-0">Send</button>
       </form>
     </div>
   </div>

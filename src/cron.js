@@ -85,6 +85,12 @@ function startCron() {
         console.log(`[cron] Purged comment ${comment.id}`);
       }
       console.log(`[cron] Trash purge complete: ${stalePosts.length} posts, ${staleComments.length} comments.`);
+      // Notifications don't need keeping forever: read ones go after 90 days, any after a year.
+      const [pruned] = await pool.query(
+        `DELETE FROM notifications WHERE (read_at IS NOT NULL AND created_at < NOW() - INTERVAL 90 DAY)
+           OR created_at < NOW() - INTERVAL 365 DAY`
+      );
+      if (pruned.affectedRows) console.log(`[cron] Pruned ${pruned.affectedRows} old notifications.`);
     } catch (err) {
       console.error('[cron] Error purging trash:', err.message);
     }

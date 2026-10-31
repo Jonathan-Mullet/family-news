@@ -21,10 +21,16 @@ router.get('/', requireAuth, async (req, res) => {
       LIMIT 50
     `, [userId]);
 
-    await pool.query(
-      'UPDATE notifications SET read_at = NOW() WHERE user_id = ? AND read_at IS NULL',
-      [userId]
-    );
+    // Mark what's on screen as read, plus any unread backlog older than the 50 shown (so the dot
+    // can clear). Not everything: one for a scheduled post that isn't live yet stays unread
+    // until it can actually be seen.
+    if (notifications.length) {
+      const oldest = notifications[notifications.length - 1].created_at;
+      await pool.query(
+        'UPDATE notifications SET read_at = NOW() WHERE user_id = ? AND read_at IS NULL AND (id IN (?) OR created_at < ?)',
+        [userId, notifications.map((n) => n.id), oldest]
+      );
+    }
 
     if (res.locals.showChangelogDot) {
       pool.query('UPDATE users SET whats_new_seen_at = NOW() WHERE id = ?', [userId])

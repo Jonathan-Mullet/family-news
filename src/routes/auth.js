@@ -1,4 +1,5 @@
 // Authentication routes: login, logout, registration (invite-required), birthday setup, and password reset.
+const { clientIp } = require('../utils/clientIp');
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
@@ -11,14 +12,14 @@ const { isValidBirthday } = require('../utils/dates');
 
 // Brute-force protection for login + forgot-password: 10 attempts per 15 min
 // per (IP, email) pair. In-memory by design — single Node process. trust proxy
-// is set in app.js, so req.ip is the real client IP behind Nginx.
+// is set in app.js; clientIp() (utils/clientIp.js) recovers the visitor's own address behind Cloudflare.
 const authLimiter = createRateLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
 // Namespaced per action — login and forgot-password used to share one bucket,
 // so exhausting either one (e.g. spamming forgot-password for a victim's
 // email) locked the victim out of the other action too.
 // String(): a crafted email[]=… arrives as an array, and .trim() throwing here (outside the route's
 // try) would leave the request hanging.
-const limiterKey = (req, email, action) => `${action}:${req.ip}:${String(email || '').trim().toLowerCase()}`;
+const limiterKey = (req, email, action) => `${action}:${clientIp(req)}:${String(email || '').trim().toLowerCase()}`;
 
 // Reset tokens are stored as sha256(token) so a DB leak can't be replayed;
 // the raw token only ever lives in the emailed link.

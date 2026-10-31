@@ -163,7 +163,9 @@ function renderReactionChips(postId) {
         : 'bg-slate-50 dark:bg-slate-700/40 border-slate-200 dark:border-slate-600 hover:border-brand-300 dark:hover:border-brand-500');
     chip.dataset.postId = postId;
     chip.dataset.emoji = emoji;
-    chip.innerHTML = `<span>${emoji}</span><span class="reaction-count text-xs font-medium text-slate-500 dark:text-slate-400">${r.count}</span>`;
+    chip.setAttribute('aria-pressed', r.userReacted ? 'true' : 'false');
+    chip.setAttribute('aria-label', `${emoji} ${r.count}${r.userReacted ? ', including you' : ''}`);
+    chip.innerHTML = `<span>${emoji}</span><span class="reaction-count text-sm font-medium text-slate-500 dark:text-slate-400">${r.count}</span>`;
     chipsArea.insertBefore(chip, toggleBtn);
   });
 
@@ -254,6 +256,7 @@ document.addEventListener('click', e => {
 // all platforms including iOS PWA. No floating-position math needed.
 
 const _pickerSheet = document.createElement('div');
+_pickerSheet.id = 'fn-picker-sheet';
 _pickerSheet.className = 'fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-slate-800 rounded-t-2xl shadow-2xl border-t border-slate-200 dark:border-slate-700 p-4';
 // Tailwind CDN only compiles classes for DOM nodes present at scan time —
 // JS-created elements must use inline styles instead of utility classes.
@@ -1266,3 +1269,14 @@ window.addEventListener('pageshow', (e) => {
   title?.addEventListener('input', write);
   document.getElementById('post-form').addEventListener('submit', () => { try { sessionStorage.setItem(SENT, '1'); } catch { /* ignore */ } });
 })();
+
+// ── Reply buttons (feed cards, member pages, post page): open the reply box under the comment ──
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.reply-toggle[data-target]');
+  if (!btn) return;
+  const form = document.getElementById(btn.dataset.target);
+  if (!form) return;
+  const open = form.classList.toggle('hidden') === false;
+  btn.setAttribute('aria-expanded', String(open));
+  if (open) form.querySelector('input[name=content]')?.focus();
+});
