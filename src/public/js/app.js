@@ -63,7 +63,7 @@ if (darkToggle) {
 const _reactionSheet = document.createElement('div');
 _reactionSheet.id = 'reaction-sheet';
 _reactionSheet.className = 'fixed inset-x-0 bottom-0 z-50 bg-white dark:bg-slate-800 rounded-t-2xl shadow-2xl border-t border-slate-200 dark:border-slate-700 p-5 translate-y-full transition-transform duration-300';
-_reactionSheet.innerHTML = '<div class="flex items-center justify-between mb-4"><h3 class="font-semibold text-slate-700 dark:text-slate-200 text-sm">Reactions</h3><button id="reaction-sheet-close" class="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 text-xl min-h-[36px] min-w-[36px] flex items-center justify-center">✕</button></div><div id="reaction-sheet-content" class="space-y-3 max-h-64 overflow-y-auto"></div>';
+_reactionSheet.innerHTML = '<div class="flex items-center justify-between mb-4"><h3 class="font-semibold text-slate-700 dark:text-slate-200 text-sm">Reactions</h3><button id="reaction-sheet-close" aria-label="Close" class="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 text-xl min-h-[36px] min-w-[36px] flex items-center justify-center">✕</button></div><div id="reaction-sheet-content" class="space-y-3 max-h-64 overflow-y-auto"></div>';
 document.body.appendChild(_reactionSheet);
 
 let _sheetOverlay = null;
@@ -269,6 +269,7 @@ _pickerTitle.textContent = 'Add a reaction';
 const _pickerCloseBtn = document.createElement('button');
 _pickerCloseBtn.className = 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 text-xl min-h-[36px] min-w-[36px] flex items-center justify-center';
 _pickerCloseBtn.textContent = '✕';
+_pickerCloseBtn.setAttribute('aria-label', 'Close');
 _pickerHeader.appendChild(_pickerTitle);
 _pickerHeader.appendChild(_pickerCloseBtn);
 _pickerSheet.appendChild(_pickerHeader);
@@ -636,10 +637,10 @@ const _lightbox = (() => {
   const el = document.createElement('div');
   el.style.cssText = 'display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.92);flex-direction:column;align-items:center;justify-content:center;touch-action:none;';
   el.innerHTML = [
-    '<button id="lb-close" type="button" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:36px;height:36px;color:white;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;">✕</button>',
-    '<button id="lb-prev" type="button" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:44px;height:44px;color:white;font-size:24px;cursor:pointer;display:none;align-items:center;justify-content:center;">‹</button>',
-    '<img id="lb-img" src="" alt="" style="max-width:92vw;max-height:85vh;object-fit:contain;border-radius:4px;user-select:none;">',
-    '<button id="lb-next" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:44px;height:44px;color:white;font-size:24px;cursor:pointer;display:none;align-items:center;justify-content:center;">›</button>',
+    '<button id="lb-close" type="button" aria-label="Close photo" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:36px;height:36px;color:white;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;">✕</button>',
+    '<button id="lb-prev" type="button" aria-label="Previous photo" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:44px;height:44px;color:white;font-size:24px;cursor:pointer;display:none;align-items:center;justify-content:center;">‹</button>',
+    '<img id="lb-img" src="" alt="Photo" style="max-width:92vw;max-height:85vh;object-fit:contain;border-radius:4px;user-select:none;">',
+    '<button id="lb-next" type="button" aria-label="Next photo" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:44px;height:44px;color:white;font-size:24px;cursor:pointer;display:none;align-items:center;justify-content:center;">›</button>',
     '<div id="lb-dots" style="position:absolute;bottom:20px;left:0;right:0;display:flex;gap:6px;justify-content:center;"></div>',
   ].join('');
   document.body.appendChild(el);
@@ -681,6 +682,17 @@ function _closeLightbox() {
 }
 
 document.getElementById('lb-close').addEventListener('click', _closeLightbox);
+
+// Keyboard: Escape closes whatever overlay is open (photo viewer, emoji picker, reactions list);
+// arrow keys page through photos.
+document.addEventListener('keydown', (e) => {
+  const lbOpen = _lightbox.style.display && _lightbox.style.display !== 'none';
+  if (e.key === 'Escape') {
+    if (lbOpen) _closeLightbox();
+    else { _hidePickerSheet(); _hideReactionSheet(); }
+  } else if (lbOpen && e.key === 'ArrowLeft' && _lbPrev.style.display !== 'none') _lbPrev.click();
+  else if (lbOpen && e.key === 'ArrowRight' && _lbNext.style.display !== 'none') _lbNext.click();
+});
 _lbPrev.addEventListener('click', () => { if (_lbIdx > 0) { _lbIdx--; _renderLightbox(); } });
 _lbNext.addEventListener('click', () => { if (_lbIdx < _lbUrls.length - 1) { _lbIdx++; _renderLightbox(); } });
 _lightbox.addEventListener('click', e => { if (e.target === _lightbox) _closeLightbox(); });
@@ -906,7 +918,12 @@ if (feedEl && (navigator.standalone === true || window.matchMedia('(display-mode
   ptrEl.innerHTML = '<div style="margin-top:12px;width:36px;height:36px;background:var(--tw-bg-opacity,white);border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center" class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"><svg id="ptr-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" style="width:18px;height:18px;transform-origin:center;color:#8b5e3c"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="56.5" stroke-dashoffset="14" opacity="0.25"/><path d="M12 3a9 9 0 0 1 9 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg></div>';
   document.body.appendChild(ptrEl);
 
+  // Not from inside a text box, and not while a post is half-written: a reload there loses
+  // nothing now (drafts are kept) but would still yank the keyboard and the scroll away.
   document.addEventListener('touchstart', e => {
+    if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
+    const draft = document.getElementById('post-content');
+    if (draft && draft.value.trim()) return;
     if (window.scrollY === 0) { ptrStartY = e.touches[0].clientY; ptrActive = true; ptrDist = 0; }
   }, { passive: true });
 
@@ -1180,6 +1197,72 @@ if (_pushSection) {
 document.getElementById('post-form')?.addEventListener('submit', function () {
   const btn = this.querySelector('button[type="submit"]');
   if (!btn) return;
+  btn.dataset.label = btn.dataset.label || btn.textContent;
   btn.disabled = true;
   btn.textContent = 'Posting…';
+  // A dropped connection leaves the page where it is, button stuck: give it back after a while
+  // (long enough for a slow photo upload). The draft is kept, so nothing is lost either way.
+  setTimeout(() => { if (btn.disabled) { btn.disabled = false; btn.textContent = btn.dataset.label; } }, 45000);
 });
+
+// Comments and replies: one tap, one comment (a double tap posted it twice and notified twice).
+document.addEventListener('submit', (e) => {
+  const form = e.target;
+  if (!(form instanceof HTMLFormElement) || !/\/comments$/.test(form.getAttribute('action') || '')) return;
+  if (form.dataset.sending) { e.preventDefault(); return; }
+  form.dataset.sending = '1';
+  form.querySelectorAll('button[type="submit"], button:not([type])').forEach((b) => { b.disabled = true; });
+});
+
+// Back/forward cache: Safari restores the page exactly as it was left, so a form that was mid-send
+// would come back with its button stuck on "Posting…". Undo that whenever a page is shown again.
+window.addEventListener('pageshow', (e) => {
+  if (!e.persisted) return;
+  document.querySelectorAll('form[data-sending]').forEach((f) => {
+    delete f.dataset.sending;
+    f.querySelectorAll('button[disabled]').forEach((b) => { b.disabled = false; });
+  });
+  const btn = document.querySelector('#post-form button[type="submit"]');
+  if (btn && btn.disabled) { btn.disabled = false; if (btn.dataset.label) btn.textContent = btn.dataset.label; }
+});
+
+// ── Drafts: never lose a half-written post ───────────────────────────────────
+// What's typed in the composer (and its title) is kept on this device as you type, and put back
+// on load — after a failed upload, an expired session, a dropped connection, an accidental Back or
+// reload. It's cleared only when the post is really there: after a submit, the next feed load
+// looks for the drafted text among the posts (no error message alone proves anything — a dropped
+// connection shows none either).
+(function () {
+  const ta = document.getElementById('post-content');
+  if (!ta) return;
+  const title = document.querySelector('#post-form input[name="title"]');
+  const KEY = 'fn-draft-post';
+  const SENT = 'fn-draft-sent';
+  const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { return null; } };
+  const write = () => {
+    try {
+      if (ta.value.trim() || (title && title.value.trim())) localStorage.setItem(KEY, JSON.stringify({ content: ta.value, title: title ? title.value : '', at: Date.now() }));
+      else localStorage.removeItem(KEY);
+    } catch { /* storage off (private mode): nothing to keep */ }
+  };
+  let sent = null;
+  try { sent = sessionStorage.getItem(SENT); sessionStorage.removeItem(SENT); } catch { /* ignore */ }
+  const squash = (t) => (t || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  const draftNow = read();
+  const posted = sent && draftNow && squash(draftNow.content) &&
+    [...document.querySelectorAll('.post-body-text')].some((el) => squash(el.textContent).startsWith(squash(draftNow.content).slice(0, 40)));
+  if (posted) {
+    try { localStorage.removeItem(KEY); } catch { /* ignore */ }
+  } else {
+    const d = read();
+    if (d && !ta.value && Date.now() - (d.at || 0) < 14 * 86400000) {
+      ta.value = d.content || '';
+      if (title && d.title) title.value = d.title;
+      if (d.title || ta.value) document.getElementById('post-extras')?.classList.remove('hidden');
+      ta.dispatchEvent(new Event('input', { bubbles: true })); // char counter etc.
+    }
+  }
+  ta.addEventListener('input', write);
+  title?.addEventListener('input', write);
+  document.getElementById('post-form').addEventListener('submit', () => { try { sessionStorage.setItem(SENT, '1'); } catch { /* ignore */ } });
+})();

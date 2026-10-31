@@ -1332,3 +1332,18 @@ input[type="datetime-local"].fn-input {
 .dark .fn-feedback-pill--active { background: #f5e5d0; color: #2c1810; border-color: #f5e5d0; }
 .dark .fn-feedback-pill--active:hover { background: #fff; border-color: #fff; }
 .dark .fn-feedback-severity { color: #9a7e5a; }
+
+
+/* ── Review 2026-10-31: iPhone + accessibility floor ─────────────────────────── */
+/* iOS zooms into any field under 16px; many Tailwind fields use text-sm. */
+@media (max-width: 768px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]), textarea, select { font-size: 16px !important; }
+}
+/* A long URL or unbroken word mustn't push a card wider than the screen. */
+.post-content-display p, .post-body-text { overflow-wrap: anywhere; }
+/* Reduce Motion: no slides, fades or spins. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+/* Keyboard focus is always visible. */
+a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid #8b5e3c; outline-offset: 2px; }

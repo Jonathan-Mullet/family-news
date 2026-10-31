@@ -37,19 +37,19 @@
       <div class="flex items-center gap-1">
         <% if (user.role === 'admin' || user.role === 'moderator') { %>
         <form method="POST" action="/posts/<%= post.id %>/pin">
-          <button type="submit" class="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" title="<%= post.pinned ? 'Unpin post' : 'Pin post' %>">
+          <button type="submit" class="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors" title="<%= post.pinned ? 'Unpin post' : 'Pin post' %>" aria-label="<%= post.pinned ? 'Unpin post' : 'Pin post' %>">
             <span class="text-sm"><%= post.pinned ? '📌' : '📍' %></span>
           </button>
         </form>
         <% } %>
         <form method="POST" action="/posts/<%= post.id %>/toggle-big-news">
-          <button type="submit" class="min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors <%= post.big_news ? 'text-amber-500 dark:text-amber-400 hover:text-amber-700' : 'text-slate-300 dark:text-slate-600 hover:text-amber-500 dark:hover:text-amber-400' %>" title="<%= post.big_news ? 'Unmark Big News' : 'Mark as Big News' %>">
+          <button type="submit" class="min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors <%= post.big_news ? 'text-amber-500 dark:text-amber-400 hover:text-amber-700' : 'text-slate-300 dark:text-slate-600 hover:text-amber-500 dark:hover:text-amber-400' %>" title="<%= post.big_news ? 'Unmark Big News' : 'Mark as Big News' %>" aria-label="<%= post.big_news ? 'Unmark Big News' : 'Mark as Big News' %>">
             <span class="text-sm">📣</span>
           </button>
         </form>
-        <button class="edit-toggle min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors text-xs" data-post-id="<%= post.id %>" title="Edit post">✏️</button>
-        <form method="POST" action="/posts/<%= post.id %>/delete" onsubmit="return confirm('Delete this post?')">
-          <button type="submit" class="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-red-400 transition-colors text-sm">✕</button>
+        <button class="edit-toggle min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 dark:text-slate-600 hover:text-brand-600 dark:hover:text-brand-400 transition-colors text-xs" data-post-id="<%= post.id %>" title="Edit post" aria-label="Edit post">✏️</button>
+        <form method="POST" action="/posts/<%= post.id %>/delete" onsubmit="return confirm('Delete this post? Its photos, comments and reactions go with it. A moderator can restore it for 14 days.')">
+          <button type="submit" class="min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-red-400 transition-colors text-sm" title="Delete post" aria-label="Delete post">✕</button>
         </form>
       </div>
       <% } %>
@@ -58,7 +58,7 @@
     <%# Content display %>
     <div class="post-content-display">
       <% if (post.title) { %><h2 class="font-semibold text-slate-800 dark:text-slate-100 mb-1"><%= post.title %></h2><% } %>
-      <p class="text-slate-700 dark:text-slate-300 text-base leading-relaxed whitespace-pre-wrap"><%- renderContent(post.content) %></p>
+      <p class="text-slate-700 dark:text-slate-300 text-base leading-relaxed whitespace-pre-wrap post-body-text"><%- renderContent(post.content) %></p>
     </div>
 
     <%# Inline edit form %>
