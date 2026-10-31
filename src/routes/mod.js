@@ -122,8 +122,13 @@ router.post('/mod/comments/:id/restore', requireMod, async (req, res) => {
 
 router.post('/mod/comments/:id/purge', requireMod, async (req, res) => {
   try {
-    // Purge can only ever touch already-trashed comments.
-    await pool.query('DELETE FROM comments WHERE id = ? AND deleted_at IS NOT NULL', [req.params.id]);
+    // Purge can only ever touch already-trashed comments, and never one that still has live
+    // replies: the delete would cascade (parent_id ON DELETE CASCADE) and take them with it.
+    await pool.query(
+      `DELETE FROM comments WHERE id = ? AND deleted_at IS NOT NULL
+         AND NOT EXISTS (SELECT 1 FROM (SELECT id FROM comments WHERE parent_id = ? AND deleted_at IS NULL) r)`,
+      [req.params.id, req.params.id]
+    );
   } catch (err) { console.error(err); }
   res.redirect('/mod');
 });

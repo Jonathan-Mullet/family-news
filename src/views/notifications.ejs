@@ -88,6 +88,7 @@ function notifLink(n) {
   <p id="notif-empty"
      style="<%= (notifications.length > 0 || showChangelogDot) ? 'display:none' : '' %>"
      class="text-sm text-slate-400 dark:text-slate-500 py-4">Nothing yet — you'll see comments, mentions, and reactions here.</p>
+  <p id="notif-error" role="alert" class="text-sm text-red-600 dark:text-red-400 py-2" hidden></p>
 
   <div id="notif-list">
     <% notifications.forEach(function(n, i) { %>
@@ -129,11 +130,29 @@ function notifLink(n) {
     }
   }
 
+  // A refused or failed request (offline, signed out, server error) puts the row back and says so —
+  // fetch() only rejects on network errors, so the status is checked too.
+  function showError(msg) {
+    var el = document.getElementById('notif-error');
+    el.textContent = msg; el.hidden = false;
+    clearTimeout(showError.t); showError.t = setTimeout(function () { el.hidden = true; }, 6000);
+  }
+  function okOrThrow(res) { if (!res.ok) throw new Error(String(res.status)); return res; }
+
   function dismissRow(row, url) {
+    var parent = row.parentNode, next = row.nextSibling;
     row.classList.add('notif-removing');
     var timer = setTimeout(function () { row.remove(); checkEmpty(); }, ANIM_MS);
     fetch(url, { method: 'DELETE', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-      .catch(function () { clearTimeout(timer); row.classList.remove('notif-removing'); });
+      .then(okOrThrow)
+      .catch(function () {
+        clearTimeout(timer);
+        row.classList.remove('notif-removing');
+        if (!row.isConnected) parent.insertBefore(row, next && next.isConnected ? next : null);
+        document.getElementById('notif-empty').style.display = 'none';
+        var link = row.querySelector('a'); if (link) { link.style.transform = ''; link.style.opacity = ''; }
+        showError("Couldn't remove that notification. Check your connection and try again.");
+      });
   }
 
   function dismissChangelog() {
@@ -142,14 +161,15 @@ function notifLink(n) {
     card.classList.add('notif-removing');
     var timer = setTimeout(function () { card.remove(); checkEmpty(); }, ANIM_MS);
     fetch('/whats-new/seen', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(okOrThrow)
       .then(function () {
         document.querySelectorAll('.notif-dot, .fn-hamburger-dot').forEach(function (el) { el.remove(); });
       })
       .catch(function () { clearTimeout(timer); card.classList.remove('notif-removing'); });
   }
 
-  // X button dismiss
-  document.querySelectorAll('.notif-dismiss').forEach(function (btn) {
+  // X button dismiss (notification rows only — the changelog card's ✕ has its own handler below)
+  document.querySelectorAll('#notif-list .notif-dismiss').forEach(function (btn) {
     btn.addEventListener('click', function (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -162,14 +182,20 @@ function notifLink(n) {
   if (clearBtn) {
     clearBtn.addEventListener('click', function () {
       var rows = document.querySelectorAll('#notif-list .notif-row');
+      if (rows.length && !confirm('Clear all ' + rows.length + ' notification' + (rows.length === 1 ? '' : 's') + '? This can\'t be undone.')) return;
       rows.forEach(function (row) { row.classList.add('notif-removing'); });
-      fetch('/notifications', { method: 'DELETE', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .catch(function () { rows.forEach(function (row) { row.classList.remove('notif-removing'); }); });
-      var timer = setTimeout(function () {
+      // Rows go only once the server has cleared them; on failure they come back.
+      Promise.all([
+        fetch('/notifications', { method: 'DELETE', headers: { 'X-Requested-With': 'XMLHttpRequest' } }).then(okOrThrow),
+        new Promise(function (r) { setTimeout(r, ANIM_MS); }),
+      ]).then(function () {
         rows.forEach(function (row) { row.remove(); });
         document.getElementById('notif-empty').style.display = '';
         clearBtn.remove();
-      }, ANIM_MS);
+      }).catch(function () {
+        rows.forEach(function (row) { row.classList.remove('notif-removing'); });
+        showError("Couldn't clear your notifications. Check your connection and try again.");
+      });
       // Also dismiss the changelog card if visible
       dismissChangelog();
     });

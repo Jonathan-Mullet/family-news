@@ -42,6 +42,7 @@ router.get('/', requireAuth, async (req, res) => {
 
 // Delete one notification — user_id check prevents deleting others' notifications
 router.delete('/:id', requireAuth, async (req, res) => {
+  if (!/^[1-9]\d{0,15}$/.test(req.params.id)) return res.status(404).json({ error: 'Not found' });
   try {
     await pool.query(
       'DELETE FROM notifications WHERE id = ? AND user_id = ?',

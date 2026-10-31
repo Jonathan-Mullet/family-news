@@ -40,9 +40,11 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
  */
 async function _sendToSubscription(sub, payload) {
   try {
+    // A deadline per send: one hung push service mustn't stall every send queued after it.
     await webpush.sendNotification(
       { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-      JSON.stringify(payload)
+      JSON.stringify(payload),
+      { timeout: 10000 }
     );
   } catch (err) {
     if (err.statusCode === 410 || err.statusCode === 404) {
@@ -73,14 +75,15 @@ async function _sendToSubscription(sub, payload) {
 async function sendPushToUser(userId, payload, { checkColumn } = {}) {
   if (!process.env.VAPID_PUBLIC_KEY) return;
   try {
-    if (checkColumn) {
-      if (!PUSH_PREF_COLUMNS.has(checkColumn)) {
-        console.error('sendPushToUser: unexpected checkColumn value:', checkColumn);
-        return;
-      }
-      const [[user]] = await pool.query(`SELECT \`${checkColumn}\` AS pref FROM users WHERE id = ?`, [userId]);
-      if (!user || !user.pref) return;
+    if (checkColumn && !PUSH_PREF_COLUMNS.has(checkColumn)) {
+      console.error('sendPushToUser: unexpected checkColumn value:', checkColumn);
+      return;
     }
+    // Deactivated members get nothing, whatever path asked (mentions, replies, reactions).
+    const [[user]] = await pool.query(
+      `SELECT active${checkColumn ? `, \`${checkColumn}\` AS pref` : ''} FROM users WHERE id = ?`, [userId]
+    );
+    if (!user || !user.active || (checkColumn && !user.pref)) return;
     const [subs] = await pool.query(
       'SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?',
       [userId]

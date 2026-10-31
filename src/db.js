@@ -250,6 +250,19 @@ async function initDb() {
     }
   }
 
+  // ── big_news_notified_at migration + one-time backfill ─────────────────────
+  // When the family was told a post is Big News, so flipping the flag off and on
+  // again (or onto a scheduled post) can't email/push everyone a second time.
+  // Existing big-news posts were already announced: backfill them, once.
+  try {
+    await pool.query(`ALTER TABLE posts ADD COLUMN big_news_notified_at DATETIME NULL`);
+    await pool.query(`UPDATE posts SET big_news_notified_at = COALESCE(notified_at, created_at) WHERE big_news = 1`);
+  } catch (err) {
+    if (err.code !== 'ER_DUP_FIELDNAME') {
+      console.error(`MIGRATION FAILED (continuing startup): posts.big_news_notified_at\n  → ${err.code || ''} ${err.message}`);
+    }
+  }
+
   // ── notified_at migration + one-time backfill ───────────────────────────────
   // posts.notified_at records when family-wide notifications for a post were
   // sent (NULL = not yet sent; the 5-minute cron picks those up once

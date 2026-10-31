@@ -73,7 +73,9 @@ router.post('/posts/:id/react', requireAuth, async (req, res) => {
         }).catch(e => console.error('Reaction remove cleanup error:', e.message));
       })().catch(e => console.error('Reaction remove cleanup error:', e.message));
     } else {
-      await pool.query('INSERT INTO reactions (post_id, user_id, emoji) VALUES (?, ?, ?)', [postId, userId, emoji]);
+      // IGNORE: a double tap sends two requests; the second finds the reaction already added (the
+      // unique key) and must not 500. Its notification work is deduped under the same lock.
+      await pool.query('INSERT IGNORE INTO reactions (post_id, user_id, emoji) VALUES (?, ?, ?)', [postId, userId, emoji]);
       userReacted = true;
       // Insert/refresh reaction notification + queue coalesced push
       // (fire-and-forget, lock-serialized — see remove-path above).

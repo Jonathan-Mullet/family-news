@@ -78,7 +78,8 @@ router.post('/comments/:id/react', requireAuth, async (req, res) => {
         }).catch(e => console.error('Comment reaction remove cleanup error:', e.message));
       }
     } else {
-      await pool.query('INSERT INTO comment_reactions (comment_id, user_id, emoji) VALUES (?, ?, ?)', [commentId, userId, emoji]);
+      // IGNORE: a double tap's second request finds it already added (unique key) — not a 500.
+      await pool.query('INSERT IGNORE INTO comment_reactions (comment_id, user_id, emoji) VALUES (?, ?, ?)', [commentId, userId, emoji]);
       userReacted = true;
       // Insert/refresh reaction notification + queue coalesced push
       // (fire-and-forget, lock-serialized — see remove-path above).

@@ -16,7 +16,9 @@ const authLimiter = createRateLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
 // Namespaced per action — login and forgot-password used to share one bucket,
 // so exhausting either one (e.g. spamming forgot-password for a victim's
 // email) locked the victim out of the other action too.
-const limiterKey = (req, email, action) => `${action}:${req.ip}:${(email || '').trim().toLowerCase()}`;
+// String(): a crafted email[]=… arrives as an array, and .trim() throwing here (outside the route's
+// try) would leave the request hanging.
+const limiterKey = (req, email, action) => `${action}:${req.ip}:${String(email || '').trim().toLowerCase()}`;
 
 // Reset tokens are stored as sha256(token) so a DB leak can't be replayed;
 // the raw token only ever lives in the emailed link.
@@ -105,17 +107,21 @@ router.get('/register', async (req, res) => {
 
 // Create a new account; multi-use invite logic — use_count < max_uses allows up to max_uses registrations per token.
 router.post('/register', async (req, res) => {
-  const { invite, name, email, password, birthday_month, birthday_day, birthday_year } = req.body;
+  // Strings only (a crafted field[]=… array would make .trim() throw outside any try).
+  const str = (v) => (typeof v === 'string' ? v : '');
+  const invite = str(req.body.invite); const name = str(req.body.name); const email = str(req.body.email);
+  const password = str(req.body.password);
+  const birthday_month = str(req.body.birthday_month); const birthday_day = str(req.body.birthday_day); const birthday_year = str(req.body.birthday_year);
   if (!name?.trim() || !email?.trim() || !password || password.length < 8 || !birthday_month || !birthday_day || !birthday_year) {
     req.flash('error', 'All fields are required and password must be at least 8 characters.');
-    return res.redirect(`/register?invite=${invite}`);
+    return res.redirect(`/register?invite=${encodeURIComponent(String(invite || ""))}`);
   }
   const birthday = `${birthday_year}-${birthday_month}-${birthday_day}`;
   // Strict calendar check: `new Date('2025-02-31')` silently rolls over to
   // March 3, which then fails MySQL strict mode with an opaque error.
   if (!isValidBirthday(birthday) || new Date(birthday) >= new Date()) {
     req.flash('error', 'Please enter a valid birthday.');
-    return res.redirect(`/register?invite=${invite}`);
+    return res.redirect(`/register?invite=${encodeURIComponent(String(invite || ""))}`);
   }
   try {
     // Courtesy pre-check so obviously dead invites get a friendly error before
@@ -158,7 +164,7 @@ router.post('/register', async (req, res) => {
       // Deliberately vague — confirming "already registered" would let an
       // invite holder enumerate which emails have accounts.
       req.flash('error', 'Could not create an account with those details. If you already have an account, try signing in or use “Forgot password?”.');
-      return res.redirect(`/register?invite=${invite}`);
+      return res.redirect(`/register?invite=${encodeURIComponent(String(invite || ""))}`);
     }
     console.error(err);
     res.render('error', { message: 'Something went wrong.' });
@@ -254,7 +260,7 @@ router.post('/reset-password', async (req, res) => {
   const { token, password } = req.body;
   if (!password || password.length < 8) {
     req.flash('error', 'Password must be at least 8 characters.');
-    return res.redirect(`/reset-password?token=${token}`);
+    return res.redirect(`/reset-password?token=${encodeURIComponent(String(token || ''))}`);
   }
   try {
     const tokenHash = hashToken(token);

@@ -4,6 +4,7 @@ const router = express.Router();
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 const { sendNewPostNotification, sendBigNewsNotification, sendMentionNotification } = require('../email');
+const { backToPost } = require('../utils/safeBack');
 const { sendPushToAllUsers, sendPushToUser } = require('../push');
 const { handleMultiUpload, deleteUploadedFile } = require('./upload');
 const { fetchOgPreview } = require('../utils/ogFetch');
@@ -299,7 +300,10 @@ router.post('/posts/:id/mark-read', requireAuth, async (req, res) => {
 // Create a new post with optional photo gallery and send email + push notifications to all members.
 // The link-preview fetch is fire-and-forget (async IIFE) so it never blocks the redirect response.
 router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
-  const { title, content, publish_at, publish_at_utc, big_news } = req.body;
+  const { publish_at, publish_at_utc, big_news } = req.body;
+  // Strings only: a crafted content[]=… array would make .trim() throw outside the try below.
+  const title = typeof req.body.title === 'string' ? req.body.title : '';
+  const content = typeof req.body.content === 'string' ? req.body.content : '';
   if (req.uploadError) {
     (req.uploadedPaths || []).forEach(p => deleteUploadedFile(p));
     req.flash('error', req.uploadError);
@@ -349,8 +353,8 @@ router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
     try {
       await conn.beginTransaction();
       const [result] = await conn.query(
-        `INSERT INTO posts (user_id, title, content, publish_at, big_news, notified_at)
-         VALUES (?, ?, ?, ?, ?, ${publishAt ? 'NULL' : 'NOW()'})`,
+        `INSERT INTO posts (user_id, title, content, publish_at, big_news, notified_at, big_news_notified_at)
+         VALUES (?, ?, ?, ?, ?, ${publishAt ? 'NULL' : 'NOW()'}, ${publishAt || !isBigNews ? 'NULL' : 'NOW()'})`,
         [req.session.user.id, title?.trim() || null, resolvedContent, publishAt, isBigNews]
       );
       postId = result.insertId;
@@ -454,8 +458,9 @@ router.post('/posts', requireAuth, handleMultiUpload, async (req, res) => {
 
 // Edit post content; only the post author or an admin may submit changes.
 router.post('/posts/:id/edit', requireAuth, async (req, res) => {
-  const { content, title } = req.body;
-  if (!content?.trim()) return res.redirect('/');
+  const title = typeof req.body.title === 'string' ? req.body.title : '';
+  const content = typeof req.body.content === 'string' ? req.body.content : '';
+  if (!content.trim()) return res.redirect('/');
   if (content.trim().length > MAX_CONTENT) {
     req.flash('error', `Post cannot exceed ${MAX_CONTENT} characters.`);
     return res.redirect('/');
@@ -497,8 +502,7 @@ router.post('/posts/:id/edit', requireAuth, async (req, res) => {
       }
     }
 
-    const ref = req.headers.referer || '/';
-    res.redirect(ref.includes('/post/') ? ref : '/');
+    res.redirect(backToPost(req));
   } catch (err) { console.error(err); res.redirect('/'); }
 });
 
@@ -508,8 +512,7 @@ router.post('/posts/:id/pin', requireAuth, async (req, res) => {
   try {
     await pool.query('UPDATE posts SET pinned = NOT pinned WHERE id = ?', [req.params.id]);
   } catch (err) { console.error(err); }
-  const ref = req.headers.referer || '/';
-  res.redirect(ref.includes('/post/') ? ref : '/');
+  res.redirect(backToPost(req));
 });
 
 // Toggle big-news flag; sends a push notification when a post is promoted to big news.
@@ -519,19 +522,27 @@ router.post('/posts/:id/toggle-big-news', requireAuth, async (req, res) => {
     if (!rows.length) return res.redirect('/');
     if (rows[0].user_id !== req.session.user.id && req.session.user.role !== 'admin' && req.session.user.role !== 'moderator') return res.status(403).end();
     await pool.query('UPDATE posts SET big_news = NOT big_news WHERE id = ?', [req.params.id]);
-    const [[post]] = await pool.query('SELECT id, title, content, big_news FROM posts WHERE id = ?', [req.params.id]);
-    if (post && post.big_news) {
+    // Tell the family once, the first time a published post becomes big news. A scheduled post
+    // is announced by the cron when it goes live; flipping the flag off and on never re-sends.
+    const [claim] = await pool.query(
+      `UPDATE posts SET big_news_notified_at = NOW()
+       WHERE id = ? AND big_news = 1 AND big_news_notified_at IS NULL AND (publish_at IS NULL OR publish_at <= NOW())`,
+      [req.params.id]
+    );
+    if (claim.affectedRows === 1) {
+      const [[post]] = await pool.query('SELECT id, title, content FROM posts WHERE id = ?', [req.params.id]);
+      // Stored content carries @[Name](id) mention tokens: send plain "@Name".
+      const plain = { ...post, content: post.content.replace(/@\[([^\]]+)\]\(\d+\)/g, '@$1') };
       const [allUsers] = await pool.query('SELECT id, email FROM users WHERE active = 1');
-      sendBigNewsNotification(allUsers, req.session.user, post)
+      sendBigNewsNotification(allUsers, req.session.user, plain)
         .catch(err => console.error('Big news email error:', err));
       sendPushToAllUsers(
-        { title: `📣 Big News from ${req.session.user.name}`, body: (post.title || post.content).substring(0, 100), url: `/post/${post.id}` },
+        { title: `📣 Big News from ${req.session.user.name}`, body: (plain.title || plain.content).substring(0, 100), url: `/post/${plain.id}` },
         { excludeUserId: req.session.user.id, checkColumn: 'push_notify_big_news' }
       ).catch(err => console.error('Big news push error:', err));
     }
   } catch (err) { console.error(err); }
-  const ref = req.headers.referer || '/';
-  res.redirect(ref.includes('/post/') ? ref : '/');
+  res.redirect(backToPost(req));
 });
 
 // Soft-delete a post; only the author, a moderator, or an admin may delete.

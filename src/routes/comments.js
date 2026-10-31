@@ -11,8 +11,11 @@ const MAX_COMMENT = 2000;
 
 // Post a new comment (or reply) on a post and notify the post author.
 router.post('/posts/:id/comments', requireAuth, async (req, res) => {
-  const { content, parent_id } = req.body;
-  if (!content?.trim()) return res.redirect(`/post/${req.params.id}`);
+  // Form fields can arrive as arrays (content[]=…): anything but a string is treated as empty, so
+  // .trim() can't throw outside the try (Express 4 would leave the request hanging).
+  const content = typeof req.body.content === 'string' ? req.body.content : '';
+  const parent_id = req.body.parent_id;
+  if (!content.trim()) return res.redirect(`/post/${req.params.id}`);
   if (content.trim().length > MAX_COMMENT) {
     req.flash('error', `Comments cannot exceed ${MAX_COMMENT} characters.`);
     return res.redirect(`/post/${req.params.id}`);
@@ -26,10 +29,25 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
     );
     if (!targetPost) return res.redirect('/');
 
+    // A reply must answer a comment on this same post (a forged parent_id would attach it to another
+    // thread and notify that comment's author).
+    let parentId = null;
+    if (parent_id) {
+      const [[parent]] = await pool.query(
+        'SELECT id FROM comments WHERE id = ? AND post_id = ? AND deleted_at IS NULL',
+        [String(parent_id), req.params.id]
+      );
+      if (!parent) {
+        req.flash('error', 'That comment was deleted, so your reply couldn’t be added.');
+        return res.redirect(`/post/${req.params.id}`);
+      }
+      parentId = parent.id;
+    }
+
     const { content: resolvedContent, mentionedUserIds } = await resolveMentions(content.trim(), pool);
     const [commentResult] = await pool.query(
       'INSERT INTO comments (post_id, parent_id, user_id, content) VALUES (?, ?, ?, ?)',
-      [req.params.id, parent_id || null, req.session.user.id, resolvedContent]
+      [req.params.id, parentId, req.session.user.id, resolvedContent]
     );
     const commentId = commentResult.insertId;
 
@@ -66,8 +84,8 @@ router.post('/posts/:id/comments', requireAuth, async (req, res) => {
     // blocks against a shared mutable variable would make the exclusion
     // unreliable.
     let parentCommentAuthorId = null;
-    if (parent_id) {
-      const [[parentComment]] = await pool.query('SELECT user_id FROM comments WHERE id = ?', [parent_id]);
+    if (parentId) {
+      const [[parentComment]] = await pool.query('SELECT user_id FROM comments WHERE id = ?', [parentId]);
       if (parentComment && parentComment.user_id !== req.session.user.id) {
         parentCommentAuthorId = parentComment.user_id;
       }

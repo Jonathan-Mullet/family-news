@@ -96,3 +96,15 @@ test('isPrivateAddress: non-IP input fails closed (treated as private)', () => {
   assert.equal(isPrivateAddress('999.1.1.1'), true);
   assert.equal(isPrivateAddress('not-an-ip'), true);
 });
+
+test('isPrivateAddress: shared/CGNAT (Tailscale 100.64/10), benchmarking, multicast and reserved', () => {
+  assert.equal(isPrivateAddress('100.127.227.36'), true, 'this Pi on Tailscale');
+  assert.equal(isPrivateAddress('100.64.0.1'), true);
+  assert.equal(isPrivateAddress('100.63.255.255'), false, 'just below the shared range');
+  assert.equal(isPrivateAddress('100.128.0.1'), false, 'just above it');
+  assert.equal(isPrivateAddress('198.18.0.1'), true);
+  assert.equal(isPrivateAddress('192.0.0.8'), true);
+  assert.equal(isPrivateAddress('224.0.0.1'), true);
+  assert.equal(isPrivateAddress('255.255.255.255'), true);
+  assert.equal(isPrivateAddress('8.8.8.8'), false);
+});

@@ -115,11 +115,13 @@ function handleMultiUpload(req, res, next) {
     if (err) { req.uploadError = err.message; return next(); }
     if (!req.files || !req.files.length) return next();
     try {
+      // Recorded as they're saved, so if photo 3 of 5 fails the route's cleanup still removes 1–2
+      // (they were left orphaned on disk when the list was only set after the loop).
       const paths = [];
+      req.uploadedPaths = paths;
       for (const file of req.files) {
         paths.push(`/uploads/${await processAndSave(file.buffer)}`);
       }
-      req.uploadedPaths = paths;
     } catch (e) {
       console.error('Multi-upload error:', e.message);
       req.uploadError = 'Could not process images.';

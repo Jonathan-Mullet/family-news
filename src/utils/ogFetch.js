@@ -38,7 +38,8 @@ const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
  * address that an outbound fetcher must never talk to. Fails CLOSED: anything
  * that isn't a recognizable public IP literal returns true.
  *
- * Covered: 10/8, 172.16/12, 192.168/16, 127/8, 169.254/16, 0/8,
+ * Covered: 10/8, 172.16/12, 192.168/16, 127/8, 169.254/16, 0/8, 100.64/10 (Tailscale),
+ * 198.18/15, 192.0.0/24, 224/3 (multicast + reserved),
  * ::1, :: (unspecified), fc00::/7 (ULA), fe80::/10 (link-local),
  * and IPv4-mapped IPv6 forms of all of the above.
  *
@@ -59,6 +60,10 @@ function isPrivateAddress(ip) {
     if (a === 169 && b === 254) return true; // 169.254/16 link-local
     if (a === 172 && b >= 16 && b <= 31) return true; // 172.16/12
     if (a === 192 && b === 168) return true; // 192.168/16
+    if (a === 100 && b >= 64 && b <= 127) return true; // 100.64/10 shared/CGNAT — Tailscale lives here
+    if (a === 198 && (b === 18 || b === 19)) return true; // 198.18/15 benchmarking
+    if (a === 192 && b === 0 && addr.split('.')[2] === '0') return true; // 192.0.0/24 IETF protocol
+    if (a >= 224) return true; // multicast, reserved, broadcast
     return false;
   }
 

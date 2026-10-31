@@ -1,5 +1,6 @@
 // Push notification subscription management — subscribe/unsubscribe endpoints and VAPID public key endpoint.
 const express = require('express');
+const { isPushEndpoint } = require('../utils/pushEndpoint');
 const router = express.Router();
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
@@ -17,6 +18,9 @@ router.get('/vapid-public-key', (req, res) => {
 router.post('/subscribe', async (req, res) => {
   const { endpoint, p256dh, auth } = req.body;
   if (!endpoint || !p256dh || !auth) return res.status(400).json({ error: 'Missing fields' });
+  if (!isPushEndpoint(endpoint) || typeof p256dh !== 'string' || typeof auth !== 'string') {
+    return res.status(400).json({ error: 'Not a push subscription this site can use.' });
+  }
   const userId = req.session.user.id;
   try {
     await pool.query(

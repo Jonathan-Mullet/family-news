@@ -12,7 +12,7 @@
     "connect-flash": "^0.1.1",
     "dotenv": "^16.4.5",
     "ejs": "^3.1.10",
-    "express": "^4.19.2",
+    "express": "^4.22.3",
     "express-mysql-session": "^3.0.0",
     "express-session": "^1.18.0",
     "heic-convert": "^2.1.0",
@@ -23,5 +23,10 @@
     "sharp": "^0.35.3",
     "uuid": "^14.0.1",
     "web-push": "^3.6.7"
+  },
+  "overrides": {
+    "express-mysql-session": {
+      "mysql2": "$mysql2"
+    }
   }
 }

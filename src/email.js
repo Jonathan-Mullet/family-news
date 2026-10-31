@@ -47,6 +47,8 @@ function getTransporter() {
       port: parseInt(process.env.EMAIL_PORT) || 587,
       secure: false,
       auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+      // Deadlines so a stuck mail server can't hold sends (and their callers) for many minutes.
+      connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 30000,
     });
   }
   return transporter;

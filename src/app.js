@@ -1,4 +1,5 @@
 require('dotenv').config();
+const { isCrossSiteWrite } = require('./utils/crossSite');
 const express = require('express');
 const session = require('express-session');
 const MySQLStore = require('express-mysql-session')(session);
@@ -36,14 +37,25 @@ app.locals.assetVersion = (() => {
 
 // ── Security headers ─────────────────────────────────────────────────────────
 // Minimal hand-rolled header set (no helmet). No CSP — the views rely on inline
-// scripts throughout. Referrer-Policy is no-referrer specifically because
-// password-reset URLs carry the token in the query string and must never leak
-// via the Referer header to external links.
+// scripts throughout. Referrer-Policy is same-origin because password-reset
+// URLs carry the token in the query string and must never leak via the Referer
+// header to external links — same-origin sends nothing to other sites, while
+// our own pages still get it (the "back to where you were" redirects after a
+// comment or pin rely on it; no-referrer silently broke them all).
+//
+// Then the cross-site write guard (utils/crossSite.js): POST/DELETE from another
+// site's page — the sibling *.jonathan-mullet.com apps included — is refused.
 app.use((req, res, next) => {
   res.set('X-Frame-Options', 'SAMEORIGIN');
   res.set('X-Content-Type-Options', 'nosniff');
-  res.set('Referrer-Policy', 'no-referrer');
+  res.set('Referrer-Policy', 'same-origin');
   next();
+});
+app.use((req, res, next) => {
+  if (!isCrossSiteWrite(req)) return next();
+  console.warn(`[csrf] blocked ${req.method} ${req.path} from ${String(req.get('origin') || req.get('sec-fetch-site')).replace(/[\r\n]/g, '')}`);
+  if (req.xhr || req.accepts(['html', 'json']) === 'json') return res.status(403).json({ error: 'That request came from another site, so it was blocked.' });
+  res.status(403).send('That request came from another site, so it was blocked. Go back to Family News and try again.');
 });
 
 // ── Static files ─────────────────────────────────────────────────────────────
@@ -183,6 +195,20 @@ app.use('/feedback', require('./routes/feedback'));
 app.use('/whats-new', require('./routes/whats-new'));
 app.use('/notifications', require('./routes/notifications'));
 app.use('/search', require('./routes/search'));
+
+// Anything no route answered: a friendly page (Express's bare "Cannot GET" otherwise).
+app.use((req, res) => {
+  if (req.xhr || req.accepts(['html', 'json']) === 'json') return res.status(404).json({ error: 'Not found' });
+  res.status(404).render('error', { message: 'That page doesn’t exist — it may have been moved or deleted.' });
+});
+// Last resort for errors passed to next(err): log it, show the friendly page, never a stack trace.
+app.use((err, req, res, _next) => {
+  console.error(err);
+  if (res.headersSent) return;
+  const status = err.status || err.statusCode || 500;
+  if (req.xhr || req.accepts(['html', 'json']) === 'json') return res.status(status).json({ error: 'Something went wrong.' });
+  res.status(status).render('error', { message: status === 413 ? 'That was too large to upload.' : 'Something went wrong. Please try again.' });
+});
 
 // ── Process-level safety net ──────────────────────────────────────────────────
 // Fire-and-forget notification/preview work can reject after the response is

@@ -21,6 +21,14 @@ const { pool } = require('./db');
 const { deleteUploadedFile } = require('./routes/upload');
 const { sendNewPostNotification, sendBigNewsNotification, sendMentionNotification } = require('./email');
 const { sendPushToAllUsers, sendPushToUser } = require('./push');
+const { postDailyEvents, familyDate } = require('./utils/dailyEvents');
+
+const FAMILY_TZ = 'America/Los_Angeles';
+// node-cron 4 SKIPS a run that starts more than missedExecutionTolerance late (default 1 s). A busy
+// Pi (3 am container updates, backups) made it skip the 8 am birthday run on 2026-10-30, so allow
+// an hour for the daily jobs and most of a period for the 5-minute one.
+const DAILY = { timezone: FAMILY_TZ, missedExecutionTolerance: 60 * 60 * 1000 };
+const EVERY_5_MIN = { missedExecutionTolerance: 4 * 60 * 1000 };
 
 // ── Scheduler ─────────────────────────────────────────────────────────────────
 
@@ -31,69 +39,20 @@ const { sendPushToAllUsers, sendPushToUser } = require('./push');
  * @returns {void}
  */
 function startCron() {
-  // Run at 8am every day
-  cron.schedule('0 8 * * *', async () => {
+  // 8 am Pacific: birthday and anniversary posts. Idempotent (utils/dailyEvents.js), so it can
+  // also catch up at startup: a restart or deploy around 8 am would otherwise skip the day.
+  const runDailyEvents = async () => {
     console.log('[cron] Checking birthday/anniversary events...');
     try {
-      // Automated posts are authored by the dedicated "Family News" system
-      // account (created in db.js migrations) rather than an admin, so they
-      // don't show up as posted by whichever family member happens to run
-      // the server.
-      const [systemUsers] = await pool.query(
-        "SELECT id FROM users WHERE email = 'system@family-news.internal' LIMIT 1"
-      );
-      if (!systemUsers.length) {
-        console.log('[cron] System user not found, skipping event posts.');
-        return;
-      }
-      const systemUserId = systemUsers[0].id;
-
-      // ── User birthdays (users.birthday column) ──────────────────────────────
-      // Only covers family members who have an account and have filled in their
-      // birthday. Age is calculated from the birth year stored in the column.
-      // Feb-29 birthdays: in non-leap years Feb 29 never matches NOW(), so the
-      // OR clause celebrates them on Feb 28 instead (only when this February
-      // actually ends on the 28th — in leap years the exact match handles it).
-      const [birthdayUsers] = await pool.query(
-        `SELECT id, name, birthday FROM users WHERE active = 1 AND (
-           (MONTH(birthday) = MONTH(NOW()) AND DAY(birthday) = DAY(NOW()))
-           OR (MONTH(birthday) = 2 AND DAY(birthday) = 29
-               AND MONTH(NOW()) = 2 AND DAY(NOW()) = 28 AND DAY(LAST_DAY(NOW())) = 28)
-         )`
-      );
-      for (const u of birthdayUsers) {
-        const age = new Date().getFullYear() - new Date(u.birthday).getFullYear();
-        const content = `🎂 Today is ${u.name}'s birthday — turning ${age}! 🎉`;
-        await pool.query('INSERT INTO posts (user_id, title, content) VALUES (?, NULL, ?)', [systemUserId, content]);
-        console.log(`[cron] Birthday post for: ${u.name} (${age})`);
-      }
-
-      // ── Manual events table ─────────────────────────────────────────────────
-      // Covers anniversaries and birthdays for people without accounts. Events
-      // are entered by an admin via the /admin/events UI and stored by
-      // month+day (no year), so no age calculation is possible here.
-      // Same Feb-29 handling as user birthdays above.
-      const [events] = await pool.query(
-        `SELECT * FROM events WHERE
-           (month = MONTH(NOW()) AND day = DAY(NOW()))
-           OR (month = 2 AND day = 29
-               AND MONTH(NOW()) = 2 AND DAY(NOW()) = 28 AND DAY(LAST_DAY(NOW())) = 28)`
-      );
-      for (const event of events) {
-        let content;
-        if (event.type === 'birthday') {
-          content = `🎂 Today is ${event.name}'s birthday! 🎉`;
-        } else {
-          content = `💍 Happy anniversary, ${event.name}! 🎊`;
-        }
-        if (event.note) content += `\n${event.note}`;
-        await pool.query('INSERT INTO posts (user_id, title, content) VALUES (?, NULL, ?)', [systemUserId, content]);
-        console.log(`[cron] Event post for: ${event.name} (${event.type})`);
-      }
+      const { posted, skippedReason } = await postDailyEvents(pool, { tz: FAMILY_TZ });
+      if (skippedReason) console.log(`[cron] Event posts skipped: ${skippedReason}.`);
+      for (const c of posted) console.log(`[cron] Event post: ${c.split('\n')[0]}`);
     } catch (err) {
       console.error('[cron] Error processing events:', err.message);
     }
-  }, { timezone: 'America/Los_Angeles' });
+  };
+  cron.schedule('0 8 * * *', runDailyEvents, DAILY);
+  if (familyDate(new Date(), FAMILY_TZ).hour >= 8) setTimeout(runDailyEvents, 30 * 1000).unref();
 
   // Run at 3am every day (Pacific): hard-delete soft-deleted posts and comments older than 14 days.
   cron.schedule('0 3 * * *', async () => {
@@ -111,12 +70,15 @@ function startCron() {
         if (result.affectedRows > 0) photos.forEach(ph => deleteUploadedFile(ph.photo_url));
         console.log(`[cron] Purged post ${post.id}`);
       }
-      // Purge standalone deleted comments whose parent post is still alive
+      // Purge standalone deleted comments whose parent post is still alive. A deleted comment that
+      // still has live replies stays (as its "deleted" placeholder): removing the row would
+      // cascade (comments.parent_id ON DELETE CASCADE) and destroy other people's replies.
       const [staleComments] = await pool.query(`
         SELECT c.id FROM comments c
         JOIN posts p ON c.post_id = p.id
         WHERE c.deleted_at IS NOT NULL AND c.deleted_at < DATE_SUB(NOW(), INTERVAL 14 DAY)
           AND p.deleted_at IS NULL
+          AND NOT EXISTS (SELECT 1 FROM comments r WHERE r.parent_id = c.id AND r.deleted_at IS NULL)
       `);
       for (const comment of staleComments) {
         await pool.query('DELETE FROM comments WHERE id = ?', [comment.id]);
@@ -126,7 +88,7 @@ function startCron() {
     } catch (err) {
       console.error('[cron] Error purging trash:', err.message);
     }
-  }, { timezone: 'America/Los_Angeles' });
+  }, DAILY);
 
   // Every 5 minutes: deliver notifications for scheduled posts whose publish
   // time has arrived. The create route (src/routes/posts.js) deliberately
@@ -151,8 +113,12 @@ function startCron() {
         // may miss one notification, but the whole family can never be
         // double-emailed. The notified_at IS NULL guard in the UPDATE also
         // prevents two overlapping ticks from both claiming the same post.
+        // Publishing also dates the post at its publish time, so it sorts and reads as new in the
+        // feed (which orders by created_at) instead of sitting where it was written days ago.
         const [claim] = await pool.query(
-          'UPDATE posts SET notified_at = NOW() WHERE id = ? AND notified_at IS NULL',
+          `UPDATE posts SET notified_at = NOW(), created_at = publish_at,
+             big_news_notified_at = IF(big_news = 1, NOW(), big_news_notified_at)
+           WHERE id = ? AND notified_at IS NULL`,
           [post.id]
         );
         if (claim.affectedRows !== 1) continue;
@@ -211,7 +177,7 @@ function startCron() {
     } catch (err) {
       console.error('[cron] Scheduled-post notification error:', err.message);
     }
-  });
+  }, EVERY_5_MIN);
 
   console.log('[cron] Birthday/anniversary scheduler started.');
 }
